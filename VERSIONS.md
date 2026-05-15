@@ -1,5 +1,9 @@
 # Version History
 
+## v2.3.2 – 2026-05-15
+- Restored the top-right user dropdown after a layout regression removed it from the header
+- Kept the closed state as initials-only and the open state with full name, role, change password, and logout
+
 ## v2.3.1 – 2026-05-15
 - Updated the top-right user menu to stay collapsed as initials-only in the header
 - Added a dropdown profile header with full name and access role

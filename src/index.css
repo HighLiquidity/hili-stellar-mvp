@@ -1,42 +1,39 @@
 :root {
-  --bg: #f4f7ff;
-  --surface: rgba(255, 255, 255, 0.92);
-  --surface-muted: #eef2ff;
-  --surface-strong: #d9e2ff;
-  --text: #1f2852;
-  --text-muted: #63709a;
-  --border: rgba(99, 112, 154, 0.18);
+  --bg: #f3f7fd;
+  --surface: #ffffff;
+  --surface-muted: #eef3fb;
+  --surface-strong: #dde7fb;
+  --text: #18243d;
+  --text-muted: #5f6f8d;
+  --border: #d9e3f2;
   --accent: #586bf3;
   --accent-strong: #4155e6;
-  --accent-soft: rgba(88, 107, 243, 0.12);
+  --accent-soft: #edf0ff;
   --success: #0f9b73;
-  --overlay: rgba(18, 24, 44, 0.46);
-  --shadow-md: 0 20px 40px rgba(72, 90, 180, 0.12);
-  --shadow-lg: 0 28px 60px rgba(72, 90, 180, 0.16);
+  --overlay: rgba(17, 24, 39, 0.45);
+  --shadow-lg: 0 24px 60px rgba(41, 65, 103, 0.14);
+  --shadow-md: 0 18px 40px rgba(41, 65, 103, 0.1);
   --radius-xl: 28px;
-  --radius-lg: 24px;
-  --radius-md: 18px;
-  --radius-sm: 14px;
-  color-scheme: light;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --radius-lg: 22px;
+  --radius-md: 16px;
+  --radius-sm: 12px;
 }
 
 :root[data-theme='dark'] {
-  --bg: #121933;
-  --surface: rgba(20, 27, 52, 0.9);
-  --surface-muted: #1a2448;
-  --surface-strong: #24315d;
-  --text: #f3f5ff;
-  --text-muted: #aab4da;
-  --border: rgba(170, 180, 218, 0.16);
-  --accent: #7c8cff;
-  --accent-strong: #a9b4ff;
-  --accent-soft: rgba(124, 140, 255, 0.18);
-  --success: #4dd2a8;
-  --overlay: rgba(4, 8, 20, 0.62);
-  --shadow-md: 0 20px 40px rgba(2, 6, 23, 0.32);
-  --shadow-lg: 0 28px 60px rgba(2, 6, 23, 0.42);
-  color-scheme: dark;
+  --bg: #0b1220;
+  --surface: #121c31;
+  --surface-muted: #192641;
+  --surface-strong: #223252;
+  --text: #eef4ff;
+  --text-muted: #a5b6d4;
+  --border: #26385b;
+  --accent: #7f8dff;
+  --accent-strong: #98a4ff;
+  --accent-soft: #202d4f;
+  --success: #3cc697;
+  --overlay: rgba(2, 6, 23, 0.7);
+  --shadow-lg: 0 24px 60px rgba(2, 6, 23, 0.35);
+  --shadow-md: 0 18px 40px rgba(2, 6, 23, 0.28);
 }
 
 * {
@@ -46,13 +43,20 @@
 html,
 body,
 #root {
-  margin: 0;
   min-height: 100%;
 }
 
+html {
+  background: var(--bg);
+}
+
 body {
+  margin: 0;
   background: var(--bg);
   color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  transition: background-color 220ms ease, color 220ms ease;
 }
 
 a {
@@ -61,14 +65,16 @@ a {
 }
 
 button,
-input,
-textarea,
-select {
+input {
   font: inherit;
 }
 
 button {
   cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
 }
 
 :focus-visible {
@@ -143,43 +149,13 @@ button {
   gap: 14px;
 }
 
-.auth-card h1,
-.auth-card h2,
-.surface h2,
-.surface h3,
-.topbar h1 {
-  margin: 0;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-}
-
-.auth-card__lead,
-.surface__lead,
-.info-card p,
-.placeholder-panel p,
-.surface--empty p,
-.sidebar__note {
-  margin: 0;
-  color: var(--text-muted);
-}
-
-.auth-inline-error,
-.form-success-message {
+.auth-inline-error {
   margin: 0;
   padding: 14px 16px;
-  border-radius: var(--radius-md);
-}
-
-.auth-inline-error {
   border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
   background: rgba(239, 68, 68, 0.08);
   color: #c24141;
-}
-
-.form-success-message {
-  border: 1px solid rgba(15, 155, 115, 0.2);
-  background: rgba(15, 155, 115, 0.08);
-  color: var(--success);
 }
 
 .auth-supabase {
@@ -209,8 +185,7 @@ button {
   color: var(--text-muted);
 }
 
-.auth-form,
-.password-form {
+.auth-form {
   display: grid;
   gap: 18px;
 }
@@ -290,9 +265,7 @@ button {
 .button--ghost:hover:not(:disabled),
 .icon-button:hover,
 .theme-toggle:hover,
-.segmented-control__button:hover,
-.user-menu__trigger:hover,
-.user-menu__item:hover {
+.segmented-control__button:hover {
   background: var(--accent-soft);
 }
 
@@ -658,6 +631,7 @@ button {
 }
 
 .page-content {
+
   padding: 0 20px 24px;
 }
 
@@ -687,8 +661,7 @@ button {
 
 .deposit-form-card,
 .deposit-output-card,
-.withdraw-form-card,
-.password-form-card {
+.withdraw-form-card {
   align-content: start;
 }
 
@@ -698,36 +671,9 @@ button {
 .deposit-form__fields,
 .deposit-output-grid,
 .withdraw-form,
-.withdraw-form__fields,
-.password-form {
+.withdraw-form__fields {
   display: grid;
   gap: 18px;
-}
-
-.password-form__actions {
-  justify-self: start;
-}
-
-.password-hero {
-  gap: 22px;
-}
-
-.password-hero__account {
-  display: grid;
-  gap: 6px;
-  padding: 20px;
-  border-radius: var(--radius-lg);
-  background: var(--accent-soft);
-}
-
-.password-hero__label {
-  color: var(--text-muted);
-}
-
-.password-hero__account strong {
-  font-size: 1.05rem;
-  letter-spacing: -0.02em;
-  word-break: break-word;
 }
 
 .withdraw-qr-row {
@@ -934,8 +880,7 @@ button {
 
   .dashboard-hero,
   .transaction-item,
-  .deposit-form-card__header,
-  .password-hero {
+  .deposit-form-card__header {
     grid-template-columns: minmax(0, 1.3fr) minmax(240px, 0.7fr);
     align-items: center;
   }
@@ -994,7 +939,6 @@ button {
   }
 
   .page-content {
-
     padding: 0 28px 28px;
   }
 
