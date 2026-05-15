@@ -16,7 +16,19 @@ export function MenuIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function DashboardIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 13h6V5H4z" />
+      <path d="M14 20h6V11h-6z" />
+      <path d="M14 7h6V4h-6z" />
+      <path d="M4 20h6v-3H4z" />
+    </IconBase>
+  );
+}
+
 export function DepositIcon(props: SVGProps<SVGSVGElement>) {
+
   return (
     <IconBase {...props}>
       <path d="M12 4v16" />

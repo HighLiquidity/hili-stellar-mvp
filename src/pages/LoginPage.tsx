@@ -19,8 +19,9 @@ export function LoginPage() {
 
     try {
       await login({ email, password });
-      navigate('/app/deposit', { replace: true });
+      navigate('/app/dashboard', { replace: true });
     } finally {
+
       setIsSubmitting(false);
     }
   };

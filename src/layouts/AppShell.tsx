@@ -3,7 +3,14 @@ import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useI18n } from '../lib/i18n';
 import { Button } from '../components/ui/Button';
-import { DepositIcon, LogoutIcon, MenuIcon, StatementIcon, WithdrawIcon } from '../components/Icons';
+import {
+  DashboardIcon,
+  DepositIcon,
+  LogoutIcon,
+  MenuIcon,
+  StatementIcon,
+  WithdrawIcon,
+} from '../components/Icons';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { LanguageToggle } from '../components/LanguageToggle';
 
@@ -40,6 +47,11 @@ export function AppShell() {
 
   const navItems = useMemo<NavItem[]>(
     () => [
+      {
+        to: '/app/dashboard',
+        label: t('nav.dashboard'),
+        icon: <DashboardIcon width={18} height={18} />,
+      },
       {
         to: '/app/deposit',
         label: t('nav.deposit'),

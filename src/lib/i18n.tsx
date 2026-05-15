@@ -46,6 +46,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
       complianceBody: 'Use esta interface apenas para demonstração de produto e validação de UX.',
     },
     nav: {
+      dashboard: 'Dashboard',
       deposit: 'Depósito fiat',
       withdraw: 'Saque fiat',
       statement: 'Extrato',
@@ -59,6 +60,30 @@ const dictionaries: Record<Locale, TranslationTree> = {
       closeSidebar: 'Fechar barra lateral',
     },
     pages: {
+      dashboard: {
+        eyebrow: 'Visão geral',
+        title: 'Dashboard',
+        description: 'Resumo operacional da conta com visão rápida de saldo e movimentações recentes.',
+        availableBalance: 'Saldo disponível',
+        availableBalanceHint: 'Pronto para novas operações PIX e liquidações.',
+        incomingVolume: 'Entradas recentes',
+        outgoingVolume: 'Saídas recentes',
+        recentActivity: 'Transações recentes',
+        historyEyebrow: 'Atividade',
+        historyTitle: 'Últimas transações',
+        historyBadge: 'Atualizado agora',
+        status: {
+          completed: 'Concluída',
+          processing: 'Em processamento',
+          scheduled: 'Agendada',
+        },
+        transactions: {
+          treasuryTopUp: 'PIX recebido • Reforço de tesouraria',
+          corporateSettlement: 'PIX enviado • Liquidação corporativa',
+          customerFunding: 'PIX recebido • Aporte de cliente',
+          treasuryRebalance: 'PIX enviado • Rebalanceamento de tesouraria',
+        },
+      },
       deposit: {
         eyebrow: 'PIX',
         badge: 'API pendente',
@@ -128,6 +153,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
       complianceBody: 'Use this interface only for product demos and UX validation.',
     },
     nav: {
+      dashboard: 'Dashboard',
       deposit: 'Fiat deposit',
       withdraw: 'Fiat withdrawal',
       statement: 'Statement',
@@ -141,6 +167,30 @@ const dictionaries: Record<Locale, TranslationTree> = {
       closeSidebar: 'Close sidebar',
     },
     pages: {
+      dashboard: {
+        eyebrow: 'Overview',
+        title: 'Dashboard',
+        description: 'Operational account summary with a quick view of available balance and recent activity.',
+        availableBalance: 'Available balance',
+        availableBalanceHint: 'Ready for new PIX operations and settlements.',
+        incomingVolume: 'Recent inflows',
+        outgoingVolume: 'Recent outflows',
+        recentActivity: 'Recent transactions',
+        historyEyebrow: 'Activity',
+        historyTitle: 'Latest transactions',
+        historyBadge: 'Updated just now',
+        status: {
+          completed: 'Completed',
+          processing: 'Processing',
+          scheduled: 'Scheduled',
+        },
+        transactions: {
+          treasuryTopUp: 'PIX inbound • Treasury top-up',
+          corporateSettlement: 'PIX payout • Corporate settlement',
+          customerFunding: 'PIX inbound • Customer funding',
+          treasuryRebalance: 'PIX payout • Treasury rebalance',
+        },
+      },
       deposit: {
         eyebrow: 'PIX',
         badge: 'API pending',

@@ -1,5 +1,12 @@
 # Version History
 
+## v2.1.0 – 2026-05-15
+- Added a new authenticated Dashboard page as the home screen after login
+- Added account summary cards and a recent transactions list to the dashboard
+- Updated routing so authenticated users land on /app/dashboard by default
+- Added the Dashboard item to the sidebar navigation
+- Added dashboard translation keys in PT/EN and a matching navigation icon
+
 ## v2.0.0 – 2026-05-15
 - Replaced the Chrome extension scaffold with a Vite + React + TypeScript frontend for Fiat Ops MVP
 - Added mock authentication flow with persistent session storage and protected routes

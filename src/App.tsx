@@ -4,6 +4,7 @@ import { I18nProvider, useI18n } from './lib/i18n';
 import { ThemeProvider } from './lib/theme';
 import { AppShell } from './layouts/AppShell';
 import { LoginPage } from './pages/LoginPage';
+import { DashboardPage } from './pages/DashboardPage';
 import { DepositPage } from './pages/DepositPage';
 import { WithdrawPage } from './pages/WithdrawPage';
 import { StatementPage } from './pages/StatementPage';
@@ -43,7 +44,7 @@ function PublicLoginRoute() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/app/deposit" replace />;
+    return <Navigate to="/app/dashboard" replace />;
   }
 
   return <LoginPage />;
@@ -54,10 +55,11 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to={isAuthenticated ? '/app/deposit' : '/login'} replace />} />
+      <Route path="/" element={<Navigate to={isAuthenticated ? '/app/dashboard' : '/login'} replace />} />
       <Route path="/login" element={<PublicLoginRoute />} />
       <Route element={<AuthenticatedRoutes />}>
-        <Route path="/app" element={<Navigate to="/app/deposit" replace />} />
+        <Route path="/app" element={<Navigate to="/app/dashboard" replace />} />
+        <Route path="/app/dashboard" element={<DashboardPage />} />
         <Route path="/app/deposit" element={<DepositPage />} />
         <Route path="/app/withdraw" element={<WithdrawPage />} />
         <Route path="/app/statement" element={<StatementPage />} />
