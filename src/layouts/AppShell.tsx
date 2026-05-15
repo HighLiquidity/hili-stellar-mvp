@@ -110,7 +110,7 @@ export function AppShell() {
         <div className="sidebar__brand">
           <div className="brand-mark">F</div>
           <div className="brand-copy">
-            <strong>{t('app.name')}</strong>
+            <strong>Hi-Li :: Stellar MVP</strong>
             <span>{t('app.demoBadge')}</span>
           </div>
         </div>
