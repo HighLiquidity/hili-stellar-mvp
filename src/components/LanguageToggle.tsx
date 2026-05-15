@@ -4,7 +4,7 @@ import { useI18n } from '../lib/i18n';
 export function LanguageToggle() {
   const { locale, setLocale, t } = useI18n();
   const nextLocale = locale === 'pt' ? 'en' : 'pt';
-  const indicator = locale === 'pt' ? 'PT/EN' : 'EN/PT';
+  const indicator = locale.toUpperCase();
   const nextLocaleLabel = nextLocale === 'pt' ? t('controls.portuguese') : t('controls.english');
 
   return (
