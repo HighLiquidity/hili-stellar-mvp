@@ -9,8 +9,8 @@ export function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const { t } = useI18n();
-  const [email, setEmail] = useState('demo@fiatops.com');
-  const [password, setPassword] = useState('mock-password');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -28,9 +28,13 @@ export function LoginPage() {
   return (
     <main className="auth-page">
       <section className="auth-card auth-card--form">
-        <p className="status-pill">{t('app.demoBadge')}</p>
-        <h1>{t('auth.title')}</h1>
-        <p className="auth-card__lead">{t('auth.subtitle')}</p>
+        <div className="auth-card__header">
+          <p className="status-pill">{t('app.demoBadge')}</p>
+          <div className="auth-card__title-group">
+            <h1>{t('auth.title')}</h1>
+            <p className="auth-card__lead">{t('auth.subtitle')}</p>
+          </div>
+        </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <InputField
@@ -57,39 +61,6 @@ export function LoginPage() {
             {isSubmitting ? t('auth.loading') : t('auth.submit')}
           </Button>
         </form>
-
-        <div className="info-card">
-          <h2>{t('auth.hintTitle')}</h2>
-          <p>{t('auth.hintBody')}</p>
-        </div>
-      </section>
-
-      <section className="auth-card auth-card--highlight" aria-label={t('auth.sideTitle')}>
-        <div>
-          <p className="eyebrow">{t('app.name')}</p>
-          <h2>{t('auth.sideTitle')}</h2>
-          <p className="auth-card__lead">{t('auth.sideBody')}</p>
-        </div>
-
-        <div className="metric-grid">
-          <article className="metric-card">
-            <strong>01</strong>
-            <span>{t('auth.featureOne')}</span>
-          </article>
-          <article className="metric-card">
-            <strong>02</strong>
-            <span>{t('auth.featureTwo')}</span>
-          </article>
-          <article className="metric-card">
-            <strong>03</strong>
-            <span>{t('auth.featureThree')}</span>
-          </article>
-        </div>
-
-        <div className="info-card info-card--accent">
-          <h3>{t('auth.complianceTitle')}</h3>
-          <p>{t('auth.complianceBody')}</p>
-        </div>
       </section>
     </main>
   );

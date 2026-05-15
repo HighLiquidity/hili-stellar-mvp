@@ -121,11 +121,15 @@ button:disabled {
 
 .auth-page {
   display: grid;
+  align-items: center;
+  justify-items: center;
   gap: 20px;
   padding: 20px;
 }
 
 .auth-card {
+  width: 100%;
+  max-width: 520px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
@@ -137,6 +141,12 @@ button:disabled {
 .auth-card--highlight {
   display: grid;
   gap: 24px;
+}
+
+.auth-card__header,
+.auth-card__title-group {
+  display: grid;
+  gap: 14px;
 }
 
 .auth-card h1,
@@ -593,8 +603,6 @@ button:disabled {
 
 @media (min-width: 1024px) {
   .auth-page {
-    grid-template-columns: minmax(420px, 520px) minmax(420px, 1fr);
-    align-items: center;
     padding: 36px;
   }
 
