@@ -543,7 +543,8 @@ button:disabled {
 
 .page-grid,
 .dashboard-layout,
-.deposit-layout {
+.deposit-layout,
+.withdraw-layout {
   display: grid;
   gap: 20px;
 }
@@ -565,7 +566,8 @@ button:disabled {
 }
 
 .deposit-form-card,
-.deposit-output-card {
+.deposit-output-card,
+.withdraw-form-card {
   align-content: start;
 }
 
@@ -573,7 +575,10 @@ button:disabled {
 .deposit-output-card__header,
 .deposit-form,
 .deposit-form__fields,
-.deposit-output-grid {
+.deposit-output-grid,
+.withdraw-form,
+.withdraw-form__fields,
+.withdraw-camera-block {
   display: grid;
   gap: 18px;
 }
@@ -624,6 +629,17 @@ button:disabled {
   min-height: 140px;
   justify-items: start;
   align-items: center;
+}
+
+.withdraw-camera-button {
+  justify-self: start;
+  min-width: 220px;
+  min-height: 56px;
+}
+
+.withdraw-form__hint {
+  margin: 0;
+  color: var(--text-muted);
 }
 
 .dashboard-hero {
