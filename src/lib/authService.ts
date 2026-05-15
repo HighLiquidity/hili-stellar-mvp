@@ -8,6 +8,11 @@ export interface AccessProfile {
   is_active: boolean;
 }
 
+export interface SignInInput {
+  email: string;
+  password: string;
+}
+
 export function getAuthErrorMessage(error: unknown) {
   if (error instanceof AuthApiError) {
     return error.message;
@@ -18,6 +23,19 @@ export function getAuthErrorMessage(error: unknown) {
   }
 
   return 'Unexpected authentication error.';
+}
+
+export async function signInUser({ email, password }: SignInInput) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data.session;
 }
 
 export async function getCurrentSession() {

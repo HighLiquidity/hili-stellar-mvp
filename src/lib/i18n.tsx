@@ -27,15 +27,18 @@ const dictionaries: Record<Locale, TranslationTree> = {
     },
     auth: {
       title: 'Acesse o painel operacional',
-      subtitle: 'Entre para continuar no ambiente operacional.',
+      subtitle: 'Entre com um usuário previamente cadastrado para continuar.',
       email: 'E-mail',
       password: 'Senha',
       emailPlaceholder: 'seu.nome@empresa.com',
       passwordPlaceholder: 'Digite sua senha',
       submit: 'Entrar no painel',
       loading: 'Entrando...',
+      accessNotice: 'Este é um sistema privado. Somente usuários pré-cadastrados têm acesso.',
+      accessDenied: 'Sua conta não está autorizada para acessar este painel.',
 
       hintTitle: 'Como este mock funciona',
+
       hintBody: 'Não há validação real de credenciais nesta fase. Ao enviar o formulário, a sessão é simulada no navegador.',
       sideTitle: 'Base pronta para depósito e saque PIX',
       sideBody: 'Estrutura inicial com navegação, temas, idiomas e pontos claros para conectar autenticação e backend depois.',
@@ -147,7 +150,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
       passwordPlaceholder: 'Enter your password',
       submit: 'Enter dashboard',
       loading: 'Signing in...',
-      accessNotice: 'Access is restricted to invited or pre-approved users.',
+      accessNotice: 'This is a private system. Only pre-registered users can access it.',
       accessDenied: 'Your account is not authorized to access this panel.',
 
       hintTitle: 'How this mock works',

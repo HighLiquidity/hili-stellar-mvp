@@ -1,5 +1,11 @@
 # Version History
 
+## v2.2.1 – 2026-05-15
+- Replaced the Supabase Auth widget with a private email/password login form
+- Removed any visible sign-up path from the login screen for the private panel flow
+- Preserved access-denied feedback after forced sign-out for non-authorized users
+- Updated login copy to state that only pre-registered users can access the system
+
 ## v2.2.0 – 2026-05-15
 - Added Supabase client integration and replaced the mock login flow with Supabase Auth
 - Added route protection based on authorized access instead of local mock session state

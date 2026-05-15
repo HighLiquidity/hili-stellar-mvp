@@ -1,17 +1,19 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Auth } from '@supabase/auth-ui-react';
-import { ThemeSupa } from '@supabase/auth-ui-shared';
+import { Button } from '../components/ui/Button';
+import { InputField } from '../components/ui/InputField';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../integrations/supabase/client';
+import { getAuthErrorMessage, signInUser } from '../lib/authService';
 import { useI18n } from '../lib/i18n';
-import { useTheme } from '../lib/theme';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { isAuthorized, authError } = useAuth();
+  const { isAuthorized, authError, clearAuthError } = useAuth();
   const { t } = useI18n();
-  const { theme } = useTheme();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isAuthorized) {
@@ -19,22 +21,22 @@ export function LoginPage() {
     }
   }, [isAuthorized, navigate]);
 
-  const localization = useMemo(
-    () => ({
-      variables: {
-        sign_in: {
-          email_label: t('auth.email'),
-          password_label: t('auth.password'),
-          email_input_placeholder: t('auth.emailPlaceholder'),
-          password_input_placeholder: t('auth.passwordPlaceholder'),
-          button_label: t('auth.submit'),
-        },
-      },
-    }),
-    [t],
-  );
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setLocalError(null);
+    clearAuthError();
 
-  const errorMessage = authError === 'access_denied' ? t('auth.accessDenied') : authError;
+    try {
+      await signInUser({ email, password });
+    } catch (error) {
+      setLocalError(getAuthErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const errorMessage = authError === 'access_denied' ? t('auth.accessDenied') : authError ?? localError;
 
   return (
     <main className="auth-page">
@@ -49,51 +51,31 @@ export function LoginPage() {
 
         {errorMessage ? <p className="auth-inline-error">{errorMessage}</p> : null}
 
-        <div className="auth-supabase">
-          <Auth
-            supabaseClient={supabase}
-            providers={[]}
-            view="sign_in"
-            theme={theme}
-            localization={localization}
-            appearance={{
-              theme: ThemeSupa,
-              variables: {
-                default: {
-                  colors: {
-                    brand: '#586bf3',
-                    brandAccent: '#4155e6',
-                    inputBackground: 'transparent',
-                    inputBorder: 'var(--border)',
-                    inputBorderHover: 'var(--accent)',
-                    inputBorderFocus: 'var(--accent)',
-                    inputText: 'var(--text)',
-                    inputLabelText: 'var(--text)',
-                    inputPlaceholder: 'var(--text-muted)',
-                    messageText: 'var(--text-muted)',
-                    anchorTextColor: 'var(--accent-strong)',
-                    defaultButtonBackground: 'var(--surface-muted)',
-                    defaultButtonBackgroundHover: 'var(--accent-soft)',
-                    defaultButtonBorder: 'var(--border)',
-                    defaultButtonText: 'var(--text)',
-                    dividerBackground: 'var(--border)',
-                  },
-                  radii: {
-                    borderRadiusButton: '999px',
-                    buttonBorderRadius: '999px',
-                    inputBorderRadius: '16px',
-                  },
-                  space: {
-                    emailInputSpacing: '16px',
-                    socialAuthSpacing: '12px',
-                    buttonPadding: '14px',
-                    inputPadding: '14px',
-                  },
-                },
-              },
-            }}
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <InputField
+            id="email"
+            label={t('auth.email')}
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder={t('auth.emailPlaceholder')}
+            autoComplete="email"
+            required
           />
-        </div>
+          <InputField
+            id="password"
+            label={t('auth.password')}
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder={t('auth.passwordPlaceholder')}
+            autoComplete="current-password"
+            required
+          />
+          <Button type="submit" fullWidth disabled={isSubmitting}>
+            {isSubmitting ? t('auth.loading') : t('auth.submit')}
+          </Button>
+        </form>
 
         <p className="auth-card__footnote">{t('auth.accessNotice')}</p>
       </section>

@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
@@ -35,6 +36,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [profile, setProfile] = useState<AccessProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const keepNextSignedOutErrorRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -47,7 +49,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (!nextSession?.user.email) {
         setSession(null);
         setProfile(null);
-        setAuthError(null);
+        if (!keepNextSignedOutErrorRef.current) {
+          setAuthError(null);
+        }
+        keepNextSignedOutErrorRef.current = false;
         setIsLoading(false);
         return;
       }
@@ -57,9 +62,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       try {
         const accessProfile = await getAuthorizedAccessProfile(nextSession.user.email);
 
-        if (!accessProfile) {
+        if (!accessProfile || !accessProfile.is_active) {
           setProfile(null);
           setAuthError('access_denied');
+          keepNextSignedOutErrorRef.current = true;
           await signOutUser();
           if (!isMounted) {
             return;
@@ -108,7 +114,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (isMounted) {
           setSession(null);
           setProfile(null);
-          setAuthError(null);
+          if (!keepNextSignedOutErrorRef.current) {
+            setAuthError(null);
+          }
+          keepNextSignedOutErrorRef.current = false;
           setIsLoading(false);
         }
         return;
@@ -132,9 +141,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isAuthorized: Boolean(session && profile?.is_active),
       isLoading,
       authError,
-      clearAuthError: () => setAuthError(null),
+      clearAuthError: () => {
+        keepNextSignedOutErrorRef.current = false;
+        setAuthError(null);
+      },
       logout: async () => {
         try {
+          keepNextSignedOutErrorRef.current = false;
           await signOutUser();
           setSession(null);
           setProfile(null);
