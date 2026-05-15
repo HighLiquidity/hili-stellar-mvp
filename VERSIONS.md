@@ -1,5 +1,9 @@
 # Version History
 
+## v2.3.6 – 2026-05-15
+- Moved the user dropdown and change-password page to explicit component-level styling to bypass persistent global CSS conflicts
+- Stabilized the menu trigger, dropdown panel, and password form layout with direct styles in the affected components
+
 ## v2.3.5 – 2026-05-15
 - Rebuilt the change-password page with a dedicated card layout to eliminate remaining formatting conflicts
 - Hardened the user dropdown styles with fixed panel sizing, explicit appearance resets, and stronger spacing rules

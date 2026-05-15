@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useI18n } from '../lib/i18n';
@@ -21,6 +21,87 @@ interface NavItem {
   label: string;
   icon: ReactNode;
 }
+
+const userMenuTriggerStyle: CSSProperties = {
+  minHeight: '44px',
+  minWidth: '44px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '8px',
+  padding: '6px 10px 6px 6px',
+  border: '1px solid var(--border)',
+  borderRadius: '999px',
+  background: 'var(--surface)',
+  color: 'var(--text)',
+};
+
+const userMenuAvatarStyle: CSSProperties = {
+  width: '32px',
+  height: '32px',
+  display: 'inline-grid',
+  placeItems: 'center',
+  flex: '0 0 auto',
+  borderRadius: '999px',
+  background: 'var(--accent-soft)',
+  color: 'var(--accent-strong)',
+  fontSize: '0.78rem',
+  fontWeight: 800,
+  letterSpacing: '0.04em',
+};
+
+const userMenuDropdownStyle: CSSProperties = {
+  position: 'absolute',
+  top: 'calc(100% + 10px)',
+  right: 0,
+  zIndex: 40,
+  width: '280px',
+  display: 'grid',
+  gap: '6px',
+  padding: '8px',
+  border: '1px solid var(--border)',
+  borderRadius: '18px',
+  background: 'var(--surface)',
+  boxShadow: 'var(--shadow-lg)',
+  overflow: 'hidden',
+};
+
+const userMenuHeaderStyle: CSSProperties = {
+  display: 'grid',
+  gap: '2px',
+  padding: '12px',
+  marginBottom: '4px',
+  borderBottom: '1px solid var(--border)',
+};
+
+const userMenuNameStyle: CSSProperties = {
+  margin: 0,
+  fontSize: '0.92rem',
+  lineHeight: 1.35,
+  wordBreak: 'break-word',
+};
+
+const userMenuRoleStyle: CSSProperties = {
+  color: 'var(--text-muted)',
+  fontSize: '0.78rem',
+  textTransform: 'capitalize',
+};
+
+const userMenuItemStyle: CSSProperties = {
+  width: '100%',
+  minHeight: '44px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'flex-start',
+  gap: '10px',
+  padding: '0 12px',
+  border: 0,
+  borderRadius: '14px',
+  background: 'transparent',
+  color: 'var(--text)',
+  textAlign: 'left',
+  fontWeight: 600,
+};
 
 function getInitials(name: string, fallbackEmail?: string | null) {
   const parts = name
@@ -232,28 +313,43 @@ export function AppShell() {
               <button
                 type="button"
                 className={`user-menu__trigger${isUserMenuOpen ? ' is-open' : ''}`}
+                style={userMenuTriggerStyle}
                 aria-label={t('shell.userMenu')}
                 aria-haspopup="menu"
                 aria-expanded={isUserMenuOpen}
                 onClick={() => setIsUserMenuOpen((current) => !current)}
               >
-                <span className="user-menu__avatar" aria-hidden="true">{userInitials}</span>
+                <span className="user-menu__avatar" style={userMenuAvatarStyle} aria-hidden="true">
+                  {userInitials}
+                </span>
                 <ChevronDownIcon width={16} height={16} />
               </button>
 
               {isUserMenuOpen ? (
-                <div className="user-menu__dropdown" role="menu" aria-label={t('shell.userMenu')}>
-                  <div className="user-menu__header">
-                    <strong>{userDisplayName}</strong>
-                    <span>{profile?.role ?? 'user'}</span>
+                <div className="user-menu__dropdown" style={userMenuDropdownStyle} role="menu" aria-label={t('shell.userMenu')}>
+                  <div className="user-menu__header" style={userMenuHeaderStyle}>
+                    <strong style={userMenuNameStyle}>{userDisplayName}</strong>
+                    <span style={userMenuRoleStyle}>{profile?.role ?? 'user'}</span>
                   </div>
 
-                  <button type="button" className="user-menu__item" role="menuitem" onClick={handleOpenChangePassword}>
+                  <button
+                    type="button"
+                    className="user-menu__item"
+                    style={userMenuItemStyle}
+                    role="menuitem"
+                    onClick={handleOpenChangePassword}
+                  >
                     <KeyIcon width={16} height={16} />
                     <span>{t('shell.changePassword')}</span>
                   </button>
 
-                  <button type="button" className="user-menu__item" role="menuitem" onClick={handleLogout}>
+                  <button
+                    type="button"
+                    className="user-menu__item"
+                    style={userMenuItemStyle}
+                    role="menuitem"
+                    onClick={handleLogout}
+                  >
                     <LogoutIcon width={16} height={16} />
                     <span>{t('nav.logout')}</span>
                   </button>
