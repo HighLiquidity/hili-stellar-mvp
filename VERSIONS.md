@@ -1,5 +1,8 @@
 # Version History
 
+## v2.3.10 – 2026-05-15
+- Added a dedicated button below the PIX copy-and-paste area on the fiat deposit page to copy the PIX code more easily
+
 ## v2.3.9 – 2026-05-15
 - Updated the recent transactions panel to show BRL as the primary amount, BRH as a muted secondary equivalent, and renamed mock transaction labels from TRX to BRH
 

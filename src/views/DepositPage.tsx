@@ -5,11 +5,20 @@ import { Button } from '../components/ui/Button';
 import { InputField } from '../components/ui/InputField';
 import { useI18n } from '../lib/i18n';
 
+const mockPixCopyPasteCode =
+  '00020101021226930014BR.GOV.BCB.PIX2571demo.deposit@greenlabgroup.io5204000053039865406100.005802BR5920GreenLab Group Demo6009Sao Paulo62070503***6304A1B2';
+
 export function DepositPage() {
   const { t } = useI18n();
   const [taxId, setTaxId] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
+  const [isPixCodeCopied, setIsPixCodeCopied] = useState(false);
   const isGenerateDisabled = !taxId.trim() || !depositAmount.trim();
+
+  async function handleCopyPixCode() {
+    await navigator.clipboard.writeText(mockPixCopyPasteCode);
+    setIsPixCodeCopied(true);
+  }
 
   return (
     <section className="deposit-layout">
@@ -77,9 +86,12 @@ export function DepositPage() {
           <div className="deposit-output-card__header">
             <h3>{t('pages.deposit.copyPasteTitle')}</h3>
           </div>
-          <div className="deposit-copy-placeholder" aria-label={t('pages.deposit.copyPastePlaceholder')}>
-            <span>{t('pages.deposit.copyPastePlaceholder')}</span>
+          <div className="deposit-copy-placeholder" aria-label={t('pages.deposit.copyPasteTitle')}>
+            <span className="deposit-copy-code">{mockPixCopyPasteCode}</span>
           </div>
+          <Button type="button" variant="secondary" fullWidth onClick={handleCopyPixCode}>
+            {isPixCodeCopied ? t('pages.deposit.copyPasteCopied') : t('pages.deposit.copyPasteButton')}
+          </Button>
         </article>
       </div>
     </section>
