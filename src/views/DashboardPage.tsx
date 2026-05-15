@@ -17,7 +17,7 @@ interface TransactionItem {
 
 const recentTransactions: TransactionItem[] = [
   {
-    id: 'TRX-1048',
+    id: 'BRH-1048',
     direction: 'deposit',
     descriptionKey: 'treasuryTopUp',
     amount: 125000,
@@ -25,7 +25,7 @@ const recentTransactions: TransactionItem[] = [
     createdAt: '2026-05-14T11:20:00-03:00',
   },
   {
-    id: 'TRX-1043',
+    id: 'BRH-1043',
     direction: 'withdraw',
     descriptionKey: 'corporateSettlement',
     amount: 18250,
@@ -33,7 +33,7 @@ const recentTransactions: TransactionItem[] = [
     createdAt: '2026-05-14T09:05:00-03:00',
   },
   {
-    id: 'TRX-1037',
+    id: 'BRH-1037',
     direction: 'deposit',
     descriptionKey: 'customerFunding',
     amount: 6400,
@@ -41,7 +41,7 @@ const recentTransactions: TransactionItem[] = [
     createdAt: '2026-05-13T16:40:00-03:00',
   },
   {
-    id: 'TRX-1031',
+    id: 'BRH-1031',
     direction: 'withdraw',
     descriptionKey: 'treasuryRebalance',
     amount: 9200,
@@ -175,6 +175,10 @@ export function DashboardPage() {
                     {amountPrefix}
                     {formatCurrency(transaction.amount, localeCode)}
                   </strong>
+                  <span className="transaction-item__amount-equivalent">
+                    ≈ {amountPrefix}
+                    {formatBRH(transaction.amount, localeCode)} BRH
+                  </span>
                   <span>{formatDate(transaction.createdAt, localeCode)}</span>
                 </div>
               </article>

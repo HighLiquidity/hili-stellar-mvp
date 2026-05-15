@@ -1,5 +1,8 @@
 # Version History
 
+## v2.3.9 – 2026-05-15
+- Updated the recent transactions panel to show BRL as the primary amount, BRH as a muted secondary equivalent, and renamed mock transaction labels from TRX to BRH
+
 ## v2.3.8 – 2026-05-15
 - Updated the dashboard inflow and outflow KPI cards to keep BRL as the dominant value and show the approximate BRH amount as a muted secondary line
 

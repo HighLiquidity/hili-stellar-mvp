@@ -984,6 +984,11 @@ button:disabled {
   gap: 8px;
 }
 
+.transaction-item__amount-equivalent {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
 .transaction-item__heading {
   display: flex;
   flex-wrap: wrap;
