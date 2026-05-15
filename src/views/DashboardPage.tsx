@@ -50,6 +50,13 @@ const recentTransactions: TransactionItem[] = [
   },
 ];
 
+function formatBRH(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 function formatCurrency(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
     style: 'currency',
@@ -91,16 +98,28 @@ export function DashboardPage() {
         </div>
 
         <div className="dashboard-hero__balance">
-          <span className="dashboard-hero__label">{t('pages.dashboard.availableBalance')}</span>
-          <strong>{formatCurrency(summary.availableBalance, localeCode)}</strong>
-          <p>{t('pages.dashboard.availableBalanceHint')}</p>
+          <span className="dashboard-hero__label">{t('pages.dashboard.brhBalance')}</span>
+          <strong className="dashboard-hero__brh-amount">
+            {formatBRH(summary.availableBalance, localeCode)}
+            <span className="dashboard-hero__brh-ticker">BRH</span>
+          </strong>
+          <p className="dashboard-hero__brh-equiv">
+            ≈ {formatCurrency(summary.availableBalance, localeCode)}
+          </p>
+          <p className="dashboard-hero__hint">{t('pages.dashboard.brhBalanceHint')}</p>
         </div>
       </article>
 
       <div className="dashboard-summary-grid">
         <article className="surface dashboard-summary-card">
-          <span className="dashboard-summary-card__label">{t('pages.dashboard.availableBalance')}</span>
-          <strong>{formatCurrency(summary.availableBalance, localeCode)}</strong>
+          <span className="dashboard-summary-card__label">{t('pages.dashboard.brhBalance')}</span>
+          <strong className="dashboard-summary-card__brh">
+            {formatBRH(summary.availableBalance, localeCode)}
+            <span className="dashboard-summary-card__brh-ticker">BRH</span>
+          </strong>
+          <span className="dashboard-summary-card__brh-equiv">
+            ≈ {formatCurrency(summary.availableBalance, localeCode)}
+          </span>
         </article>
 
         <article className="surface dashboard-summary-card">

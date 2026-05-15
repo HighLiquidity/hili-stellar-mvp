@@ -893,6 +893,43 @@ button:disabled {
   letter-spacing: -0.03em;
 }
 
+.dashboard-hero__brh-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.dashboard-hero__brh-ticker,
+.dashboard-summary-card__brh-ticker {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+  opacity: 0.75;
+  align-self: center;
+}
+
+.dashboard-hero__brh-equiv,
+.dashboard-summary-card__brh-equiv {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  letter-spacing: 0;
+}
+
+.dashboard-hero__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.dashboard-summary-card__brh {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
 .dashboard-hero__label,
 .dashboard-summary-card__label,
 .transaction-item__meta span,
