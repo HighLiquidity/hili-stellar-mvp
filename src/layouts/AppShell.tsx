@@ -1,10 +1,15 @@
+'use client';
+
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { useI18n } from '../lib/i18n';
 import { Button } from '../components/ui/Button';
 import {
   ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   DashboardIcon,
   DepositIcon,
   KeyIcon,
@@ -39,9 +44,13 @@ function getInitials(name: string, fallbackEmail?: string | null) {
   return (fallbackEmail ?? '').slice(0, 2).toUpperCase() || 'US';
 }
 
-export function AppShell() {
-  const { pathname } = useLocation();
-  const navigate = useNavigate();
+function navLinkIsActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
   const { logout, profile, user } = useAuth();
   const { t } = useI18n();
   const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
@@ -142,13 +151,13 @@ export function AppShell() {
 
   const handleOpenChangePassword = () => {
     setIsUserMenuOpen(false);
-    navigate('/app/change-password');
+    router.push('/app/change-password');
   };
 
   const handleLogout = async () => {
     setIsUserMenuOpen(false);
     await logout();
-    navigate('/login', { replace: true });
+    router.replace('/login');
   };
 
   const sidebarStateLabel = isDesktop
@@ -175,7 +184,24 @@ export function AppShell() {
         }`}
       >
         <div className="sidebar__brand">
-          <div className="brand-mark">F</div>
+          <button
+            type="button"
+            className="brand-mark brand-mark--toggle"
+            onClick={handleMenuToggle}
+            aria-label={sidebarStateLabel}
+            aria-controls="app-sidebar"
+            aria-expanded={isDesktop ? !isSidebarCollapsed : isSidebarOpen}
+          >
+            {isDesktop ? (
+              isSidebarCollapsed ? (
+                <ChevronRightIcon width={22} height={22} aria-hidden="true" />
+              ) : (
+                <ChevronLeftIcon width={22} height={22} aria-hidden="true" />
+              )
+            ) : (
+              <ChevronLeftIcon width={22} height={22} aria-hidden="true" />
+            )}
+          </button>
           <div className="brand-copy">
             <strong>Hi-Li :: Stellar MVP</strong>
             <span>{t('app.demoBadge')}</span>
@@ -184,16 +210,16 @@ export function AppShell() {
 
         <nav className="sidebar__nav" aria-label={t('shell.menu')}>
           {navItems.map((item) => (
-            <NavLink
+            <Link
               key={item.to}
-              to={item.to}
+              href={item.to}
               onClick={handleNavigation}
-              className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}
+              className={`nav-link${navLinkIsActive(pathname, item.to) ? ' is-active' : ''}`}
               title={isSidebarCollapsed ? item.label : undefined}
             >
               <span className="nav-link__icon">{item.icon}</span>
               <span className="nav-link__label">{item.label}</span>
-            </NavLink>
+            </Link>
           ))}
         </nav>
 
@@ -208,16 +234,18 @@ export function AppShell() {
       <div className="shell__content">
         <header className="topbar">
           <div className="topbar__main">
-            <button
-              type="button"
-              className="icon-button"
-              onClick={handleMenuToggle}
-              aria-label={sidebarStateLabel}
-              aria-controls="app-sidebar"
-              aria-expanded={isDesktop ? !isSidebarCollapsed : isSidebarOpen}
-            >
-              <MenuIcon width={20} height={20} />
-            </button>
+            {!isDesktop ? (
+              <button
+                type="button"
+                className="icon-button"
+                onClick={handleMenuToggle}
+                aria-label={sidebarStateLabel}
+                aria-controls="app-sidebar"
+                aria-expanded={isSidebarOpen}
+              >
+                <MenuIcon width={20} height={20} aria-hidden="true" />
+              </button>
+            ) : null}
             <div>
               <p className="eyebrow">{t('app.demoBadge')}</p>
               <h1>{pageTitle}</h1>
@@ -275,9 +303,7 @@ export function AppShell() {
           </div>
         </header>
 
-        <main className="page-content">
-          <Outlet />
-        </main>
+        <main className="page-content">{children}</main>
       </div>
     </div>
   );

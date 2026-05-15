@@ -1,3 +1,5 @@
+'use client';
+
 import {
   createContext,
   type PropsWithChildren,
@@ -19,6 +21,10 @@ const STORAGE_KEY = 'fiat-ops.theme';
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 function getPreferredTheme(): Theme {
+  if (typeof window === 'undefined') {
+    return 'light';
+  }
+
   const storedTheme = window.localStorage.getItem(STORAGE_KEY);
 
   if (storedTheme === 'light' || storedTheme === 'dark') {
@@ -29,7 +35,11 @@ function getPreferredTheme(): Theme {
 }
 
 export function ThemeProvider({ children }: PropsWithChildren) {
-  const [theme, setTheme] = useState<Theme>(() => getPreferredTheme());
+  const [theme, setTheme] = useState<Theme>('light');
+
+  useEffect(() => {
+    setTheme(getPreferredTheme());
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;

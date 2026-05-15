@@ -1,3 +1,5 @@
+'use client';
+
 import {
   createContext,
   type PropsWithChildren,
@@ -61,6 +63,9 @@ const dictionaries: Record<Locale, TranslationTree> = {
       language: 'Alternar idioma',
       openSidebar: 'Abrir barra lateral',
       closeSidebar: 'Fechar barra lateral',
+      userMenu: 'Menu do usuário',
+      userFallback: 'Usuário',
+      changePassword: 'Alterar senha',
     },
     pages: {
       dashboard: {
@@ -123,6 +128,25 @@ const dictionaries: Record<Locale, TranslationTree> = {
         cardTitle: 'Em breve',
         cardBody: 'Aqui entrarão listagem de eventos, estados das ordens, filtros por período e detalhes de conciliação.',
       },
+      changePassword: {
+        eyebrow: 'Segurança',
+        title: 'Alterar senha',
+        description: 'Defina uma nova senha forte para manter sua conta protegida.',
+        accountLabel: 'Conta conectada',
+        currentPassword: 'Senha atual',
+        currentPasswordPlaceholder: 'Digite a senha atual',
+        newPassword: 'Nova senha',
+        newPasswordPlaceholder: 'Digite a nova senha',
+        confirmPassword: 'Confirmar nova senha',
+        confirmPasswordPlaceholder: 'Digite a nova senha novamente',
+        submit: 'Atualizar senha',
+        submitting: 'Salvando...',
+        success: 'Senha atualizada com sucesso.',
+        errors: {
+          missingUser: 'Não foi possível identificar sua sessão. Faça login novamente.',
+          passwordMismatch: 'A nova senha e a confirmação não coincidem.',
+        },
+      },
     },
     controls: {
       light: 'Claro',
@@ -174,6 +198,9 @@ const dictionaries: Record<Locale, TranslationTree> = {
       language: 'Toggle language',
       openSidebar: 'Open sidebar',
       closeSidebar: 'Close sidebar',
+      userMenu: 'User menu',
+      userFallback: 'User',
+      changePassword: 'Change password',
     },
     pages: {
       dashboard: {
@@ -236,6 +263,25 @@ const dictionaries: Record<Locale, TranslationTree> = {
         cardTitle: 'Coming soon',
         cardBody: 'This area will host event lists, order states, period filters, and reconciliation details.',
       },
+      changePassword: {
+        eyebrow: 'Security',
+        title: 'Change password',
+        description: 'Choose a strong new password to keep your account protected.',
+        accountLabel: 'Signed-in account',
+        currentPassword: 'Current password',
+        currentPasswordPlaceholder: 'Enter your current password',
+        newPassword: 'New password',
+        newPasswordPlaceholder: 'Enter a new password',
+        confirmPassword: 'Confirm new password',
+        confirmPasswordPlaceholder: 'Enter the new password again',
+        submit: 'Update password',
+        submitting: 'Saving...',
+        success: 'Your password was updated successfully.',
+        errors: {
+          missingUser: 'We could not identify your session. Please sign in again.',
+          passwordMismatch: 'The new password and confirmation do not match.',
+        },
+      },
     },
     controls: {
       light: 'Light',
@@ -255,6 +301,10 @@ interface I18nContextValue {
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
 function getInitialLocale(): Locale {
+  if (typeof window === 'undefined') {
+    return 'pt';
+  }
+
   const storedLocale = window.localStorage.getItem(STORAGE_KEY);
 
   if (storedLocale === 'pt' || storedLocale === 'en') {
@@ -278,7 +328,11 @@ function resolveTranslation(tree: TranslationTree, key: string): string {
 }
 
 export function I18nProvider({ children }: PropsWithChildren) {
-  const [locale, setLocale] = useState<Locale>(() => getInitialLocale());
+  const [locale, setLocale] = useState<Locale>('pt');
+
+  useEffect(() => {
+    setLocale(getInitialLocale());
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = locale === 'pt' ? 'pt-BR' : 'en';

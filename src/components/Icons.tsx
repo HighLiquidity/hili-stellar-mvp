@@ -121,6 +121,22 @@ export function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function ChevronLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <path d="m15 18-6-6 6-6" />
+    </IconBase>
+  );
+}
+
+export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <path d="m9 18 6-6-6-6" />
+    </IconBase>
+  );
+}
+
 export function KeyIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <IconBase {...props}>

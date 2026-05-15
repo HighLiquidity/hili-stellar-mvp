@@ -41,8 +41,7 @@
 }
 
 html,
-body,
-#root {
+body {
   min-height: 100%;
 }
 
@@ -424,11 +423,32 @@ button:disabled {
   place-items: center;
   width: 44px;
   height: 44px;
+  flex: 0 0 auto;
   border-radius: 16px;
   background: var(--accent-soft);
   color: var(--accent-strong);
   font-weight: 800;
   font-size: 1.2rem;
+}
+
+.brand-mark--toggle {
+  margin: 0;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  appearance: none;
+  transition: background-color 180ms ease, color 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.brand-mark--toggle:hover {
+  background: color-mix(in srgb, var(--accent-soft) 65%, var(--accent) 35%);
+  color: var(--accent-strong);
+}
+
+.brand-mark--toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(88, 107, 243, 0.12);
+  border: 1px solid var(--accent);
 }
 
 .brand-copy {
@@ -652,19 +672,30 @@ button:disabled {
 .user-menu__item {
   width: 100%;
   min-height: 44px;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
-  padding: 0 12px;
+  padding: 10px 12px;
   border: 0;
   border-radius: 14px;
   background: transparent;
   color: var(--text);
   text-align: left;
   font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1.25;
+  white-space: normal;
   appearance: none;
   transition: background-color 180ms ease, color 180ms ease;
+}
+
+.user-menu__item > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
 .user-menu__item:hover {
@@ -991,7 +1022,7 @@ button:disabled {
 
   .password-page__header {
     grid-template-columns: minmax(0, 1.3fr) minmax(240px, 0.7fr);
-    align-items: center;
+    align-items: start;
   }
 
   .topbar__actions {
@@ -1032,6 +1063,10 @@ button:disabled {
   .sidebar.is-collapsed .nav-link__label,
   .sidebar.is-collapsed .sidebar__logout span {
     display: none;
+  }
+
+  .sidebar.is-collapsed .sidebar__brand {
+    justify-content: center;
   }
 
   .sidebar.is-collapsed .sidebar__logout,
