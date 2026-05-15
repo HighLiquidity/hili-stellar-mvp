@@ -498,9 +498,33 @@ button:disabled {
   color: var(--accent-strong);
 }
 
+.language-toggle {
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  transition: background-color 180ms ease, border-color 180ms ease, transform 180ms ease, color 180ms ease;
+}
+
+.language-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
 .theme-toggle__icon,
 .language-toggle__icon {
   display: inline-flex;
+}
+
+.language-toggle__label {
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .page-content {
