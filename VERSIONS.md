@@ -1,5 +1,12 @@
 # Version History
 
+## v2.2.0 – 2026-05-15
+- Added Supabase client integration and replaced the mock login flow with Supabase Auth
+- Added route protection based on authorized access instead of local mock session state
+- Created `public.panel_access_list` and `public.profiles` tables for invited/pre-approved access control
+- Added RLS policies and an auth trigger to sync new auth users into profiles
+- Updated the login screen to use the Supabase Auth UI and show access-denied feedback
+
 ## v2.1.0 – 2026-05-15
 - Added a new authenticated Dashboard page as the home screen after login
 - Added account summary cards and a recent transactions list to the dashboard

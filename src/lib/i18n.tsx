@@ -140,14 +140,16 @@ const dictionaries: Record<Locale, TranslationTree> = {
     },
     auth: {
       title: 'Access the operations panel',
-      subtitle: 'Sign in to continue to the operations workspace.',
+      subtitle: 'Sign in with a pre-authorized account to continue.',
       email: 'Email',
       password: 'Password',
       emailPlaceholder: 'your.name@company.com',
       passwordPlaceholder: 'Enter your password',
       submit: 'Enter dashboard',
-
       loading: 'Signing in...',
+      accessNotice: 'Access is restricted to invited or pre-approved users.',
+      accessDenied: 'Your account is not authorized to access this panel.',
+
       hintTitle: 'How this mock works',
       hintBody: 'There is no real credential validation at this stage. When you submit the form, a browser session is simulated.',
       sideTitle: 'Foundation ready for PIX deposits and withdrawals',

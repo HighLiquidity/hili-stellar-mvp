@@ -1,61 +1,55 @@
-export interface AuthUser {
+import { AuthApiError } from '@supabase/supabase-js';
+import { supabase } from '../integrations/supabase/client';
+
+export interface AccessProfile {
   email: string;
-  name: string;
+  full_name: string | null;
+  role: 'admin' | 'operator' | 'viewer';
+  is_active: boolean;
 }
 
-export interface LoginInput {
-  email: string;
-  password: string;
-}
-
-export interface AuthService {
-  getSession: () => AuthUser | null;
-  login: (input: LoginInput) => Promise<AuthUser>;
-  logout: () => void;
-}
-
-const AUTH_STORAGE_KEY = 'fiat-ops.session';
-
-function buildUser(email: string): AuthUser {
-  const localPart = email.split('@')[0] || 'demo';
-  const normalizedName = localPart
-    .split(/[._-]/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-
-  return {
-    email,
-    name: normalizedName || 'Demo User',
-  };
-}
-
-function readSession(): AuthUser | null {
-  const rawSession = window.localStorage.getItem(AUTH_STORAGE_KEY);
-
-  if (!rawSession) {
-    return null;
+export function getAuthErrorMessage(error: unknown) {
+  if (error instanceof AuthApiError) {
+    return error.message;
   }
 
-  try {
-    return JSON.parse(rawSession) as AuthUser;
-  } catch {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
-    return null;
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Unexpected authentication error.';
+}
+
+export async function getCurrentSession() {
+  const { data, error } = await supabase.auth.getSession();
+
+  if (error) {
+    throw error;
+  }
+
+  return data.session;
+}
+
+export async function signOutUser() {
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    throw error;
   }
 }
 
-export const mockAuthService: AuthService = {
-  getSession: () => readSession(),
-  login: async ({ email }: LoginInput) => {
-    const user = buildUser(email.trim().toLowerCase());
+export async function getAuthorizedAccessProfile(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
 
-    await new Promise((resolve) => window.setTimeout(resolve, 650));
-    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+  const { data, error } = await supabase
+    .from('panel_access_list')
+    .select('email, full_name, role, is_active')
+    .eq('email', normalizedEmail)
+    .maybeSingle();
 
-    return user;
-  },
-  logout: () => {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
-  },
-};
+  if (error) {
+    throw error;
+  }
+
+  return data as AccessProfile | null;
+}

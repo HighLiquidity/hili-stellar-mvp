@@ -149,23 +149,39 @@ button:disabled {
   gap: 14px;
 }
 
-.auth-card h1,
-.auth-card h2,
-.surface h2,
-.surface h3,
-.topbar h1 {
+.auth-inline-error {
   margin: 0;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
+  padding: 14px 16px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+  background: rgba(239, 68, 68, 0.08);
+  color: #c24141;
 }
 
-.auth-card__lead,
-.surface__lead,
-.info-card p,
-.placeholder-panel p,
-.surface--empty p,
-.sidebar__note {
+.auth-supabase {
+  display: grid;
+}
+
+.auth-supabase :where(.supabase-auth-ui_ui-container) {
+  width: 100%;
+}
+
+.auth-supabase :where(.supabase-auth-ui_ui-divider) {
+  display: none;
+}
+
+.auth-supabase :where(.supabase-auth-ui_ui-anchor) {
+  color: var(--accent-strong);
+}
+
+.auth-supabase :where(.supabase-auth-ui_ui-message) {
+  padding: 0;
+  color: var(--text-muted);
+}
+
+.auth-card__footnote {
   margin: 0;
+  font-size: 0.92rem;
   color: var(--text-muted);
 }
 

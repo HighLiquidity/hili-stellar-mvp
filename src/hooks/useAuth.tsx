@@ -6,42 +6,145 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { mockAuthService, type AuthUser, type LoginInput } from '../lib/authService';
+import type { Session, User } from '@supabase/supabase-js';
+import { supabase } from '../integrations/supabase/client';
+import {
+  getAuthErrorMessage,
+  getAuthorizedAccessProfile,
+  getCurrentSession,
+  signOutUser,
+  type AccessProfile,
+} from '../lib/authService';
 
 interface AuthContextValue {
-  user: AuthUser | null;
+  session: Session | null;
+  user: User | null;
+  profile: AccessProfile | null;
   isAuthenticated: boolean;
+  isAuthorized: boolean;
   isLoading: boolean;
-  login: (input: LoginInput) => Promise<void>;
-  logout: () => void;
+  authError: string | null;
+  clearAuthError: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<AccessProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    setUser(mockAuthService.getSession());
-    setIsLoading(false);
+    let isMounted = true;
+
+    async function syncSession(nextSession: Session | null) {
+      if (!isMounted) {
+        return;
+      }
+
+      if (!nextSession?.user.email) {
+        setSession(null);
+        setProfile(null);
+        setAuthError(null);
+        setIsLoading(false);
+        return;
+      }
+
+      setSession(nextSession);
+
+      try {
+        const accessProfile = await getAuthorizedAccessProfile(nextSession.user.email);
+
+        if (!accessProfile) {
+          setProfile(null);
+          setAuthError('access_denied');
+          await signOutUser();
+          if (!isMounted) {
+            return;
+          }
+          setSession(null);
+          setIsLoading(false);
+          return;
+        }
+
+        if (!isMounted) {
+          return;
+        }
+
+        setProfile(accessProfile);
+        setAuthError(null);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setProfile(null);
+        setAuthError(getAuthErrorMessage(error));
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    async function initializeAuth() {
+      try {
+        const currentSession = await getCurrentSession();
+        await syncSession(currentSession);
+      } catch (error) {
+        if (isMounted) {
+          setAuthError(getAuthErrorMessage(error));
+          setIsLoading(false);
+        }
+      }
+    }
+
+    initializeAuth();
+
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === 'SIGNED_OUT') {
+        if (isMounted) {
+          setSession(null);
+          setProfile(null);
+          setAuthError(null);
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      void syncSession(nextSession);
+    });
+
+    return () => {
+      isMounted = false;
+      data.subscription.unsubscribe();
+    };
   }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      user,
-      isAuthenticated: Boolean(user),
+      session,
+      user: session?.user ?? null,
+      profile,
+      isAuthenticated: Boolean(session),
+      isAuthorized: Boolean(session && profile?.is_active),
       isLoading,
-      login: async (input) => {
-        const nextUser = await mockAuthService.login(input);
-        setUser(nextUser);
-      },
-      logout: () => {
-        mockAuthService.logout();
-        setUser(null);
+      authError,
+      clearAuthError: () => setAuthError(null),
+      logout: async () => {
+        try {
+          await signOutUser();
+          setSession(null);
+          setProfile(null);
+          setAuthError(null);
+        } catch (error) {
+          setAuthError(getAuthErrorMessage(error));
+        }
       },
     }),
-    [isLoading, user],
+    [authError, isLoading, profile, session],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

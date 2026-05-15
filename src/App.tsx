@@ -23,13 +23,13 @@ function LoadingScreen() {
 }
 
 function AuthenticatedRoutes() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthorized, isLoading } = useAuth();
 
   if (isLoading) {
     return <LoadingScreen />;
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthorized) {
     return <Navigate to="/login" replace />;
   }
 
@@ -37,13 +37,13 @@ function AuthenticatedRoutes() {
 }
 
 function PublicLoginRoute() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthorized, isLoading } = useAuth();
 
   if (isLoading) {
     return <LoadingScreen />;
   }
 
-  if (isAuthenticated) {
+  if (isAuthorized) {
     return <Navigate to="/app/dashboard" replace />;
   }
 
@@ -51,11 +51,11 @@ function PublicLoginRoute() {
 }
 
 function AppRoutes() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthorized } = useAuth();
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to={isAuthenticated ? '/app/dashboard' : '/login'} replace />} />
+      <Route path="/" element={<Navigate to={isAuthorized ? '/app/dashboard' : '/login'} replace />} />
       <Route path="/login" element={<PublicLoginRoute />} />
       <Route element={<AuthenticatedRoutes />}>
         <Route path="/app" element={<Navigate to="/app/dashboard" replace />} />
