@@ -1,5 +1,9 @@
 # Version History
 
+## v2.3.3 – 2026-05-15
+- Restored missing styling for the change-password page after a CSS regression
+- Refined the user dropdown panel spacing and layering to fix formatting issues
+
 ## v2.3.2 – 2026-05-15
 - Restored the top-right user dropdown after a layout regression removed it from the header
 - Kept the closed state as initials-only and the open state with full name, role, change password, and logout
