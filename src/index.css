@@ -562,23 +562,32 @@ button:disabled {
   position: relative;
 }
 
+.user-menu {
+  position: relative;
+  z-index: 30;
+}
+
 .user-menu__trigger {
   min-height: 44px;
+  min-width: 44px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 6px 10px 6px 6px;
-  border-radius: 999px;
   border: 1px solid var(--border);
+  border-radius: 999px;
   background: var(--surface);
   color: var(--text);
-  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+  appearance: none;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
 }
 
 .user-menu__trigger.is-open,
 .user-menu__trigger:hover {
   border-color: var(--accent);
   color: var(--accent-strong);
+  box-shadow: 0 0 0 4px rgba(88, 107, 243, 0.08);
 }
 
 .user-menu__avatar {
@@ -586,6 +595,7 @@ button:disabled {
   height: 32px;
   display: inline-grid;
   place-items: center;
+  flex: 0 0 auto;
   border-radius: 999px;
   background: var(--accent-soft);
   color: var(--accent-strong);
@@ -598,8 +608,8 @@ button:disabled {
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
-  z-index: 20;
-  min-width: 240px;
+  z-index: 40;
+  width: 280px;
   display: grid;
   gap: 6px;
   padding: 8px;
@@ -607,17 +617,19 @@ button:disabled {
   border-radius: 18px;
   background: var(--surface);
   box-shadow: var(--shadow-lg);
+  overflow: hidden;
 }
 
 .user-menu__header {
   display: grid;
   gap: 2px;
-  padding: 10px 12px 12px;
+  padding: 12px;
   margin-bottom: 4px;
   border-bottom: 1px solid var(--border);
 }
 
 .user-menu__header strong {
+  margin: 0;
   font-size: 0.92rem;
   line-height: 1.35;
   word-break: break-word;
@@ -643,6 +655,7 @@ button:disabled {
   color: var(--text);
   text-align: left;
   font-weight: 600;
+  appearance: none;
   transition: background-color 180ms ease, color 180ms ease;
 }
 
@@ -674,7 +687,6 @@ button:disabled {
 }
 
 .surface {
-
   display: grid;
   gap: 18px;
   padding: 24px;
@@ -688,14 +700,47 @@ button:disabled {
 
 .deposit-form-card,
 .deposit-output-card,
-.withdraw-form-card,
-.password-form-card {
+.withdraw-form-card {
   align-content: start;
 }
 
-.password-form-card {
+.password-page {
   width: 100%;
-  max-width: 720px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.password-page__card {
+  width: 100%;
+  gap: 24px;
+}
+
+.password-page__header {
+  display: grid;
+  gap: 18px;
+}
+
+.password-page__account {
+  display: grid;
+  gap: 6px;
+  padding: 18px 20px;
+  border: 1px solid rgba(88, 107, 243, 0.12);
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+}
+
+.password-page__account-label {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.password-page__account strong {
+  font-size: 1.02rem;
+  line-height: 1.35;
+  word-break: break-word;
 }
 
 .deposit-form-card__header,
@@ -716,35 +761,10 @@ button:disabled {
 
 .password-form__actions {
   width: 100%;
-  display: flex;
-  justify-content: flex-start;
 }
 
 .password-form__actions .button {
-  min-width: 220px;
-}
-
-.password-hero {
-  gap: 22px;
-}
-
-.password-hero__account {
-  display: grid;
-  gap: 6px;
-  padding: 20px;
-  border-radius: var(--radius-lg);
-  background: var(--accent-soft);
-  border: 1px solid rgba(88, 107, 243, 0.12);
-}
-
-.password-hero__label {
-  color: var(--text-muted);
-}
-
-.password-hero__account strong {
-  font-size: 1.05rem;
-  letter-spacing: -0.02em;
-  word-break: break-word;
+  width: 100%;
 }
 
 .withdraw-qr-row {
@@ -951,8 +971,12 @@ button:disabled {
 
   .dashboard-hero,
   .transaction-item,
-  .deposit-form-card__header,
-  .password-hero {
+  .deposit-form-card__header {
+    grid-template-columns: minmax(0, 1.3fr) minmax(240px, 0.7fr);
+    align-items: center;
+  }
+
+  .password-page__header {
     grid-template-columns: minmax(0, 1.3fr) minmax(240px, 0.7fr);
     align-items: center;
   }

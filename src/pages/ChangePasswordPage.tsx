@@ -59,22 +59,21 @@ export function ChangePasswordPage() {
   };
 
   return (
-    <section className="page-grid page-grid--single password-page">
-      <article className="surface surface--hero password-hero">
+    <section className="password-page">
+      <article className="surface password-page__card">
+        <header className="password-page__header">
+          <div>
+            <p className="eyebrow">{t('pages.changePassword.eyebrow')}</p>
+            <h2>{t('pages.changePassword.title')}</h2>
+            <p className="surface__lead">{t('pages.changePassword.description')}</p>
+          </div>
 
-        <div>
-          <p className="eyebrow">{t('pages.changePassword.eyebrow')}</p>
-          <h2>{t('pages.changePassword.title')}</h2>
-          <p className="surface__lead">{t('pages.changePassword.description')}</p>
-        </div>
+          <div className="password-page__account">
+            <span className="password-page__account-label">{t('pages.changePassword.accountLabel')}</span>
+            <strong>{userEmail}</strong>
+          </div>
+        </header>
 
-        <div className="password-hero__account">
-          <span className="password-hero__label">{t('pages.changePassword.accountLabel')}</span>
-          <strong>{userEmail}</strong>
-        </div>
-      </article>
-
-      <article className="surface password-form-card">
         <form className="password-form" onSubmit={handleSubmit}>
           <InputField
             id="current-password"
@@ -114,7 +113,6 @@ export function ChangePasswordPage() {
 
           <div className="password-form__actions">
             <Button type="submit" fullWidth disabled={!canSubmit}>
-
               {isSubmitting ? t('pages.changePassword.submitting') : t('pages.changePassword.submit')}
             </Button>
           </div>
