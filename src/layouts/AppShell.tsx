@@ -238,21 +238,28 @@ export function AppShell() {
                 onClick={() => setIsUserMenuOpen((current) => !current)}
               >
                 <span className="user-menu__avatar" aria-hidden="true">{userInitials}</span>
-                <span className="user-menu__copy">
-                  <strong>{userDisplayName}</strong>
-                  <span>{profile?.role ?? 'user'}</span>
-                </span>
                 <ChevronDownIcon width={16} height={16} />
               </button>
 
               {isUserMenuOpen ? (
                 <div className="user-menu__dropdown" role="menu" aria-label={t('shell.userMenu')}>
+                  <div className="user-menu__header">
+                    <strong>{userDisplayName}</strong>
+                    <span>{profile?.role ?? 'user'}</span>
+                  </div>
+
                   <button type="button" className="user-menu__item" role="menuitem" onClick={handleOpenChangePassword}>
                     <KeyIcon width={16} height={16} />
                     <span>{t('shell.changePassword')}</span>
                   </button>
+
+                  <button type="button" className="user-menu__item" role="menuitem" onClick={handleLogout}>
+                    <LogoutIcon width={16} height={16} />
+                    <span>{t('nav.logout')}</span>
+                  </button>
                 </div>
               ) : null}
+
             </div>
           </div>
         </header>

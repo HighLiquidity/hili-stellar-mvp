@@ -1,5 +1,10 @@
 # Version History
 
+## v2.3.1 – 2026-05-15
+- Updated the top-right user menu to stay collapsed as initials-only in the header
+- Added a dropdown profile header with full name and access role
+- Added a logout action to the same dropdown alongside change password
+
 ## v2.3.0 – 2026-05-15
 - Added a top-right user initials menu beside the theme toggle
 - Added a dropdown action to open a dedicated change-password page
