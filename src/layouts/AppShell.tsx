@@ -16,8 +16,9 @@ interface NavItem {
 export function AppShell() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { logout, user } = useAuth();
+  const { logout } = useAuth();
   const { t } = useI18n();
+
   const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -160,10 +161,6 @@ export function AppShell() {
           <div className="topbar__actions">
             <LanguageToggle />
             <ThemeToggle />
-            <div className="user-chip">
-              <span className="user-chip__greeting">{t('app.welcome')}</span>
-              <strong>{user?.name}</strong>
-            </div>
           </div>
         </header>
 

@@ -10,15 +10,14 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      className="theme-toggle"
+      className="icon-button"
       onClick={toggleTheme}
       aria-label={t('shell.theme')}
       title={isLight ? t('controls.dark') : t('controls.light')}
     >
       <span className="theme-toggle__icon" aria-hidden="true">
-        {isLight ? <MoonIcon width={16} height={16} /> : <SunIcon width={16} height={16} />}
+        {isLight ? <MoonIcon width={18} height={18} /> : <SunIcon width={18} height={18} />}
       </span>
-      <span>{isLight ? t('controls.dark') : t('controls.light')}</span>
     </button>
   );
 }

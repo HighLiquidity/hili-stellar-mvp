@@ -481,76 +481,26 @@ button:disabled {
   font-size: clamp(1.4rem, 3vw, 2rem);
 }
 
-.icon-button,
-.theme-toggle {
-  min-height: 48px;
+.icon-button {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  transition: background-color 180ms ease, border-color 180ms ease, transform 180ms ease;
+  transition: background-color 180ms ease, border-color 180ms ease, transform 180ms ease, color 180ms ease;
 }
 
-.icon-button {
-  width: 48px;
-  display: inline-grid;
-  place-items: center;
-}
-
-.theme-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 14px;
-}
-
-.theme-toggle__icon,
-.segmented-control__icon {
-  display: inline-flex;
-}
-
-.segmented-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border-radius: 999px;
-  padding: 4px;
-  background: var(--surface);
-}
-
-.segmented-control__icon {
-  padding-left: 8px;
-  color: var(--text-muted);
-}
-
-.segmented-control__button {
-  min-width: 48px;
-  min-height: 38px;
-  border: 0;
-  border-radius: 999px;
-  padding: 0 12px;
-  background: transparent;
-  color: var(--text-muted);
-  font-weight: 700;
-}
-
-.segmented-control__button.is-active {
-  background: var(--accent-soft);
+.icon-button:hover {
+  border-color: var(--accent);
   color: var(--accent-strong);
 }
 
-.user-chip {
+.theme-toggle__icon,
+.language-toggle__icon {
   display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 48px;
-  padding: 0 16px;
-  border-radius: 999px;
-  background: var(--surface);
-}
-
-.user-chip__greeting {
-  color: var(--text-muted);
 }
 
 .page-content {
@@ -658,6 +608,10 @@ button:disabled {
 
   .topbar {
     padding: 24px 28px 16px;
+  }
+
+  .topbar__actions {
+    gap: 10px;
   }
 
   .page-content {

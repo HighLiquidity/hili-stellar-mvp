@@ -3,26 +3,20 @@ import { useI18n } from '../lib/i18n';
 
 export function LanguageToggle() {
   const { locale, setLocale, t } = useI18n();
+  const nextLocale = locale === 'pt' ? 'en' : 'pt';
+  const nextLocaleLabel = nextLocale === 'pt' ? t('controls.portuguese') : t('controls.english');
 
   return (
-    <div className="segmented-control" role="group" aria-label={t('shell.language')}>
-      <span className="segmented-control__icon" aria-hidden="true">
-        <GlobeIcon width={16} height={16} />
+    <button
+      type="button"
+      className="icon-button"
+      onClick={() => setLocale(nextLocale)}
+      aria-label={t('shell.language')}
+      title={nextLocaleLabel}
+    >
+      <span className="language-toggle__icon" aria-hidden="true">
+        <GlobeIcon width={18} height={18} />
       </span>
-      <button
-        type="button"
-        className={`segmented-control__button${locale === 'pt' ? ' is-active' : ''}`}
-        onClick={() => setLocale('pt')}
-      >
-        {t('controls.portuguese')}
-      </button>
-      <button
-        type="button"
-        className={`segmented-control__button${locale === 'en' ? ' is-active' : ''}`}
-        onClick={() => setLocale('en')}
-      >
-        {t('controls.english')}
-      </button>
-    </div>
+    </button>
   );
 }
