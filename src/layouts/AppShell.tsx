@@ -1,11 +1,13 @@
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useI18n } from '../lib/i18n';
 import { Button } from '../components/ui/Button';
 import {
+  ChevronDownIcon,
   DashboardIcon,
   DepositIcon,
+  KeyIcon,
   LogoutIcon,
   MenuIcon,
   StatementIcon,
@@ -20,15 +22,33 @@ interface NavItem {
   icon: ReactNode;
 }
 
+function getInitials(name: string, fallbackEmail?: string | null) {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
+  }
+
+  if (parts.length === 1 && parts[0]) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return (fallbackEmail ?? '').slice(0, 2).toUpperCase() || 'US';
+}
+
 export function AppShell() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, profile, user } = useAuth();
   const { t } = useI18n();
-
   const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(min-width: 1024px)');
@@ -43,6 +63,28 @@ export function AppShell() {
     mediaQuery.addEventListener('change', handleChange);
 
     return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (!userMenuRef.current?.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsUserMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, []);
 
   const navItems = useMemo<NavItem[]>(
@@ -72,9 +114,16 @@ export function AppShell() {
   );
 
   const pageTitle = useMemo(() => {
+    if (pathname.startsWith('/app/change-password')) {
+      return t('pages.changePassword.title');
+    }
+
     const currentItem = navItems.find((item) => pathname.startsWith(item.to));
     return currentItem?.label ?? t('app.name');
   }, [navItems, pathname, t]);
+
+  const userDisplayName = profile?.full_name?.trim() || user?.email || t('shell.userFallback');
+  const userInitials = getInitials(profile?.full_name ?? '', user?.email);
 
   const handleMenuToggle = () => {
     if (isDesktop) {
@@ -91,7 +140,13 @@ export function AppShell() {
     }
   };
 
+  const handleOpenChangePassword = () => {
+    setIsUserMenuOpen(false);
+    navigate('/app/change-password');
+  };
+
   const handleLogout = async () => {
+    setIsUserMenuOpen(false);
     await logout();
     navigate('/login', { replace: true });
   };
@@ -143,7 +198,6 @@ export function AppShell() {
         </nav>
 
         <div className="sidebar__footer">
-          <p className="sidebar__note">{t('app.mockNotice')}</p>
           <Button variant="secondary" className="sidebar__logout" onClick={handleLogout}>
             <LogoutIcon width={18} height={18} />
             <span>{t('nav.logout')}</span>
@@ -173,6 +227,33 @@ export function AppShell() {
           <div className="topbar__actions">
             <LanguageToggle />
             <ThemeToggle />
+
+            <div className="user-menu" ref={userMenuRef}>
+              <button
+                type="button"
+                className={`user-menu__trigger${isUserMenuOpen ? ' is-open' : ''}`}
+                aria-label={t('shell.userMenu')}
+                aria-haspopup="menu"
+                aria-expanded={isUserMenuOpen}
+                onClick={() => setIsUserMenuOpen((current) => !current)}
+              >
+                <span className="user-menu__avatar" aria-hidden="true">{userInitials}</span>
+                <span className="user-menu__copy">
+                  <strong>{userDisplayName}</strong>
+                  <span>{profile?.role ?? 'user'}</span>
+                </span>
+                <ChevronDownIcon width={16} height={16} />
+              </button>
+
+              {isUserMenuOpen ? (
+                <div className="user-menu__dropdown" role="menu" aria-label={t('shell.userMenu')}>
+                  <button type="button" className="user-menu__item" role="menuitem" onClick={handleOpenChangePassword}>
+                    <KeyIcon width={16} height={16} />
+                    <span>{t('shell.changePassword')}</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </header>
 

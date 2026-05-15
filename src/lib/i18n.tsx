@@ -21,7 +21,6 @@ const dictionaries: Record<Locale, TranslationTree> = {
       name: 'Fiat Ops MVP',
       subtitle: 'Operações fiat com experiência pronta para evoluir com backend real.',
       demoBadge: 'Ambiente de demonstração',
-      mockNotice: 'Fluxo visual pronto para integração futura de autenticação e APIs.',
       welcome: 'Olá',
       loading: 'Carregando ambiente...',
     },
@@ -34,12 +33,9 @@ const dictionaries: Record<Locale, TranslationTree> = {
       passwordPlaceholder: 'Digite sua senha',
       submit: 'Login',
       loading: 'Entrando...',
-
       accessNotice: 'Este é um sistema privado. Somente usuários pré-cadastrados têm acesso.',
       accessDenied: 'Sua conta não está autorizada para acessar este painel.',
-
       hintTitle: 'Como este mock funciona',
-
       hintBody: 'Não há validação real de credenciais nesta fase. Ao enviar o formulário, a sessão é simulada no navegador.',
       sideTitle: 'Base pronta para depósito e saque PIX',
       sideBody: 'Estrutura inicial com navegação, temas, idiomas e pontos claros para conectar autenticação e backend depois.',
@@ -62,6 +58,9 @@ const dictionaries: Record<Locale, TranslationTree> = {
       language: 'Alternar idioma',
       openSidebar: 'Abrir barra lateral',
       closeSidebar: 'Fechar barra lateral',
+      userMenu: 'Abrir menu do usuário',
+      userFallback: 'Usuário',
+      changePassword: 'Alterar senha',
     },
     pages: {
       dashboard: {
@@ -116,7 +115,6 @@ const dictionaries: Record<Locale, TranslationTree> = {
         cameraButton: 'Escanear QR Code',
         withdrawAmount: 'Withdraw amount (R$)',
         withdrawAmountPlaceholder: '0,00',
-        autoFillHint: 'No futuro, o valor poderá ser preenchido automaticamente a partir do QR Code informado.',
       },
       statement: {
         eyebrow: 'Ledger',
@@ -124,6 +122,25 @@ const dictionaries: Record<Locale, TranslationTree> = {
         description: 'Placeholder para histórico operacional, filtros e exportação.',
         cardTitle: 'Em breve',
         cardBody: 'Aqui entrarão listagem de eventos, estados das ordens, filtros por período e detalhes de conciliação.',
+      },
+      changePassword: {
+        eyebrow: 'Conta',
+        title: 'Alterar senha',
+        description: 'Confirme sua senha atual e informe a nova senha duas vezes para concluir a alteração.',
+        accountLabel: 'Usuário logado',
+        currentPassword: 'Senha atual',
+        currentPasswordPlaceholder: 'Digite sua senha atual',
+        newPassword: 'Nova senha',
+        newPasswordPlaceholder: 'Digite a nova senha',
+        confirmPassword: 'Confirmar nova senha',
+        confirmPasswordPlaceholder: 'Digite novamente a nova senha',
+        submit: 'Salvar nova senha',
+        submitting: 'Salvando...',
+        success: 'Senha alterada com sucesso.',
+        errors: {
+          missingUser: 'Não foi possível identificar o usuário atual.',
+          passwordMismatch: 'A confirmação da nova senha não corresponde.',
+        },
       },
     },
     controls: {
@@ -138,7 +155,6 @@ const dictionaries: Record<Locale, TranslationTree> = {
       name: 'Fiat Ops MVP',
       subtitle: 'Fiat operations experience ready to evolve with a real backend.',
       demoBadge: 'Demo environment',
-      mockNotice: 'Visual flow prepared for future authentication and API integration.',
       welcome: 'Hello',
       loading: 'Loading workspace...',
     },
@@ -153,7 +169,6 @@ const dictionaries: Record<Locale, TranslationTree> = {
       loading: 'Signing in...',
       accessNotice: 'This is a private system. Only pre-registered users can access it.',
       accessDenied: 'Your account is not authorized to access this panel.',
-
       hintTitle: 'How this mock works',
       hintBody: 'There is no real credential validation at this stage. When you submit the form, a browser session is simulated.',
       sideTitle: 'Foundation ready for PIX deposits and withdrawals',
@@ -177,6 +192,9 @@ const dictionaries: Record<Locale, TranslationTree> = {
       language: 'Toggle language',
       openSidebar: 'Open sidebar',
       closeSidebar: 'Close sidebar',
+      userMenu: 'Open user menu',
+      userFallback: 'User',
+      changePassword: 'Change password',
     },
     pages: {
       dashboard: {
@@ -231,7 +249,6 @@ const dictionaries: Record<Locale, TranslationTree> = {
         cameraButton: 'Scan QR Code',
         withdrawAmount: 'Withdraw amount (R$)',
         withdrawAmountPlaceholder: '0.00',
-        autoFillHint: 'In the future, this amount can be filled automatically from the provided payment QR code.',
       },
       statement: {
         eyebrow: 'Ledger',
@@ -239,6 +256,25 @@ const dictionaries: Record<Locale, TranslationTree> = {
         description: 'Placeholder for operational history, filters, and export.',
         cardTitle: 'Coming soon',
         cardBody: 'This area will host event lists, order states, period filters, and reconciliation details.',
+      },
+      changePassword: {
+        eyebrow: 'Account',
+        title: 'Change password',
+        description: 'Confirm your current password and enter the new password twice to finish the change.',
+        accountLabel: 'Signed-in user',
+        currentPassword: 'Current password',
+        currentPasswordPlaceholder: 'Enter your current password',
+        newPassword: 'New password',
+        newPasswordPlaceholder: 'Enter the new password',
+        confirmPassword: 'Confirm new password',
+        confirmPasswordPlaceholder: 'Enter the new password again',
+        submit: 'Save new password',
+        submitting: 'Saving...',
+        success: 'Password changed successfully.',
+        errors: {
+          missingUser: 'Could not identify the current user.',
+          passwordMismatch: 'The new password confirmation does not match.',
+        },
       },
     },
     controls: {

@@ -3,11 +3,12 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import { I18nProvider, useI18n } from './lib/i18n';
 import { ThemeProvider } from './lib/theme';
 import { AppShell } from './layouts/AppShell';
-import { LoginPage } from './pages/LoginPage';
+import { ChangePasswordPage } from './pages/ChangePasswordPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { DepositPage } from './pages/DepositPage';
-import { WithdrawPage } from './pages/WithdrawPage';
+import { LoginPage } from './pages/LoginPage';
 import { StatementPage } from './pages/StatementPage';
+import { WithdrawPage } from './pages/WithdrawPage';
 
 function LoadingScreen() {
   const { t } = useI18n();
@@ -63,6 +64,7 @@ function AppRoutes() {
         <Route path="/app/deposit" element={<DepositPage />} />
         <Route path="/app/withdraw" element={<WithdrawPage />} />
         <Route path="/app/statement" element={<StatementPage />} />
+        <Route path="/app/change-password" element={<ChangePasswordPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

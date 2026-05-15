@@ -112,3 +112,22 @@ export function CameraIcon(props: SVGProps<SVGSVGElement>) {
     </IconBase>
   );
 }
+
+export function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </IconBase>
+  );
+}
+
+export function KeyIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <circle cx="8.5" cy="15.5" r="3.5" />
+      <path d="M12 15.5h9" />
+      <path d="M18 15.5V18" />
+      <path d="M15.5 15.5V17" />
+    </IconBase>
+  );
+}

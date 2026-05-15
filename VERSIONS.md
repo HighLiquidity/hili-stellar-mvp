@@ -1,5 +1,11 @@
 # Version History
 
+## v2.3.0 – 2026-05-15
+- Added a top-right user initials menu beside the theme toggle
+- Added a dropdown action to open a dedicated change-password page
+- Created an authenticated password-change form with current-password validation and double confirmation of the new password
+- Added Supabase password update logic and page/user-menu translations
+
 ## v2.2.2 – 2026-05-15
 - Simplified the login screen by removing the visible subtitle, private-access footnote, and demo badge
 - Updated the primary login button label to a minimal `Login`

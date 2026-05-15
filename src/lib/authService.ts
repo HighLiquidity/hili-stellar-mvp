@@ -13,6 +13,12 @@ export interface SignInInput {
   password: string;
 }
 
+interface ChangePasswordInput {
+  email: string;
+  currentPassword: string;
+  newPassword: string;
+}
+
 export function getAuthErrorMessage(error: unknown) {
   if (error instanceof AuthApiError) {
     return error.message;
@@ -36,6 +42,27 @@ export async function signInUser({ email, password }: SignInInput) {
   }
 
   return data.session;
+}
+
+export async function changeUserPassword({ email, currentPassword, newPassword }: ChangePasswordInput) {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const signInResult = await supabase.auth.signInWithPassword({
+    email: normalizedEmail,
+    password: currentPassword,
+  });
+
+  if (signInResult.error) {
+    throw signInResult.error;
+  }
+
+  const updateResult = await supabase.auth.updateUser({ password: newPassword });
+
+  if (updateResult.error) {
+    throw updateResult.error;
+  }
+
+  return updateResult.data.user;
 }
 
 export async function getCurrentSession() {

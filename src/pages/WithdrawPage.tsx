@@ -56,7 +56,6 @@ export function WithdrawPage() {
             />
           </div>
 
-          <p className="withdraw-form__hint">{t('pages.withdraw.autoFillHint')}</p>
         </form>
       </article>
     </section>
