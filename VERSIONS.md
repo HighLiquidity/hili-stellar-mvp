@@ -1,5 +1,9 @@
 # Version History
 
+## v2.3.7 – 2026-05-15
+- Removed mixed inline/CSS layout logic from the authenticated shell and rebuilt the user menu with a single class-based structure
+- Reconnected the change-password page to its dedicated responsive CSS classes and tightened the topbar action layout to prevent wrapping regressions
+
 ## v2.3.6 – 2026-05-15
 - Moved the user dropdown and change-password page to explicit component-level styling to bypass persistent global CSS conflicts
 - Stabilized the menu trigger, dropdown panel, and password form layout with direct styles in the affected components

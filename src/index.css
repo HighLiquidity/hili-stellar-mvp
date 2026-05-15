@@ -493,6 +493,7 @@ button:disabled {
   z-index: 10;
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   padding: 20px;
@@ -505,10 +506,21 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+}
+
+.topbar__main {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.topbar__actions {
+  flex: 0 0 auto;
+  margin-left: auto;
+  flex-wrap: nowrap;
 }
 
 .topbar__main h1 {
+  margin: 0;
   font-size: clamp(1.4rem, 3vw, 2rem);
 }
 
@@ -560,11 +572,8 @@ button:disabled {
 
 .user-menu {
   position: relative;
-}
-
-.user-menu {
-  position: relative;
   z-index: 30;
+  flex: 0 0 auto;
 }
 
 .user-menu__trigger {
@@ -609,7 +618,7 @@ button:disabled {
   top: calc(100% + 10px);
   right: 0;
   z-index: 40;
-  width: 280px;
+  width: min(280px, calc(100vw - 32px));
   display: grid;
   gap: 6px;
   padding: 8px;
@@ -617,7 +626,6 @@ button:disabled {
   border-radius: 18px;
   background: var(--surface);
   box-shadow: var(--shadow-lg);
-  overflow: hidden;
 }
 
 .user-menu__header {
@@ -711,6 +719,7 @@ button:disabled {
 }
 
 .password-page__card {
+  display: grid;
   width: 100%;
   gap: 24px;
 }
@@ -741,6 +750,10 @@ button:disabled {
   font-size: 1.02rem;
   line-height: 1.35;
   word-break: break-word;
+}
+
+.password-page__actions {
+  width: 100%;
 }
 
 .deposit-form-card__header,
@@ -981,6 +994,10 @@ button:disabled {
     align-items: center;
   }
 
+  .topbar__actions {
+    justify-content: flex-end;
+  }
+
   .withdraw-qr-row {
     grid-template-columns: minmax(0, 1fr) auto;
   }
@@ -1027,6 +1044,7 @@ button:disabled {
   }
 
   .topbar {
+    flex-wrap: nowrap;
     padding: 24px 28px 16px;
   }
 
