@@ -542,7 +542,8 @@ button:disabled {
 }
 
 .page-grid,
-.dashboard-layout {
+.dashboard-layout,
+.deposit-layout {
   display: grid;
   gap: 20px;
 }
@@ -561,6 +562,68 @@ button:disabled {
 .surface--hero {
   align-content: start;
   min-height: 260px;
+}
+
+.deposit-form-card,
+.deposit-output-card {
+  align-content: start;
+}
+
+.deposit-form-card__header,
+.deposit-output-card__header,
+.deposit-form,
+.deposit-form__fields,
+.deposit-output-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.brh-balance-card {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+}
+
+.brh-balance-card__label {
+  color: var(--text-muted);
+}
+
+.brh-balance-card strong {
+  font-size: 1.25rem;
+  letter-spacing: -0.03em;
+}
+
+.deposit-form__button {
+  justify-self: start;
+}
+
+.deposit-qr-placeholder,
+.deposit-copy-placeholder {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  padding: 20px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.deposit-qr-placeholder {
+  aspect-ratio: 1 / 1;
+  max-width: 320px;
+  width: 100%;
+  justify-self: center;
+}
+
+.deposit-copy-placeholder {
+  min-height: 140px;
+  justify-items: start;
+  align-items: center;
 }
 
 .dashboard-hero {
@@ -695,7 +758,8 @@ button:disabled {
 
   .metric-grid,
   .page-grid,
-  .dashboard-summary-grid {
+  .dashboard-summary-grid,
+  .deposit-output-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -704,7 +768,8 @@ button:disabled {
   }
 
   .dashboard-hero,
-  .transaction-item {
+  .transaction-item,
+  .deposit-form-card__header {
     grid-template-columns: minmax(0, 1.3fr) minmax(240px, 0.7fr);
     align-items: center;
   }
