@@ -1,5 +1,8 @@
 # Version History
 
+## v2.3.8 – 2026-05-15
+- Updated the dashboard inflow and outflow KPI cards to keep BRL as the dominant value and show the approximate BRH amount as a muted secondary line
+
 ## v2.3.7 – 2026-05-15
 - Removed mixed inline/CSS layout logic from the authenticated shell and rebuilt the user menu with a single class-based structure
 - Reconnected the change-password page to its dedicated responsive CSS classes and tightened the topbar action layout to prevent wrapping regressions

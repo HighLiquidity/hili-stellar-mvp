@@ -125,11 +125,17 @@ export function DashboardPage() {
         <article className="surface dashboard-summary-card">
           <span className="dashboard-summary-card__label">{t('pages.dashboard.incomingVolume')}</span>
           <strong>{formatCurrency(summary.incomingVolume, localeCode)}</strong>
+          <span className="dashboard-summary-card__brh-equiv">
+            ≈ {formatBRH(summary.incomingVolume, localeCode)} BRH
+          </span>
         </article>
 
         <article className="surface dashboard-summary-card">
           <span className="dashboard-summary-card__label">{t('pages.dashboard.outgoingVolume')}</span>
           <strong>{formatCurrency(summary.outgoingVolume, localeCode)}</strong>
+          <span className="dashboard-summary-card__brh-equiv">
+            ≈ {formatBRH(summary.outgoingVolume, localeCode)} BRH
+          </span>
         </article>
 
         <article className="surface dashboard-summary-card">
