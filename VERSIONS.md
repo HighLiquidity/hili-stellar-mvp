@@ -1,5 +1,10 @@
 # Version History
 
+## v2.3.4 – 2026-05-15
+- Added the missing success-message styling and restored full layout rules for the change-password page
+- Improved dropdown action item formatting, hover states, and width handling in the user menu
+- Centered the single-column authenticated page layout and stabilized the password form card width
+
 ## v2.3.3 – 2026-05-15
 - Restored missing styling for the change-password page after a CSS regression
 - Refined the user dropdown panel spacing and layering to fix formatting issues

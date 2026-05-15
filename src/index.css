@@ -149,16 +149,27 @@ button:disabled {
   gap: 14px;
 }
 
-.auth-inline-error {
+.auth-inline-error,
+.form-success-message {
   margin: 0;
   padding: 14px 16px;
-  border: 1px solid rgba(239, 68, 68, 0.2);
   border-radius: var(--radius-md);
+}
+
+.auth-inline-error {
+  border: 1px solid rgba(239, 68, 68, 0.2);
   background: rgba(239, 68, 68, 0.08);
   color: #c24141;
 }
 
+.form-success-message {
+  border: 1px solid rgba(15, 155, 115, 0.18);
+  background: rgba(15, 155, 115, 0.1);
+  color: var(--success);
+}
+
 .auth-supabase {
+
   display: grid;
 }
 
@@ -623,6 +634,7 @@ button:disabled {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 10px;
   padding: 0 12px;
   border: 0;
@@ -630,6 +642,13 @@ button:disabled {
   background: transparent;
   color: var(--text);
   text-align: left;
+  font-weight: 600;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.user-menu__item:hover {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
 }
 
 .user-menu__item svg {
@@ -649,10 +668,13 @@ button:disabled {
 }
 
 .page-grid--single {
+  width: 100%;
   max-width: 960px;
+  margin: 0 auto;
 }
 
 .surface {
+
   display: grid;
   gap: 18px;
   padding: 24px;
@@ -671,6 +693,11 @@ button:disabled {
   align-content: start;
 }
 
+.password-form-card {
+  width: 100%;
+  max-width: 720px;
+}
+
 .deposit-form-card__header,
 .deposit-output-card__header,
 .deposit-form,
@@ -683,8 +710,18 @@ button:disabled {
   gap: 18px;
 }
 
+.password-form {
+  width: 100%;
+}
+
 .password-form__actions {
-  justify-self: start;
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.password-form__actions .button {
+  min-width: 220px;
 }
 
 .password-hero {

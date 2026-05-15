@@ -59,8 +59,9 @@ export function ChangePasswordPage() {
   };
 
   return (
-    <section className="page-grid page-grid--single">
+    <section className="page-grid page-grid--single password-page">
       <article className="surface surface--hero password-hero">
+
         <div>
           <p className="eyebrow">{t('pages.changePassword.eyebrow')}</p>
           <h2>{t('pages.changePassword.title')}</h2>
@@ -112,7 +113,8 @@ export function ChangePasswordPage() {
           {successMessage ? <p className="form-success-message">{successMessage}</p> : null}
 
           <div className="password-form__actions">
-            <Button type="submit" disabled={!canSubmit}>
+            <Button type="submit" fullWidth disabled={!canSubmit}>
+
               {isSubmitting ? t('pages.changePassword.submitting') : t('pages.changePassword.submit')}
             </Button>
           </div>
