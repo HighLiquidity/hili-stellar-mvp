@@ -577,10 +577,15 @@ button:disabled {
 .deposit-form__fields,
 .deposit-output-grid,
 .withdraw-form,
-.withdraw-form__fields,
-.withdraw-camera-block {
+.withdraw-form__fields {
   display: grid;
   gap: 18px;
+}
+
+.withdraw-qr-row {
+  display: grid;
+  gap: 12px;
+  align-items: end;
 }
 
 .brh-balance-card {
@@ -631,10 +636,11 @@ button:disabled {
   align-items: center;
 }
 
-.withdraw-camera-button {
+.withdraw-scan-button {
+  width: 44px;
+  height: 44px;
   justify-self: start;
-  min-width: 220px;
-  min-height: 56px;
+  align-self: end;
 }
 
 .withdraw-form__hint {
@@ -788,6 +794,10 @@ button:disabled {
   .deposit-form-card__header {
     grid-template-columns: minmax(0, 1.3fr) minmax(240px, 0.7fr);
     align-items: center;
+  }
+
+  .withdraw-qr-row {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .transaction-item__meta {
