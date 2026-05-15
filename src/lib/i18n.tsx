@@ -32,8 +32,9 @@ const dictionaries: Record<Locale, TranslationTree> = {
       password: 'Senha',
       emailPlaceholder: 'seu.nome@empresa.com',
       passwordPlaceholder: 'Digite sua senha',
-      submit: 'Entrar no painel',
+      submit: 'Login',
       loading: 'Entrando...',
+
       accessNotice: 'Este é um sistema privado. Somente usuários pré-cadastrados têm acesso.',
       accessDenied: 'Sua conta não está autorizada para acessar este painel.',
 
@@ -148,7 +149,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
       password: 'Password',
       emailPlaceholder: 'your.name@company.com',
       passwordPlaceholder: 'Enter your password',
-      submit: 'Enter dashboard',
+      submit: 'Login',
       loading: 'Signing in...',
       accessNotice: 'This is a private system. Only pre-registered users can access it.',
       accessDenied: 'Your account is not authorized to access this panel.',

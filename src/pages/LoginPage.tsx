@@ -42,10 +42,8 @@ export function LoginPage() {
     <main className="auth-page">
       <section className="auth-card auth-card--form">
         <div className="auth-card__header">
-          <p className="status-pill">{t('app.demoBadge')}</p>
           <div className="auth-card__title-group">
             <h1>{t('auth.title')}</h1>
-            <p className="auth-card__lead">{t('auth.subtitle')}</p>
           </div>
         </div>
 
@@ -76,8 +74,6 @@ export function LoginPage() {
             {isSubmitting ? t('auth.loading') : t('auth.submit')}
           </Button>
         </form>
-
-        <p className="auth-card__footnote">{t('auth.accessNotice')}</p>
       </section>
     </main>
   );

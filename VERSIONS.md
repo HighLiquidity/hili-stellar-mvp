@@ -1,5 +1,9 @@
 # Version History
 
+## v2.2.2 – 2026-05-15
+- Simplified the login screen by removing the visible subtitle, private-access footnote, and demo badge
+- Updated the primary login button label to a minimal `Login`
+
 ## v2.2.1 – 2026-05-15
 - Replaced the Supabase Auth widget with a private email/password login form
 - Removed any visible sign-up path from the login screen for the private panel flow
