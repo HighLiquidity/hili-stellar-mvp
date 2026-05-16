@@ -17,12 +17,15 @@ export type InboundPixSettlementContext = {
  */
 export function resolveCorpXChargeTxid(payload: unknown, result: WebhookProcessingResult): string | null {
   const data = unwrapWebhookPayload(payload);
-  const fromPayload = pickString(data, 'txid', 'txId', 'TXID');
+  const fromPayload = pickString(data, 'txid', 'txId', 'TXID', 'identifier');
   if (fromPayload) return fromPayload;
 
   const fromFields = result.updatedFields;
   if (fromFields && typeof fromFields.txid === 'string' && fromFields.txid.trim()) {
     return fromFields.txid.trim();
+  }
+  if (fromFields && typeof fromFields.identifier === 'string' && fromFields.identifier.trim()) {
+    return fromFields.identifier.trim();
   }
 
   return null;

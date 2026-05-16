@@ -132,7 +132,8 @@ function processQRCodePaid(eventType: string, payload: unknown): WebhookProcessi
     };
   }
 
-  const txid = pickString(qr, 'txid', 'txId', 'TXID') ?? '';
+  // CorpX `qrcode.paid` docs: `identifier` is the dynamic QR txid.
+  const txid = pickString(qr, 'txid', 'txId', 'TXID', 'identifier') ?? '';
   const amountStr = jsonNumberToAmountString(
     qr.paidAmount ?? qr.paid_amount ?? qr.amount ?? qr.value ?? qr.valor,
   );

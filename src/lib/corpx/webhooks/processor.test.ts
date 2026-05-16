@@ -24,6 +24,18 @@ describe('CorpX webhook processor', () => {
     expect(result.updatedFields?.txid).toBe('dynamic-tx-42');
   });
 
+  it('uses identifier as txid for CorpX qrcode.paid shape', () => {
+    const result = processCorpXWebhookEvent('qr_code_paid', {
+      endToEnd: 'E2E-qr',
+      type: 'dynamic',
+      identifier: 'txid-from-identifier',
+      amount: 25,
+    });
+    expect(result.status).toBe('completed');
+    expect(result.updatedFields?.txid).toBe('txid-from-identifier');
+    expect(result.updatedFields?.amount).toBe('25.00');
+  });
+
   it('parses envelope with X-Webhook-Event style body', () => {
     const { eventType, payload } = parseCorpXWebhookEnvelope(
       { event: 'qrcode.paid', data: { txid: 't1', paidAmount: 10 } },
