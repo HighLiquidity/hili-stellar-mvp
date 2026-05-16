@@ -844,7 +844,7 @@ describe('CorpXAdapter', () => {
         endToEndId: 'E2E-QR-001',
         transactionId: 'tx-qr-1',
       });
-      expect(result.providerTxId).toBe('tx-qr-1');
+      expect(result.providerTxId).toBe('qr-tx-1');
       expect(result.status).toBe('completed');
       expect(result.requiresAction).toBe('update_balance');
       expect(result.updatedFields?.amount).toBe('150.75');

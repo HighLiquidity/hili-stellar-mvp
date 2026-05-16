@@ -7,7 +7,7 @@ import {
   getRequestClientIp,
   parseCorpXWebhookEnvelope,
 } from '@/lib/corpx/webhooks';
-import { onConfirmedPixInboundSettlement } from '@/lib/brh/on-pix-confirmed';
+import { settleInboundPixFromWebhook } from '@/lib/deposit/settle-inbound-pix';
 
 /**
  * CorpX → your app (IP allowlist + optional Supabase dedup).
@@ -50,11 +50,26 @@ export async function POST(request: Request) {
 
   const result = processor.processWebhookEvent(eventType, payload);
 
-  try {
-    await onConfirmedPixInboundSettlement({ dedupeKey, eventType, payload, result });
-  } catch (e) {
-    console.error('[corpx webhook] BRH settlement hook failed', e);
+  if (result.status === 'completed' && result.requiresAction === 'update_balance') {
+    try {
+      await settleInboundPixFromWebhook({ dedupeKey, eventType, payload, result });
+    } catch (e) {
+      console.error('[corpx webhook] inbound PIX settlement failed', e);
+    }
+  } else if (result.status === 'failed') {
+    console.warn('[corpx webhook] event not settled', {
+      eventType,
+      error: result.errorMessage,
+    });
   }
 
-  return NextResponse.json({ ok: true, result }, { status: 200 });
+  return NextResponse.json(
+    {
+      ok: true,
+      eventType,
+      settled: result.requiresAction === 'update_balance' && result.status === 'completed',
+      result,
+    },
+    { status: 200 },
+  );
 }

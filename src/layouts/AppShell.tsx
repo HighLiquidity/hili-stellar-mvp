@@ -11,6 +11,7 @@ import {
   ChevronRightIcon,
   DashboardIcon,
   DepositIcon,
+  EventLogIcon,
   KeyIcon,
   LogoutIcon,
   MenuIcon,
@@ -122,6 +123,20 @@ export function AppShell({ children }: { children: ReactNode }) {
     [t],
   );
 
+  const adminNavItems = useMemo<NavItem[]>(
+    () =>
+      profile?.role === 'admin'
+        ? [
+            {
+              to: '/app/event-logs',
+              label: t('nav.eventLogs'),
+              icon: <EventLogIcon width={18} height={18} />,
+            },
+          ]
+        : [],
+    [profile?.role, t],
+  );
+
   const pageTitle = useMemo(() => {
     if (pathname.startsWith('/app/change-password')) {
       return t('pages.changePassword.title');
@@ -129,10 +144,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (pathname.startsWith('/app/settings')) {
       return t('pages.settings.title');
     }
+    if (pathname.startsWith('/app/event-logs')) {
+      return t('pages.eventLogs.title');
+    }
 
-    const currentItem = navItems.find((item) => pathname.startsWith(item.to));
+    const currentItem = [...navItems, ...adminNavItems].find((item) => pathname.startsWith(item.to));
     return currentItem?.label ?? t('app.name');
-  }, [navItems, pathname, t]);
+  }, [adminNavItems, navItems, pathname, t]);
 
   const userDisplayName = profile?.full_name?.trim() || user?.email || t('shell.userFallback');
   const userInitials = getInitials(profile?.full_name ?? '', user?.email);
@@ -225,6 +243,24 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span className="nav-link__label">{item.label}</span>
               </Link>
             ))}
+
+            {adminNavItems.length > 0 ? (
+              <>
+                <div className="sidebar__nav-divider" aria-hidden="true" />
+                {adminNavItems.map((item) => (
+                  <Link
+                    key={item.to}
+                    href={item.to}
+                    onClick={handleNavigation}
+                    className={`nav-link nav-link--admin${navLinkIsActive(pathname, item.to) ? ' is-active' : ''}`}
+                    title={isSidebarCollapsed ? item.label : undefined}
+                  >
+                    <span className="nav-link__icon">{item.icon}</span>
+                    <span className="nav-link__label">{item.label}</span>
+                  </Link>
+                ))}
+              </>
+            ) : null}
           </nav>
         </div>
       </aside>

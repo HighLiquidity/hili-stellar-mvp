@@ -2,24 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { createClient } from '@supabase/supabase-js';
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return Boolean(v) && typeof v === 'object' && !Array.isArray(v);
-}
-
-function pickString(obj: Record<string, unknown>, ...keys: string[]): string | undefined {
-  for (const k of keys) {
-    const v = obj[k];
-    if (typeof v === 'string' && v.trim()) return v.trim();
-  }
-  return undefined;
-}
-
-/** Unwraps `payload.data` when the handler receives a nested envelope. */
-function unwrapPayloadRecord(payload: unknown): Record<string, unknown> {
-  const r = isRecord(payload) ? payload : {};
-  const inner = isRecord(r.data) ? r.data : null;
-  return inner ?? r;
-}
+import { pickString, unwrapWebhookPayload } from './payload-fields';
 
 /**
  * Stable idempotency key: prefers CorpX `Idempotency-Key` / `X-Webhook-ID`, then business ids, then body hash.
@@ -33,8 +16,10 @@ export function buildCorpXWebhookDedupeKey(
   const idem = headers.get('idempotency-key') ?? headers.get('x-webhook-id');
   if (idem?.trim()) return `corpx:hdr:${idem.trim()}`;
 
-  const data = unwrapPayloadRecord(payload);
-  const tx = pickString(data, 'transactionId', 'txid');
+  const data = unwrapWebhookPayload(payload);
+  const txid = pickString(data, 'txid', 'txId');
+  if (txid) return `corpx:${eventType}:txid:${txid}`;
+  const tx = pickString(data, 'transactionId', 'transaction_id');
   const e2e = pickString(data, 'endToEndId', 'end_to_end_id');
   if (tx) return `corpx:${eventType}:tx:${tx}`;
   if (e2e) return `corpx:${eventType}:e2e:${e2e}`;
@@ -47,14 +32,7 @@ export function buildCorpXWebhookDedupeKey(
  * Returns `true` if this delivery should be processed, `false` if it was already recorded.
  * If `SUPABASE_SERVICE_ROLE_KEY` is not set, always returns `true` (no persistence — dev only).
  *
- * Create table (Supabase SQL):
- *
- * ```sql
- * create table if not exists corpx_webhook_dedup (
- *   id text primary key,
- *   created_at timestamptz not null default now()
- * );
- * ```
+ * Table: `corpx_webhook_dedup` (see migration 20250516170000_deposit_charges_corpx_dedup.sql).
  */
 export async function claimCorpXWebhookDedupe(dedupeKey: string): Promise<boolean> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

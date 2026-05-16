@@ -5,9 +5,12 @@ import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { creditTestBrhBalanceAction } from '@/app/actions/brh-test-credit';
 import { Button } from '../components/ui/Button';
 import { InputField } from '../components/ui/InputField';
 import { useAuth } from '../hooks/useAuth';
+import { useBrhBalance } from '../hooks/useBrhBalance';
+import { formatBrhAmount } from '../lib/format/brh-display';
 import type { AdminTestSettingsRow } from '../lib/admin-test-settings/types';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '../integrations/supabase/client';
@@ -15,7 +18,7 @@ import { supabase } from '../integrations/supabase/client';
 const SETTINGS_TABLE = 'admin_test_settings';
 
 export function AdminSettingsPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const { profile, user, isLoading: authLoading, isAuthorized } = useAuth();
 
@@ -28,6 +31,10 @@ export function AdminSettingsPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCreditingBrh, setIsCreditingBrh] = useState(false);
+  const [brhCreditError, setBrhCreditError] = useState<string | null>(null);
+  const [brhCreditSuccess, setBrhCreditSuccess] = useState<string | null>(null);
+  const { balanceNumber, isLoading: isBrhBalanceLoading, refetch: refetchBrhBalance } = useBrhBalance();
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
@@ -82,6 +89,29 @@ export function AdminSettingsPage() {
       cancelled = true;
     };
   }, [authLoading, profile?.role]);
+
+  const handleCreditTestBrh = async () => {
+    setBrhCreditError(null);
+    setBrhCreditSuccess(null);
+    setIsCreditingBrh(true);
+    try {
+      const result = await creditTestBrhBalanceAction();
+      if (!result.ok) {
+        setBrhCreditError(result.message ?? result.code);
+        return;
+      }
+      setBrhCreditSuccess(
+        t('pages.settings.testBrhCreditSuccess')
+          .replace('{{amount}}', result.credited)
+          .replace('{{balance}}', result.balance),
+      );
+      void refetchBrhBalance();
+    } catch (e) {
+      setBrhCreditError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsCreditingBrh(false);
+    }
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -206,6 +236,38 @@ export function AdminSettingsPage() {
             {isSaving ? t('pages.settings.saving') : t('pages.settings.save')}
           </Button>
         </form>
+
+        <div className="admin-settings-test-tools">
+          <p className="eyebrow">{t('pages.settings.testToolsEyebrow')}</p>
+          <h3>{t('pages.settings.testBrhCreditTitle')}</h3>
+          <p className="surface__lead">{t('pages.settings.testBrhCreditLead')}</p>
+          <p className="admin-settings-test-tools__balance">
+            {t('pages.settings.testBrhCurrentBalance')}:{' '}
+            <strong>
+              {isBrhBalanceLoading
+                ? '…'
+                : `${formatBrhAmount(balanceNumber, locale === 'pt' ? 'pt-BR' : 'en-US')} BRH`}
+            </strong>
+          </p>
+          {brhCreditError ? (
+            <p className="auth-inline-error" role="alert">
+              {brhCreditError}
+            </p>
+          ) : null}
+          {brhCreditSuccess ? (
+            <p className="form-success-message" role="status">
+              {brhCreditSuccess}
+            </p>
+          ) : null}
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={isCreditingBrh || isLoading}
+            onClick={() => void handleCreditTestBrh()}
+          >
+            {isCreditingBrh ? t('pages.settings.testBrhCrediting') : t('pages.settings.testBrhCreditButton')}
+          </Button>
+        </div>
       </article>
     </section>
   );

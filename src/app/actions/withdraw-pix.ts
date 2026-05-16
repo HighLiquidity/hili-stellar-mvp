@@ -16,6 +16,8 @@ import { triggerBrhBurnRequest } from '@/lib/brh/burn';
 import { createCorpXAdapterFromEnv } from '@/lib/corpx/adapter';
 import { brlStringToJsonNumber } from '@/lib/corpx/pix/brl';
 import { formatDepositPixErrorMessage } from '@/lib/deposit/format-pix-error';
+import { logFiatWithdrawAttempt } from '@/lib/fiat-operations/log-withdraw';
+import type { FiatOperationActor } from '@/lib/fiat-operations/types';
 import { parsePixEmv } from '@/lib/pix/emv-parser';
 
 export type SubmitWithdrawPixResult =
@@ -83,125 +85,165 @@ function resolveAmountBrl(emvAmount: string | null, inputAmount: string): { ok: 
 export async function submitWithdrawPixAction(input: {
   paymentQrCode: string;
   withdrawAmount: string;
+  actor?: FiatOperationActor;
 }): Promise<SubmitWithdrawPixResult> {
-  const emv = input.paymentQrCode.trim();
-  if (!emv) {
-    return { ok: false, code: 'QR_REQUIRED' };
-  }
-
-  const parsedEmv = parsePixEmv(emv);
-  if (!parsedEmv.ok) {
-    return { ok: false, code: 'INVALID_QR', message: parsedEmv.error };
-  }
-
-  const amountResolved = resolveAmountBrl(parsedEmv.data.amountBrl, input.withdrawAmount);
-  if (!amountResolved.ok) {
-    return { ok: false, code: amountResolved.code };
-  }
-
-  const amountBrl = amountResolved.amount;
-
-  const maxWithdrawLoad = await loadMaxWithdrawBrl();
-  if (!maxWithdrawLoad.ok) {
-    return { ok: false, code: 'SETTINGS_UNAVAILABLE', message: maxWithdrawLoad.reason };
-  }
-
-  const maxWithdrawNum = parseMaxWithdrawBrl(maxWithdrawLoad.maxWithdrawBrl);
-  if (maxWithdrawNum === null) {
-    const message = `Limite de saque inválido nas configurações: "${maxWithdrawLoad.maxWithdrawBrl}"`;
-    return { ok: false, code: 'SETTINGS_UNAVAILABLE', message };
-  }
-
-  const amountNum = brlStringToJsonNumber(amountBrl);
-  if (isWithdrawAboveMax(amountNum, maxWithdrawNum)) {
-    return {
-      ok: false,
-      code: 'EXCEEDS_MAX_WITHDRAW',
-      maxWithdrawBrl: maxWithdrawNum.toFixed(2),
-    };
-  }
-
-  const brhBalance = await readBrhBalanceAdmin();
-  if (!hasSufficientBrhBalance(brhBalance, amountNum)) {
-    return {
-      ok: false,
-      code: 'INSUFFICIENT_BRH',
-      message: `Saldo BRH insuficiente. Disponível: ${brhBalance} BRH; solicitado: ${amountBrl} BRL.`,
-    };
-  }
-
-  const idempotencyKey = shortCorrelationId();
-  const burnResult = await triggerBrhBurnRequest({
-    amount: amountBrl,
-    idempotencyKey,
-    source: 'fiat_withdraw_pix',
-    emv,
-  });
-
-  if (!burnResult.ok && !burnResult.skipped) {
-    return { ok: false, code: 'BURN_FAILED', message: burnResult.message };
-  }
-
-  const burnSkipped = !burnResult.ok && burnResult.skipped;
-
-  let beneficiaryName = parsedEmv.data.merchantName;
+  let result: SubmitWithdrawPixResult | undefined;
+  let amountBrlForLog: string | null = null;
+  let beneficiaryNameForLog: string | null = null;
+  let brhBalanceBefore: string | null = null;
+  let idempotencyKeyForLog: string | null = null;
 
   try {
-    const adapter = await createCorpXAdapterFromEnv();
-
-    try {
-      const decoded = await adapter.pix.decodePaymentQrEmv(emv);
-      if (decoded.beneficiaryName) beneficiaryName = decoded.beneficiaryName;
-    } catch (e) {
-      console.warn('[submitWithdrawPixAction] CorpX QR decode failed, using local parse', e);
+    const emv = input.paymentQrCode.trim();
+    if (!emv) {
+      result = { ok: false, code: 'QR_REQUIRED' };
+      return result;
     }
 
-    const payout = await adapter.pix.payPaymentQrEmv({
-      emv,
+    const parsedEmv = parsePixEmv(emv);
+    if (!parsedEmv.ok) {
+      result = { ok: false, code: 'INVALID_QR', message: parsedEmv.error };
+      return result;
+    }
+
+    beneficiaryNameForLog = parsedEmv.data.merchantName;
+
+    const amountResolved = resolveAmountBrl(parsedEmv.data.amountBrl, input.withdrawAmount);
+    if (!amountResolved.ok) {
+      result = { ok: false, code: amountResolved.code };
+      return result;
+    }
+
+    const amountBrl = amountResolved.amount;
+    amountBrlForLog = amountBrl;
+
+    const maxWithdrawLoad = await loadMaxWithdrawBrl();
+    if (!maxWithdrawLoad.ok) {
+      result = { ok: false, code: 'SETTINGS_UNAVAILABLE', message: maxWithdrawLoad.reason };
+      return result;
+    }
+
+    const maxWithdrawNum = parseMaxWithdrawBrl(maxWithdrawLoad.maxWithdrawBrl);
+    if (maxWithdrawNum === null) {
+      const message = `Limite de saque inválido nas configurações: "${maxWithdrawLoad.maxWithdrawBrl}"`;
+      result = { ok: false, code: 'SETTINGS_UNAVAILABLE', message };
+      return result;
+    }
+
+    const amountNum = brlStringToJsonNumber(amountBrl);
+    if (isWithdrawAboveMax(amountNum, maxWithdrawNum)) {
+      result = {
+        ok: false,
+        code: 'EXCEEDS_MAX_WITHDRAW',
+        maxWithdrawBrl: maxWithdrawNum.toFixed(2),
+      };
+      return result;
+    }
+
+    brhBalanceBefore = await readBrhBalanceAdmin();
+    if (!hasSufficientBrhBalance(brhBalanceBefore, amountNum)) {
+      result = {
+        ok: false,
+        code: 'INSUFFICIENT_BRH',
+        message: `Saldo BRH insuficiente. Disponível: ${brhBalanceBefore} BRH; solicitado: ${amountBrl} BRL.`,
+      };
+      return result;
+    }
+
+    const idempotencyKey = shortCorrelationId();
+    idempotencyKeyForLog = idempotencyKey;
+
+    const burnResult = await triggerBrhBurnRequest({
       amount: amountBrl,
-      description: 'Fiat withdrawal',
       idempotencyKey,
-      correlationId: shortCorrelationId(),
+      source: 'fiat_withdraw_pix',
+      emv,
     });
 
-    const decremented = await decrementBrhBalance(amountBrl);
-    if (!decremented.ok) {
-      console.warn('[submitWithdrawPixAction] BRH balance decrement failed after CorpX payout');
+    if (!burnResult.ok && !burnResult.skipped) {
+      result = { ok: false, code: 'BURN_FAILED', message: burnResult.message };
+      return result;
     }
 
-    return {
-      ok: true,
-      stage: 'completed',
-      amountBrl,
-      beneficiaryName,
-      providerTxId: payout.providerTxId,
-      e2eId: payout.e2eId,
-      cashOutStatus: payout.status,
-      burnSkipped,
-    };
-  } catch (e) {
-    const corpMessage = formatDepositPixErrorMessage(e);
-    const missingCorpX =
-      /corpx adapter requires|CORPX_CLIENT_ID|CORPX_ACCOUNT_ID|CORPX_PIX_KEY/i.test(corpMessage);
+    const burnSkipped = !burnResult.ok && burnResult.skipped;
 
-    if (missingCorpX) {
-      return {
+    let beneficiaryName = parsedEmv.data.merchantName;
+
+    try {
+      const adapter = await createCorpXAdapterFromEnv();
+
+      try {
+        const decoded = await adapter.pix.decodePaymentQrEmv(emv);
+        if (decoded.beneficiaryName) beneficiaryName = decoded.beneficiaryName;
+      } catch (e) {
+        console.warn('[submitWithdrawPixAction] CorpX QR decode failed, using local parse', e);
+      }
+
+      beneficiaryNameForLog = beneficiaryName;
+
+      const payout = await adapter.pix.payPaymentQrEmv({
+        emv,
+        amount: amountBrl,
+        description: 'Fiat withdrawal',
+        idempotencyKey,
+        correlationId: shortCorrelationId(),
+      });
+
+      const decremented = await decrementBrhBalance(amountBrl);
+      if (!decremented.ok) {
+        console.warn('[submitWithdrawPixAction] BRH balance decrement failed after CorpX payout');
+      }
+
+      result = {
         ok: true,
-        stage: 'validated',
+        stage: 'completed',
         amountBrl,
         beneficiaryName,
+        providerTxId: payout.providerTxId,
+        e2eId: payout.e2eId,
+        cashOutStatus: payout.status,
         burnSkipped,
-        corpxSkipped: true,
-        message: [
-          burnSkipped ? 'Burn BRH: configure BRH_BURN_API_URL (smart contract pendente).' : null,
-          'Cash out CorpX: configure as variáveis CORPX_* para executar o PIX.',
-        ]
-          .filter(Boolean)
-          .join(' '),
       };
-    }
+      return result;
+    } catch (e) {
+      const corpMessage = formatDepositPixErrorMessage(e);
+      const missingCorpX =
+        /corpx adapter requires|CORPX_CLIENT_ID|CORPX_ACCOUNT_ID|CORPX_PIX_KEY/i.test(corpMessage);
 
-    console.error('[submitWithdrawPixAction]', corpMessage, e);
-    return { ok: false, code: 'UPSTREAM', message: corpMessage };
+      if (missingCorpX) {
+        result = {
+          ok: true,
+          stage: 'validated',
+          amountBrl,
+          beneficiaryName,
+          burnSkipped,
+          corpxSkipped: true,
+          message: [
+            burnSkipped ? 'Burn BRH: configure BRH_BURN_API_URL (smart contract pendente).' : null,
+            'Cash out CorpX: configure as variáveis CORPX_* para executar o PIX.',
+          ]
+            .filter(Boolean)
+            .join(' '),
+        };
+        return result;
+      }
+
+      console.error('[submitWithdrawPixAction]', corpMessage, e);
+      result = { ok: false, code: 'UPSTREAM', message: corpMessage };
+      return result;
+    }
+  } finally {
+    if (result) {
+      await logFiatWithdrawAttempt({
+        paymentQrCode: input.paymentQrCode,
+        amountInput: input.withdrawAmount,
+        amountBrl: amountBrlForLog,
+        beneficiaryName: beneficiaryNameForLog,
+        brhBalanceBefore,
+        actor: input.actor,
+        result,
+        idempotencyKey: idempotencyKeyForLog,
+      });
+    }
   }
 }

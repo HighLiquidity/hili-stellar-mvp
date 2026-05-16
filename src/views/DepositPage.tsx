@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 
 import { generateDepositPixAction, type GenerateDepositPixResult } from '@/app/actions/deposit-pix';
+import { useAuth } from '@/hooks/useAuth';
 import { useBrhBalance } from '@/hooks/useBrhBalance';
 import { formatBrhAmount, formatBrlApprox } from '@/lib/format/brh-display';
 import { Button } from '../components/ui/Button';
@@ -12,6 +13,7 @@ import { useI18n } from '@/lib/i18n';
 
 export function DepositPage() {
   const { t, locale } = useI18n();
+  const { user } = useAuth();
   const localeCode = locale === 'pt' ? 'pt-BR' : 'en-US';
   const { balanceNumber, isLoading: isBrhBalanceLoading } = useBrhBalance();
   const [taxId, setTaxId] = useState('');
@@ -62,6 +64,10 @@ export function DepositPage() {
       const result = await generateDepositPixAction({
         taxId,
         amount: depositAmount,
+        actor: {
+          email: user?.email ?? null,
+          userId: user?.id ?? null,
+        },
       });
 
       if (!result.ok) {

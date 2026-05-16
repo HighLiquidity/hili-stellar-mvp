@@ -3,8 +3,14 @@ import { CorpXInvalidRequestError } from '../errors';
 /** Maps documented / observed CorpX event names to the Go adapter names. */
 const EVENT_ALIASES: Record<string, string> = {
   'qrcode.paid': 'qr_code_paid',
+  'qrcode_paid': 'qr_code_paid',
+  'qr_code.paid': 'qr_code_paid',
+  'QRCode.Paid': 'qr_code_paid',
+  'pix.qrcode.paid': 'qr_code_paid',
   'pix.in.completed': 'pix_in_received',
   'pix_in.completed': 'pix_in_received',
+  'pix.in.received': 'pix_in_received',
+  'pix_in.received': 'pix_in_received',
   'pix.out.completed': 'pix_out_completed',
   'pix.out.failed': 'pix_out_failed',
 };
@@ -49,7 +55,8 @@ export function parseCorpXWebhookEnvelope(
     throw new CorpXInvalidRequestError('Webhook body must be a JSON object');
   }
 
-  const fromBody = json.event ?? json.type ?? json.eventType;
+  const fromBody =
+    json.event ?? json.type ?? json.eventType ?? json.name ?? json.event_name;
   const rawType = String(headerEventType ?? fromBody ?? '').trim();
   if (!rawType) {
     throw new CorpXInvalidRequestError('Missing webhook event type');

@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { submitWithdrawPixAction, type SubmitWithdrawPixResult } from '@/app/actions/withdraw-pix';
+import { useAuth } from '@/hooks/useAuth';
 import { useBrhBalance } from '@/hooks/useBrhBalance';
 import { formatBrhAmount, formatBrlApprox } from '@/lib/format/brh-display';
 import { parsePixEmv } from '@/lib/pix/emv-parser';
@@ -14,6 +15,7 @@ import { useI18n } from '@/lib/i18n';
 
 export function WithdrawPage() {
   const { t, locale } = useI18n();
+  const { user } = useAuth();
   const localeCode = locale === 'pt' ? 'pt-BR' : 'en-US';
   const { balanceNumber, isLoading: isBrhBalanceLoading, refetch } = useBrhBalance();
   const [paymentQrCode, setPaymentQrCode] = useState('');
@@ -117,6 +119,10 @@ export function WithdrawPage() {
       const result = await submitWithdrawPixAction({
         paymentQrCode,
         withdrawAmount,
+        actor: {
+          email: user?.email ?? null,
+          userId: user?.id ?? null,
+        },
       });
 
       if (!result.ok) {
