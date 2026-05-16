@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 
 import { useBrhBalance } from '@/hooks/useBrhBalance';
 import { formatBrhAmount, formatBrlApprox } from '@/lib/format/brh-display';
-import { useI18n } from '../lib/i18n';
+import { useI18n } from '@/lib/i18n';
 
 type TransactionDirection = 'deposit' | 'withdraw';
 type TransactionStatus = 'completed' | 'processing' | 'scheduled';

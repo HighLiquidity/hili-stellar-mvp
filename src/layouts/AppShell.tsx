@@ -4,7 +4,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
-import { useI18n } from '../lib/i18n';
+import { useI18n } from '@/lib/i18n';
 import {
   ChevronDownIcon,
   ChevronLeftIcon,

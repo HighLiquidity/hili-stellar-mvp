@@ -7,7 +7,7 @@ import { ThemeToggle } from '../components/ThemeToggle';
 import { Button } from '../components/ui/Button';
 import { InputField } from '../components/ui/InputField';
 import { getAuthErrorMessage, requestPasswordReset } from '../lib/authService';
-import { useI18n } from '../lib/i18n';
+import { useI18n } from '@/lib/i18n';
 
 export function ForgotPasswordPage() {
   const { t } = useI18n();

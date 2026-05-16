@@ -9,7 +9,7 @@ import { Button } from '../components/ui/Button';
 import { InputField } from '../components/ui/InputField';
 import { useAuth } from '../hooks/useAuth';
 import type { AdminTestSettingsRow } from '../lib/admin-test-settings/types';
-import { useI18n } from '../lib/i18n';
+import { useI18n } from '@/lib/i18n';
 import { supabase } from '../integrations/supabase/client';
 
 const SETTINGS_TABLE = 'admin_test_settings';

@@ -10,7 +10,7 @@ import { parsePixEmv } from '@/lib/pix/emv-parser';
 import { CameraIcon } from '../components/Icons';
 import { Button } from '../components/ui/Button';
 import { InputField } from '../components/ui/InputField';
-import { useI18n } from '../lib/i18n';
+import { useI18n } from '@/lib/i18n';
 
 export function WithdrawPage() {
   const { t, locale } = useI18n();
@@ -136,10 +136,20 @@ export function WithdrawPage() {
   return (
     <section className="withdraw-layout">
       <article className="surface withdraw-form-card">
-        <div>
-          <p className="eyebrow">{t('pages.withdraw.eyebrow')}</p>
-          <h2>{t('pages.withdraw.title')}</h2>
-          <p className="surface__lead">{t('pages.withdraw.description')}</p>
+        <div className="deposit-form-card__header">
+          <div>
+            <p className="eyebrow">{t('pages.withdraw.eyebrow')}</p>
+            <h2>{t('pages.withdraw.title')}</h2>
+          </div>
+
+          <aside className="brh-balance-card" aria-label={t('pages.withdraw.brhBalance')}>
+            <span className="brh-balance-card__label">{t('pages.withdraw.brhBalance')}</span>
+            <strong>
+              {isBrhBalanceLoading
+                ? '…'
+                : `${formatBrhAmount(balanceNumber, localeCode)} BRH`}
+            </strong>
+          </aside>
         </div>
 
         {errorMessage ? (
@@ -156,16 +166,6 @@ export function WithdrawPage() {
 
         <form className="withdraw-form" onSubmit={handleSubmit}>
           <div className="withdraw-form__fields">
-            <aside className="brh-balance-card" aria-label={t('pages.withdraw.brhBalance')}>
-              <span className="brh-balance-card__label">{t('pages.withdraw.brhBalance')}</span>
-              <strong>
-                {isBrhBalanceLoading
-                  ? '…'
-                  : `${formatBrhAmount(balanceNumber, localeCode)} BRH`}
-              </strong>
-              <span className="brh-balance-card__hint">{t('pages.withdraw.brhBalanceHint')}</span>
-            </aside>
-
             <div className="withdraw-qr-row">
               <InputField
                 id="payment-qr-code"

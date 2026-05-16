@@ -13,7 +13,7 @@ import {
   setPasswordAfterRecovery,
   signOutUser,
 } from '../lib/authService';
-import { useI18n } from '../lib/i18n';
+import { useI18n } from '@/lib/i18n';
 
 type RecoveryPhase = 'loading' | 'ready' | 'invalid';
 

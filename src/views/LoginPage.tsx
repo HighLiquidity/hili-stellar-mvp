@@ -9,7 +9,7 @@ import { Button } from '../components/ui/Button';
 import { InputField } from '../components/ui/InputField';
 import { useAuth } from '../hooks/useAuth';
 import { getAuthErrorMessage, signInUser } from '../lib/authService';
-import { useI18n } from '../lib/i18n';
+import { useI18n } from '@/lib/i18n';
 
 export function LoginPage() {
   const searchParams = useSearchParams();

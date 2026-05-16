@@ -91,7 +91,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
       userMenu: 'Menu do usuário',
       userFallback: 'Usuário',
       changePassword: 'Alterar senha',
-      adminSettings: 'Configurações (testes)',
+      adminSettings: 'Configurações',
     },
     pages: {
       dashboard: {
@@ -310,7 +310,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
       userMenu: 'User menu',
       userFallback: 'User',
       changePassword: 'Change password',
-      adminSettings: 'Settings (tests)',
+      adminSettings: 'Settings',
     },
     pages: {
       dashboard: {

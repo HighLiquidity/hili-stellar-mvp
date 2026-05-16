@@ -8,7 +8,7 @@ import { useBrhBalance } from '@/hooks/useBrhBalance';
 import { formatBrhAmount, formatBrlApprox } from '@/lib/format/brh-display';
 import { Button } from '../components/ui/Button';
 import { InputField } from '../components/ui/InputField';
-import { useI18n } from '../lib/i18n';
+import { useI18n } from '@/lib/i18n';
 
 export function DepositPage() {
   const { t, locale } = useI18n();
@@ -97,7 +97,6 @@ export function DepositPage() {
           <div>
             <p className="eyebrow">{t('pages.deposit.eyebrow')}</p>
             <h2>{t('pages.deposit.title')}</h2>
-            <p className="surface__lead">{t('pages.deposit.description')}</p>
           </div>
 
           <aside className="brh-balance-card" aria-label={t('pages.deposit.brhBalance')}>

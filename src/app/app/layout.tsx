@@ -1,8 +1,8 @@
 'use client';
 
-import { AppShell } from '@/layouts/AppShell';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { useAuth } from '@/hooks/useAuth';
+import { AppShell } from '@/layouts/AppShell';
 import { useRouter } from 'next/navigation';
 import { useEffect, type PropsWithChildren } from 'react';
 

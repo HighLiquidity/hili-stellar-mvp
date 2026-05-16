@@ -1,5 +1,5 @@
 import { GlobeIcon } from './Icons';
-import { useI18n } from '../lib/i18n';
+import { useI18n } from '@/lib/i18n';
 
 export function LanguageToggle() {
   const { locale, setLocale, t } = useI18n();
