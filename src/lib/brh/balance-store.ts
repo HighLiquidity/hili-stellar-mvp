@@ -25,6 +25,42 @@ export async function incrementBrhBalanceFromPix(amount: string): Promise<{ ok: 
   return { ok: true, balance };
 }
 
+export function parseBrhBalance(balance: string): number {
+  const n = Number(balance.trim());
+  return Number.isFinite(n) ? n : 0;
+}
+
+export function hasSufficientBrhBalance(balance: string, amountBrl: number): boolean {
+  return parseBrhBalance(balance) >= amountBrl;
+}
+
+/** Decrements singleton BRH balance after a successful withdraw (1 BRH ≈ 1 BRL in MVP). */
+export async function decrementBrhBalance(amountBrl: string): Promise<{ ok: true; balance: string } | { ok: false }> {
+  const trimmed = amountBrl.trim();
+  if (!trimmed) return { ok: false };
+
+  const admin = createSupabaseAdmin();
+  if (!admin) {
+    console.warn('[brh/balance] SUPABASE_SERVICE_ROLE_KEY missing — skip balance decrement');
+    return { ok: false };
+  }
+
+  const delta = trimmed.startsWith('-') ? trimmed : `-${trimmed}`;
+  const { data, error } = await admin.rpc('increment_brh_balance', { delta });
+  if (error) {
+    console.error('[brh/balance] decrement via increment_brh_balance failed', error);
+    return { ok: false };
+  }
+
+  const balance = typeof data === 'string' ? data : null;
+  if (balance == null) {
+    console.error('[brh/balance] unexpected RPC return after decrement', data);
+    return { ok: false };
+  }
+
+  return { ok: true, balance };
+}
+
 export async function readBrhBalanceAdmin(): Promise<string> {
   const admin = createSupabaseAdmin();
   if (!admin) return '0';

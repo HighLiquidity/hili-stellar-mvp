@@ -61,6 +61,22 @@ export type PIXCashOutResponse = {
   fee: string;
 };
 
+export type DecodedPaymentQr = {
+  amountBrl: string | null;
+  pixKey: string | null;
+  beneficiaryName: string | null;
+  allowChange: boolean;
+};
+
+export type PayPaymentQrRequest = {
+  emv: string;
+  /** Required when the EMV has no fixed amount (static QR). */
+  amount?: string;
+  description?: string;
+  idempotencyKey: string;
+  correlationId?: string;
+};
+
 /**
  * Domain transfer — CorpX only exposes PIX out; {@link CorpXPixAdapter.initiateTransfer} delegates to cash out.
  * Matches Go `TransferRequest`: `CreditAccountID` is the destination PIX key (EVP in the Go wiring).

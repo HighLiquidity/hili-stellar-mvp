@@ -13,7 +13,9 @@ import {
 import { brlStringToJsonNumber } from './brl';
 import type {
   CashOutTransactionStatus,
+  DecodedPaymentQr,
   DynamicPIXRequest,
+  PayPaymentQrRequest,
   PIXCashOutRequest,
   PIXCashOutResponse,
   PIXResponse,
@@ -420,6 +422,105 @@ export class CorpXPixAdapter {
     };
   }
 
+
+  async decodePaymentQrEmv(emv: string, signal?: AbortSignal): Promise<DecodedPaymentQr> {
+    const path = `/v1/accounts/${this.accountId}/pix/out/qr-code/decode`;
+
+    let response: Response;
+    try {
+      response = await this.client.post(path, { emv: emv.trim() }, signal);
+    } catch (e) {
+      if (e instanceof CorpXError) throw e;
+      const err = e instanceof Error ? e : new Error(String(e));
+      throw new CorpXProviderUnavailableError(`corpx: ${err.message}`);
+    }
+
+    const raw = await readBodyOrThrow(response, 'PIX QR decode');
+
+    if (response.status !== 200 && response.status !== 201) {
+      throwStatusError('corpx: PIX QR decode', response.status, raw);
+    }
+
+    let parsed: {
+      amount?: number | string;
+      key?: string;
+      beneficiaryName?: string;
+      allowChange?: boolean;
+    };
+    try {
+      parsed = JSON.parse(raw) as typeof parsed;
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      throw new CorpXError(`Failed to parse PIX QR decode response: ${err.message}`, undefined, response.status);
+    }
+
+    let amountBrl: string | null = null;
+    if (parsed.amount != null) {
+      try {
+        amountBrl = amountToString(parsed.amount, 'decoded QR amount');
+      } catch {
+        amountBrl = null;
+      }
+    }
+
+    return {
+      amountBrl,
+      pixKey: typeof parsed.key === 'string' && parsed.key.trim() ? parsed.key.trim() : null,
+      beneficiaryName:
+        typeof parsed.beneficiaryName === 'string' && parsed.beneficiaryName.trim()
+          ? parsed.beneficiaryName.trim()
+          : null,
+      allowChange: Boolean(parsed.allowChange),
+    };
+  }
+
+  async payPaymentQrEmv(req: PayPaymentQrRequest, signal?: AbortSignal): Promise<PIXCashOutResponse> {
+    const path = `/v1/accounts/${this.accountId}/pix/out/qr-code`;
+
+    const body: Record<string, unknown> = {
+      accountId: this.accountId,
+      emv: req.emv.trim(),
+      ...(req.description ? { description: req.description } : {}),
+      ...(req.correlationId ? { identifier: req.correlationId } : {}),
+    };
+
+    if (req.amount?.trim()) {
+      body.amount = brlStringToJsonNumber(req.amount.trim());
+    }
+
+    let response: Response;
+    try {
+      response = await this.client.postIdempotentJSON(path, body, req.idempotencyKey, signal);
+    } catch (e) {
+      if (e instanceof CorpXError) throw e;
+      const err = e instanceof Error ? e : new Error(String(e));
+      throw new CorpXProviderUnavailableError(`corpx: ${err.message}`);
+    }
+
+    const raw = await readBodyOrThrow(response, 'PIX QR payment');
+
+    if (response.status !== 200 && response.status !== 201 && response.status !== 202) {
+      throwPIXCashOutError(response.status, raw);
+    }
+
+    let parsed: CashOutApiResponse;
+    try {
+      parsed = JSON.parse(raw) as CashOutApiResponse;
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      throw new CorpXError(`Failed to parse PIX QR payment response: ${err.message}`, undefined, response.status);
+    }
+
+    const amountStr = amountToString(parsed.amount, 'PIX QR payment amount');
+
+    return {
+      providerTxId: parsed.transactionId ?? '',
+      e2eId: parsed.endToEndId ?? '',
+      status: mapCorpXCashOutSubmitStatus(parsed.status),
+      amount: amountStr,
+      fee: '0',
+    };
+  }
 
   private handlePIXQrError(statusCode: number, body: string): never {
     if (statusCode === 409) {

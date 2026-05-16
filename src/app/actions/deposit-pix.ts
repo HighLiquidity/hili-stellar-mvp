@@ -4,8 +4,13 @@ import { randomUUID } from 'node:crypto';
 
 import QRCode from 'qrcode';
 
+import {
+  isDepositAboveMax,
+  loadMaxDepositBrl,
+  parseMaxDepositBrl,
+} from '@/lib/admin-test-settings/deposit-limits';
 import { createCorpXAdapterFromEnv } from '@/lib/corpx/adapter';
-import { CorpXError } from '@/lib/corpx/errors';
+import { formatDepositPixErrorMessage } from '@/lib/deposit/format-pix-error';
 import { brlStringToJsonNumber } from '@/lib/corpx/pix/brl';
 
 export type GenerateDepositPixResult =
@@ -18,7 +23,14 @@ export type GenerateDepositPixResult =
     }
   | {
       ok: false;
-      code: 'TAX_ID_REQUIRED' | 'INVALID_AMOUNT' | 'AMOUNT_NOT_POSITIVE' | 'UPSTREAM';
+      code:
+        | 'TAX_ID_REQUIRED'
+        | 'INVALID_AMOUNT'
+        | 'AMOUNT_NOT_POSITIVE'
+        | 'EXCEEDS_MAX_DEPOSIT'
+        | 'SETTINGS_UNAVAILABLE'
+        | 'UPSTREAM';
+      maxDepositBrl?: string;
       message?: string;
     };
 
@@ -43,6 +55,26 @@ export async function generateDepositPixAction(input: {
 
   if (amountNum <= 0) {
     return { ok: false, code: 'AMOUNT_NOT_POSITIVE' };
+  }
+
+  const maxDepositLoad = await loadMaxDepositBrl();
+  if (!maxDepositLoad.ok) {
+    return { ok: false, code: 'SETTINGS_UNAVAILABLE', message: maxDepositLoad.reason };
+  }
+
+  const maxDepositNum = parseMaxDepositBrl(maxDepositLoad.maxDepositBrl);
+  if (maxDepositNum === null) {
+    const message = `Limite de depósito inválido nas configurações: "${maxDepositLoad.maxDepositBrl}"`;
+    console.error('[generateDepositPixAction]', message);
+    return { ok: false, code: 'SETTINGS_UNAVAILABLE', message };
+  }
+
+  if (isDepositAboveMax(amountNum, maxDepositNum)) {
+    return {
+      ok: false,
+      code: 'EXCEEDS_MAX_DEPOSIT',
+      maxDepositBrl: maxDepositNum.toFixed(2),
+    };
   }
 
   const amount = amountNum.toFixed(2);
@@ -71,12 +103,7 @@ export async function generateDepositPixAction(input: {
       expiresAt: pix.expiresAt,
     };
   } catch (e) {
-    const message =
-      e instanceof CorpXError
-        ? e.message
-        : e instanceof Error
-          ? e.message
-          : String(e);
+    const message = formatDepositPixErrorMessage(e);
     console.error('[generateDepositPixAction]', message, e);
     return { ok: false, code: 'UPSTREAM', message };
   }

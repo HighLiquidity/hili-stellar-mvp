@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { useI18n } from '../lib/i18n';
-import { Button } from '../components/ui/Button';
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -15,6 +14,7 @@ import {
   KeyIcon,
   LogoutIcon,
   MenuIcon,
+  SettingsIcon,
   StatementIcon,
   WithdrawIcon,
 } from '../components/Icons';
@@ -126,6 +126,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (pathname.startsWith('/app/change-password')) {
       return t('pages.changePassword.title');
     }
+    if (pathname.startsWith('/app/settings')) {
+      return t('pages.settings.title');
+    }
 
     const currentItem = navItems.find((item) => pathname.startsWith(item.to));
     return currentItem?.label ?? t('app.name');
@@ -224,13 +227,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
         </div>
-
-        <div className="sidebar__footer">
-          <Button variant="secondary" className="sidebar__logout" onClick={handleLogout}>
-            <LogoutIcon width={18} height={18} />
-            <span>{t('nav.logout')}</span>
-          </Button>
-        </div>
       </aside>
 
       <div className="shell__content">
@@ -289,6 +285,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <KeyIcon width={16} height={16} />
                     <span>{t('shell.changePassword')}</span>
                   </button>
+
+                  {profile?.role === 'admin' ? (
+                    <Link
+                      href="/app/settings"
+                      className="user-menu__item"
+                      role="menuitem"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      <SettingsIcon width={16} height={16} />
+                      <span>{t('shell.adminSettings')}</span>
+                    </Link>
+                  ) : null}
 
                   <button
                     type="button"

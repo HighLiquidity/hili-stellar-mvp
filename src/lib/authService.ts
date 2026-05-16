@@ -21,14 +21,28 @@ interface ChangePasswordInput {
 
 export function getAuthErrorMessage(error: unknown) {
   if (error instanceof AuthApiError) {
-    return error.message;
+    const msg = error.message.trim();
+    if (error.status === 400 && /invalid login credentials/i.test(msg)) {
+      return 'E-mail ou senha incorretos.';
+    }
+    if (/email not confirmed/i.test(msg)) {
+      return 'Confirme seu e-mail antes de entrar (verifique a caixa de entrada ou desative a confirmação no Supabase Auth).';
+    }
+    if (/invalid api key/i.test(msg)) {
+      return 'Chave anon do Supabase inválida. Confira NEXT_PUBLIC_SUPABASE_ANON_KEY no .env.local (Project Settings → API).';
+    }
+    return msg;
   }
 
   if (error instanceof Error) {
-    return error.message;
+    const msg = error.message.trim();
+    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+      return 'Não foi possível conectar ao Supabase. Verifique NEXT_PUBLIC_SUPABASE_URL, se o projeto não está pausado e sua conexão com a internet.';
+    }
+    return msg || error.name;
   }
 
-  return 'Unexpected authentication error.';
+  return 'Erro inesperado ao autenticar.';
 }
 
 export async function signInUser({ email, password }: SignInInput) {

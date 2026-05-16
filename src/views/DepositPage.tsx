@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 
 import { generateDepositPixAction, type GenerateDepositPixResult } from '@/app/actions/deposit-pix';
 import { useBrhBalance } from '@/hooks/useBrhBalance';
-import { formatBrhAmount } from '@/lib/format/brh-display';
+import { formatBrhAmount, formatBrlApprox } from '@/lib/format/brh-display';
 import { Button } from '../components/ui/Button';
 import { InputField } from '../components/ui/InputField';
 import { useI18n } from '../lib/i18n';
@@ -30,6 +30,8 @@ export function DepositPage() {
   }, [pixCopyPaste]);
 
   function resolveActionError(result: Extract<GenerateDepositPixResult, { ok: false }>): string {
+    const detail = result.message?.trim();
+
     switch (result.code) {
       case 'TAX_ID_REQUIRED':
         return t('pages.deposit.errors.taxIdRequired');
@@ -37,10 +39,15 @@ export function DepositPage() {
         return t('pages.deposit.errors.invalidAmount');
       case 'AMOUNT_NOT_POSITIVE':
         return t('pages.deposit.errors.amountNotPositive');
-      case 'UPSTREAM':
-        return t('pages.deposit.errors.upstream');
+      case 'EXCEEDS_MAX_DEPOSIT': {
+        const maxNum = Number(result.maxDepositBrl);
+        const limitLabel = Number.isFinite(maxNum)
+          ? formatBrlApprox(maxNum, localeCode)
+          : (result.maxDepositBrl ?? '');
+        return t('pages.deposit.errors.exceedsMaxDeposit').replace('{{limit}}', limitLabel);
+      }
       default:
-        return t('pages.deposit.errors.upstream');
+        return detail || t('pages.deposit.errors.fallback');
     }
   }
 
@@ -64,6 +71,8 @@ export function DepositPage() {
 
       setQrDataUrl(result.qrDataUrl);
       setPixCopyPaste(result.pixCopyPaste);
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : String(e));
     } finally {
       setIsLoading(false);
     }
