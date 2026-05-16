@@ -1,6 +1,9 @@
 'use client';
 
 import { useMemo } from 'react';
+
+import { useBrhBalance } from '@/hooks/useBrhBalance';
+import { formatBrhAmount, formatBrlApprox } from '@/lib/format/brh-display';
 import { useI18n } from '../lib/i18n';
 
 type TransactionDirection = 'deposit' | 'withdraw';
@@ -50,13 +53,6 @@ const recentTransactions: TransactionItem[] = [
   },
 ];
 
-function formatBRH(value: number, locale: string) {
-  return new Intl.NumberFormat(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
 function formatCurrency(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
     style: 'currency',
@@ -77,15 +73,16 @@ function formatDate(value: string, locale: string) {
 export function DashboardPage() {
   const { locale, t } = useI18n();
   const localeCode = locale === 'pt' ? 'pt-BR' : 'en-US';
+  const { balanceNumber, isLoading: isBrhBalanceLoading } = useBrhBalance();
 
   const summary = useMemo(
     () => ({
-      availableBalance: 108430.45,
+      availableBalance: balanceNumber,
       incomingVolume: 131400,
       outgoingVolume: 27450,
       transactionCount: recentTransactions.length,
     }),
-    [],
+    [balanceNumber],
   );
 
   return (
@@ -100,11 +97,14 @@ export function DashboardPage() {
         <div className="dashboard-hero__balance">
           <span className="dashboard-hero__label">{t('pages.dashboard.brhBalance')}</span>
           <strong className="dashboard-hero__brh-amount">
-            {formatBRH(summary.availableBalance, localeCode)}
+            {isBrhBalanceLoading
+              ? '…'
+              : formatBrhAmount(summary.availableBalance, localeCode)}
             <span className="dashboard-hero__brh-ticker">BRH</span>
           </strong>
           <p className="dashboard-hero__brh-equiv">
-            ≈ {formatCurrency(summary.availableBalance, localeCode)}
+            ≈{' '}
+            {isBrhBalanceLoading ? '…' : formatBrlApprox(summary.availableBalance, localeCode)}
           </p>
           <p className="dashboard-hero__hint">{t('pages.dashboard.brhBalanceHint')}</p>
         </div>
@@ -114,11 +114,12 @@ export function DashboardPage() {
         <article className="surface dashboard-summary-card">
           <span className="dashboard-summary-card__label">{t('pages.dashboard.brhBalance')}</span>
           <strong className="dashboard-summary-card__brh">
-            {formatBRH(summary.availableBalance, localeCode)}
+            {isBrhBalanceLoading ? '…' : formatBrhAmount(summary.availableBalance, localeCode)}
             <span className="dashboard-summary-card__brh-ticker">BRH</span>
           </strong>
           <span className="dashboard-summary-card__brh-equiv">
-            ≈ {formatCurrency(summary.availableBalance, localeCode)}
+            ≈{' '}
+            {isBrhBalanceLoading ? '…' : formatBrlApprox(summary.availableBalance, localeCode)}
           </span>
         </article>
 
@@ -126,7 +127,7 @@ export function DashboardPage() {
           <span className="dashboard-summary-card__label">{t('pages.dashboard.incomingVolume')}</span>
           <strong>{formatCurrency(summary.incomingVolume, localeCode)}</strong>
           <span className="dashboard-summary-card__brh-equiv">
-            ≈ {formatBRH(summary.incomingVolume, localeCode)} BRH
+            ≈ {formatBrhAmount(summary.incomingVolume, localeCode)} BRH
           </span>
         </article>
 
@@ -134,7 +135,7 @@ export function DashboardPage() {
           <span className="dashboard-summary-card__label">{t('pages.dashboard.outgoingVolume')}</span>
           <strong>{formatCurrency(summary.outgoingVolume, localeCode)}</strong>
           <span className="dashboard-summary-card__brh-equiv">
-            ≈ {formatBRH(summary.outgoingVolume, localeCode)} BRH
+            ≈ {formatBrhAmount(summary.outgoingVolume, localeCode)} BRH
           </span>
         </article>
 
@@ -177,7 +178,7 @@ export function DashboardPage() {
                   </strong>
                   <span className="transaction-item__amount-equivalent">
                     ≈ {amountPrefix}
-                    {formatBRH(transaction.amount, localeCode)} BRH
+                    {formatBrhAmount(transaction.amount, localeCode)} BRH
                   </span>
                   <span>{formatDate(transaction.createdAt, localeCode)}</span>
                 </div>

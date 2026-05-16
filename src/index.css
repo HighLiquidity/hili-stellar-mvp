@@ -81,7 +81,10 @@ button:disabled {
   outline-offset: 2px;
 }
 
-.loading-screen,
+.loading-screen {
+  min-height: 100vh;
+}
+
 .auth-page {
   min-height: 100vh;
 }
@@ -124,6 +127,189 @@ button:disabled {
   justify-items: center;
   gap: 20px;
   padding: 20px;
+}
+
+/* Login: split 30% form / 70% hero, contrasting panels */
+.auth-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 7fr);
+  min-height: 100vh;
+  margin: 0;
+}
+
+.auth-layout__narrow {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-width: 0;
+  padding: clamp(1.25rem, 3vw, 2rem) clamp(1.25rem, 4vw, 2.25rem);
+  background: var(--surface);
+  color: var(--text);
+  border-right: 1px solid color-mix(in srgb, var(--border) 65%, var(--text) 8%);
+  box-shadow: 8px 0 40px color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.auth-layout__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  margin-bottom: clamp(1.5rem, 4vh, 2.5rem);
+}
+
+.auth-layout__brand {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.auth-layout__toggles {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.auth-layout__narrow .icon-button,
+.auth-layout__narrow .language-toggle {
+  background: color-mix(in srgb, var(--surface-muted) 75%, var(--surface));
+  border-color: var(--border);
+}
+
+.auth-layout__narrow .icon-button:hover,
+.auth-layout__narrow .language-toggle:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.auth-layout__form-region {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-bottom: clamp(1rem, 3vh, 2rem);
+}
+
+.auth-panel {
+  display: grid;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 20rem;
+}
+
+.auth-panel__intro {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.auth-panel__title {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.2vw, 1.65rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.auth-panel__subtitle {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.auth-panel__subtitle--muted {
+  color: var(--text-muted);
+}
+
+.auth-panel__footer {
+  margin: 0;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.auth-text-link {
+  color: var(--accent-strong);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-strong) 35%, transparent);
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+.auth-text-link:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.auth-layout__brand--link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.auth-layout__brand--link:hover {
+  color: var(--text);
+}
+
+.auth-layout__wide {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
+  min-width: 0;
+  padding: clamp(2rem, 6vw, 4.5rem);
+  background:
+    radial-gradient(ellipse 88% 70% at 12% 8%, color-mix(in srgb, var(--accent) 28%, transparent), transparent 52%),
+    radial-gradient(ellipse 65% 58% at 94% 92%, color-mix(in srgb, var(--accent-strong) 22%, transparent), transparent 46%),
+    linear-gradient(168deg, var(--surface-strong) 0%, color-mix(in srgb, var(--accent-soft) 35%, var(--surface-muted)) 100%);
+  color: var(--text);
+  position: relative;
+}
+
+:root[data-theme='dark'] .auth-layout__wide {
+  background:
+    radial-gradient(ellipse 82% 62% at 10% 8%, color-mix(in srgb, var(--accent) 32%, transparent), transparent 50%),
+    radial-gradient(ellipse 58% 52% at 92% 90%, color-mix(in srgb, var(--accent-strong) 18%, transparent), transparent 44%),
+    linear-gradient(168deg, var(--bg) 0%, color-mix(in srgb, var(--surface) 18%, var(--bg)) 100%);
+}
+
+:root[data-theme='dark'] .auth-layout__narrow {
+  border-right-color: color-mix(in srgb, var(--border) 55%, var(--text) 14%);
+  box-shadow: 8px 0 48px color-mix(in srgb, #000 28%, transparent);
+}
+
+@media (max-width: 767px) {
+  .auth-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-layout__narrow {
+    min-height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    box-shadow: none;
+    order: 1;
+  }
+
+  .auth-layout__toolbar {
+    margin-bottom: 1.25rem;
+  }
+
+  .auth-layout__form-region {
+    justify-content: flex-start;
+    padding-bottom: 1.5rem;
+  }
+
+  .auth-panel {
+    max-width: none;
+  }
+
+  .auth-layout__wide {
+    min-height: auto;
+    padding: clamp(1.75rem, 5vw, 2.5rem) clamp(1.25rem, 4vw, 2rem);
+    order: 2;
+    flex-grow: 1;
+  }
 }
 
 .auth-card {
@@ -397,15 +583,29 @@ button:disabled {
   bottom: 0;
   z-index: 30;
   width: 284px;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 0;
   padding: 20px;
+  box-sizing: border-box;
   background: var(--surface);
   border-right: 1px solid var(--border);
   box-shadow: var(--shadow-lg);
   transform: translateX(-102%);
   transition: transform 220ms ease, width 220ms ease, padding 220ms ease, background-color 220ms ease;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  overscroll-behavior: contain;
+}
+
+.sidebar__main {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .sidebar.is-open {
@@ -416,6 +616,7 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 14px;
+  flex: 0 0 auto;
 }
 
 .brand-mark {
@@ -501,6 +702,8 @@ button:disabled {
 .sidebar__footer {
   display: grid;
   gap: 14px;
+  flex: 0 0 auto;
+  margin-top: auto;
 }
 
 .shell__content {
@@ -837,6 +1040,32 @@ button:disabled {
 
 .deposit-form__button {
   justify-self: start;
+}
+
+.deposit-form__alert {
+  margin: 0 0 4px;
+}
+
+.deposit-qr-placeholder--filled {
+  border-style: solid;
+  background: var(--surface);
+  padding: 12px;
+}
+
+.deposit-qr-image {
+  display: block;
+  max-width: 100%;
+  width: 280px;
+  height: auto;
+}
+
+.deposit-copy-placeholder--filled {
+  border-style: solid;
+  background: var(--surface);
+}
+
+.deposit-copy-code--muted {
+  color: var(--text-muted);
 }
 
 .deposit-qr-placeholder,

@@ -83,6 +83,41 @@ export async function signOutUser() {
   }
 }
 
+export function getPasswordResetRedirectUrl() {
+  const origin =
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : (process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? '');
+
+  return origin ? `${origin}/reset-password` : '';
+}
+
+export async function requestPasswordReset(email: string) {
+  const redirectTo = getPasswordResetRedirectUrl();
+
+  if (!redirectTo) {
+    throw new Error(
+      'Missing app URL for password reset. Set NEXT_PUBLIC_SITE_URL when not running in the browser.',
+    );
+  }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function setPasswordAfterRecovery(newPassword: string) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function getAuthorizedAccessProfile(email: string) {
   const normalizedEmail = email.trim().toLowerCase();
 

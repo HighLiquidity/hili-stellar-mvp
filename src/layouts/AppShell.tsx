@@ -183,45 +183,47 @@ export function AppShell({ children }: { children: ReactNode }) {
           isSidebarCollapsed ? ' is-collapsed' : ''
         }`}
       >
-        <div className="sidebar__brand">
-          <button
-            type="button"
-            className="brand-mark brand-mark--toggle"
-            onClick={handleMenuToggle}
-            aria-label={sidebarStateLabel}
-            aria-controls="app-sidebar"
-            aria-expanded={isDesktop ? !isSidebarCollapsed : isSidebarOpen}
-          >
-            {isDesktop ? (
-              isSidebarCollapsed ? (
-                <ChevronRightIcon width={22} height={22} aria-hidden="true" />
+        <div className="sidebar__main">
+          <div className="sidebar__brand">
+            <button
+              type="button"
+              className="brand-mark brand-mark--toggle"
+              onClick={handleMenuToggle}
+              aria-label={sidebarStateLabel}
+              aria-controls="app-sidebar"
+              aria-expanded={isDesktop ? !isSidebarCollapsed : isSidebarOpen}
+            >
+              {isDesktop ? (
+                isSidebarCollapsed ? (
+                  <ChevronRightIcon width={22} height={22} aria-hidden="true" />
+                ) : (
+                  <ChevronLeftIcon width={22} height={22} aria-hidden="true" />
+                )
               ) : (
                 <ChevronLeftIcon width={22} height={22} aria-hidden="true" />
-              )
-            ) : (
-              <ChevronLeftIcon width={22} height={22} aria-hidden="true" />
-            )}
-          </button>
-          <div className="brand-copy">
-            <strong>Hi-Li :: Stellar MVP</strong>
-            <span>{t('app.demoBadge')}</span>
+              )}
+            </button>
+            <div className="brand-copy">
+              <strong>Hi-Li :: Stellar MVP</strong>
+              <span>{t('app.demoBadge')}</span>
+            </div>
           </div>
-        </div>
 
-        <nav className="sidebar__nav" aria-label={t('shell.menu')}>
-          {navItems.map((item) => (
-            <Link
-              key={item.to}
-              href={item.to}
-              onClick={handleNavigation}
-              className={`nav-link${navLinkIsActive(pathname, item.to) ? ' is-active' : ''}`}
-              title={isSidebarCollapsed ? item.label : undefined}
-            >
-              <span className="nav-link__icon">{item.icon}</span>
-              <span className="nav-link__label">{item.label}</span>
-            </Link>
-          ))}
-        </nav>
+          <nav className="sidebar__nav" aria-label={t('shell.menu')}>
+            {navItems.map((item) => (
+              <Link
+                key={item.to}
+                href={item.to}
+                onClick={handleNavigation}
+                className={`nav-link${navLinkIsActive(pathname, item.to) ? ' is-active' : ''}`}
+                title={isSidebarCollapsed ? item.label : undefined}
+              >
+                <span className="nav-link__icon">{item.icon}</span>
+                <span className="nav-link__label">{item.label}</span>
+              </Link>
+            ))}
+          </nav>
+        </div>
 
         <div className="sidebar__footer">
           <Button variant="secondary" className="sidebar__logout" onClick={handleLogout}>

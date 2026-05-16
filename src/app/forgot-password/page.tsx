@@ -2,11 +2,11 @@
 
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { useAuth } from '@/hooks/useAuth';
-import { LoginPage } from '@/views/LoginPage';
+import { ForgotPasswordPage } from '@/views/ForgotPasswordPage';
 import { useRouter } from 'next/navigation';
-import { Suspense, useEffect } from 'react';
+import { useEffect } from 'react';
 
-export default function LoginRoutePage() {
+export default function ForgotPasswordRoutePage() {
   const { isAuthorized, isLoading } = useAuth();
   const router = useRouter();
 
@@ -24,9 +24,5 @@ export default function LoginRoutePage() {
     return <LoadingScreen />;
   }
 
-  return (
-    <Suspense fallback={<LoadingScreen />}>
-      <LoginPage />
-    </Suspense>
-  );
+  return <ForgotPasswordPage />;
 }
