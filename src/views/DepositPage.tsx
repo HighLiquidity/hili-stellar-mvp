@@ -15,7 +15,7 @@ export function DepositPage() {
   const { t, locale } = useI18n();
   const { user } = useAuth();
   const localeCode = locale === 'pt' ? 'pt-BR' : 'en-US';
-  const { balanceNumber, isLoading: isBrhBalanceLoading } = useBrhBalance();
+  const { balanceNumber, isLoading: isBrhBalanceLoading, refetch: refetchBrhBalance } = useBrhBalance();
   const [taxId, setTaxId] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
   const [isPixCodeCopied, setIsPixCodeCopied] = useState(false);
@@ -23,6 +23,8 @@ export function DepositPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [pixCopyPaste, setPixCopyPaste] = useState<string | null>(null);
+  const [activeChargeTxid, setActiveChargeTxid] = useState<string | null>(null);
+  const [chargePaid, setChargePaid] = useState(false);
 
   const isGenerateDisabled =
     !taxId.trim() || !depositAmount.trim() || isLoading;
@@ -30,6 +32,39 @@ export function DepositPage() {
   useEffect(() => {
     setIsPixCodeCopied(false);
   }, [pixCopyPaste]);
+
+  useEffect(() => {
+    if (!activeChargeTxid || chargePaid) return;
+
+    let cancelled = false;
+
+    async function pollChargeStatus() {
+      const txid = activeChargeTxid;
+      if (!txid) return;
+      try {
+        const res = await fetch(
+          `/api/deposit/charge-status?txid=${encodeURIComponent(txid)}`,
+          { cache: 'no-store' },
+        );
+        if (!res.ok || cancelled) return;
+        const json = (await res.json()) as { status?: string };
+        if (json.status === 'paid') {
+          setChargePaid(true);
+          void refetchBrhBalance();
+        }
+      } catch {
+        /* polling is best-effort */
+      }
+    }
+
+    void pollChargeStatus();
+    const interval = window.setInterval(() => void pollChargeStatus(), 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [activeChargeTxid, chargePaid, refetchBrhBalance]);
 
   function resolveActionError(result: Extract<GenerateDepositPixResult, { ok: false }>): string {
     const detail = result.message?.trim();
@@ -77,6 +112,8 @@ export function DepositPage() {
 
       setQrDataUrl(result.qrDataUrl);
       setPixCopyPaste(result.pixCopyPaste);
+      setActiveChargeTxid(result.providerTxId);
+      setChargePaid(false);
     } catch (e) {
       setErrorMessage(e instanceof Error ? e.message : String(e));
     } finally {
@@ -118,6 +155,16 @@ export function DepositPage() {
         {errorMessage ? (
           <p className="auth-inline-error deposit-form__alert" role="alert">
             {errorMessage}
+          </p>
+        ) : null}
+
+        {chargePaid ? (
+          <p className="form-success-message deposit-form__alert" role="status">
+            {t('pages.deposit.paymentConfirmed')}
+          </p>
+        ) : activeChargeTxid && hasPayload ? (
+          <p className="deposit-awaiting-payment" role="status">
+            {t('pages.deposit.awaitingPayment')}
           </p>
         ) : null}
 

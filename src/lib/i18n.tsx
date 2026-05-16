@@ -136,6 +136,8 @@ const dictionaries: Record<Locale, TranslationTree> = {
         copyPastePlaceholder: 'O código copia e cola aparecerá aqui.',
         copyPasteButton: 'Copiar código PIX',
         copyPasteCopied: 'Código copiado',
+        awaitingPayment: 'Aguardando confirmação do PIX… O saldo BRH será atualizado após o pagamento.',
+        paymentConfirmed: 'PIX confirmado. Saldo BRH creditado (mint on-chain em processamento).',
         brhBalance: 'Saldo BRH',
         brhBalancePlaceholder: '—',
         errors: {
@@ -413,6 +415,8 @@ const dictionaries: Record<Locale, TranslationTree> = {
         copyPastePlaceholder: 'The copy-and-paste code will appear here.',
         copyPasteButton: 'Copy PIX code',
         copyPasteCopied: 'Code copied',
+        awaitingPayment: 'Waiting for PIX confirmation… BRH balance updates after payment.',
+        paymentConfirmed: 'PIX confirmed. BRH balance credited (on-chain mint in progress).',
         brhBalance: 'BRH Balance',
         brhBalancePlaceholder: '—',
         errors: {

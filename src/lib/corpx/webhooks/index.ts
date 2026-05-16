@@ -12,6 +12,7 @@ export {
   loadCorpXWebhookIpAllowlist,
 } from './allowlist';
 export { parseCorpXWebhookEnvelope, normalizeCorpXWebhookEventType } from './envelope';
+export { recordCorpXWebhookDelivery } from './delivery-store';
 export type {
   CorpXWebhookEventInput,
   WebhookProcessingResult,
