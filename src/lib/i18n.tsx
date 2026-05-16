@@ -218,7 +218,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
         eyebrow: 'Admin',
         title: 'Configurações para testes',
         description:
-          'Limites e chaves usados em cenários de teste (depósito, saque, mint/burn BRH). Apenas administradores.',
+          'Limites máximos de depósito e saque fiat (BRL) para o ambiente de testes. Apenas administradores.',
         loading: 'Carregando…',
         loadError: 'Não foi possível carregar as configurações. Verifique se a tabela existe no Supabase.',
         back: 'Voltar ao dashboard',
@@ -496,7 +496,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
         eyebrow: 'Admin',
         title: 'Test settings',
         description:
-          'Limits and keys used in test scenarios (deposit, withdrawal, BRH mint/burn). Admins only.',
+          'Maximum fiat deposit and withdrawal limits (BRL) for the test environment. Admins only.',
         loading: 'Loading…',
         loadError: 'Could not load settings. Ensure the table exists in Supabase.',
         back: 'Back to dashboard',

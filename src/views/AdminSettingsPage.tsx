@@ -5,36 +5,31 @@ import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { creditTestBrhBalanceAction } from '@/app/actions/brh-test-credit';
 import { Button } from '../components/ui/Button';
 import { InputField } from '../components/ui/InputField';
 import { useAuth } from '../hooks/useAuth';
-import { useBrhBalance } from '../hooks/useBrhBalance';
-import { formatBrhAmount } from '../lib/format/brh-display';
-import type { AdminTestSettingsRow } from '../lib/admin-test-settings/types';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '../integrations/supabase/client';
 
 const SETTINGS_TABLE = 'admin_test_settings';
 
-export function AdminSettingsPage() {
-  const { t, locale } = useI18n();
+type SettingsLimitsRow = {
+  max_deposit_brl: string;
+  max_withdraw_brl: string;
+};
+
+export default function AdminSettingsPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const { profile, user, isLoading: authLoading, isAuthorized } = useAuth();
 
   const [maxDeposit, setMaxDeposit] = useState('');
   const [maxWithdraw, setMaxWithdraw] = useState('');
-  const [brhWallet, setBrhWallet] = useState('');
-  const [pixWithdrawKey, setPixWithdrawKey] = useState('');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isCreditingBrh, setIsCreditingBrh] = useState(false);
-  const [brhCreditError, setBrhCreditError] = useState<string | null>(null);
-  const [brhCreditSuccess, setBrhCreditSuccess] = useState<string | null>(null);
-  const { balanceNumber, isLoading: isBrhBalanceLoading, refetch: refetchBrhBalance } = useBrhBalance();
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
@@ -54,9 +49,7 @@ export function AdminSettingsPage() {
       try {
         const { data, error } = await supabase
           .from(SETTINGS_TABLE)
-          .select(
-            'id, max_deposit_brl, max_withdraw_brl, brh_wallet_address, fiat_pix_withdraw_key, updated_at, updated_by_email',
-          )
+          .select('max_deposit_brl, max_withdraw_brl')
           .eq('id', 1)
           .maybeSingle();
 
@@ -67,12 +60,10 @@ export function AdminSettingsPage() {
           return;
         }
 
-        const row = data as AdminTestSettingsRow | null;
+        const row = data as SettingsLimitsRow | null;
         if (row) {
           setMaxDeposit(row.max_deposit_brl ?? '');
           setMaxWithdraw(row.max_withdraw_brl ?? '');
-          setBrhWallet(row.brh_wallet_address ?? '');
-          setPixWithdrawKey(row.fiat_pix_withdraw_key ?? '');
         }
       } catch (e) {
         if (!cancelled) {
@@ -90,29 +81,6 @@ export function AdminSettingsPage() {
     };
   }, [authLoading, profile?.role]);
 
-  const handleCreditTestBrh = async () => {
-    setBrhCreditError(null);
-    setBrhCreditSuccess(null);
-    setIsCreditingBrh(true);
-    try {
-      const result = await creditTestBrhBalanceAction();
-      if (!result.ok) {
-        setBrhCreditError(result.message ?? result.code);
-        return;
-      }
-      setBrhCreditSuccess(
-        t('pages.settings.testBrhCreditSuccess')
-          .replace('{{amount}}', result.credited)
-          .replace('{{balance}}', result.balance),
-      );
-      void refetchBrhBalance();
-    } catch (e) {
-      setBrhCreditError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setIsCreditingBrh(false);
-    }
-  };
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSaveError(null);
@@ -122,17 +90,16 @@ export function AdminSettingsPage() {
     try {
       const email = user?.email?.trim() ?? null;
       const now = new Date().toISOString();
-      const row: Partial<AdminTestSettingsRow> & { id: number } = {
-        id: 1,
-        max_deposit_brl: maxDeposit.trim(),
-        max_withdraw_brl: maxWithdraw.trim(),
-        brh_wallet_address: brhWallet.trim(),
-        fiat_pix_withdraw_key: pixWithdrawKey.trim(),
-        updated_by_email: email,
-        updated_at: now,
-      };
 
-      const { error } = await supabase.from(SETTINGS_TABLE).upsert(row, { onConflict: 'id' });
+      const { error } = await supabase
+        .from(SETTINGS_TABLE)
+        .update({
+          max_deposit_brl: maxDeposit.trim(),
+          max_withdraw_brl: maxWithdraw.trim(),
+          updated_by_email: email,
+          updated_at: now,
+        })
+        .eq('id', 1);
 
       if (error) {
         setSaveError(error.message);
@@ -211,63 +178,11 @@ export function AdminSettingsPage() {
             disabled={isLoading || !!loadError}
             required
           />
-          <InputField
-            id="brh-wallet"
-            label={t('pages.settings.brhWallet')}
-            type="text"
-            value={brhWallet}
-            onChange={(e) => setBrhWallet(e.target.value)}
-            placeholder={t('pages.settings.brhWalletPlaceholder')}
-            disabled={isLoading || !!loadError}
-            autoComplete="off"
-          />
-          <InputField
-            id="pix-withdraw"
-            label={t('pages.settings.pixWithdraw')}
-            type="text"
-            value={pixWithdrawKey}
-            onChange={(e) => setPixWithdrawKey(e.target.value)}
-            placeholder={t('pages.settings.pixWithdrawPlaceholder')}
-            disabled={isLoading || !!loadError}
-            autoComplete="off"
-          />
 
           <Button type="submit" disabled={isSaving || isLoading || !!loadError}>
             {isSaving ? t('pages.settings.saving') : t('pages.settings.save')}
           </Button>
         </form>
-
-        <div className="admin-settings-test-tools">
-          <p className="eyebrow">{t('pages.settings.testToolsEyebrow')}</p>
-          <h3>{t('pages.settings.testBrhCreditTitle')}</h3>
-          <p className="surface__lead">{t('pages.settings.testBrhCreditLead')}</p>
-          <p className="admin-settings-test-tools__balance">
-            {t('pages.settings.testBrhCurrentBalance')}:{' '}
-            <strong>
-              {isBrhBalanceLoading
-                ? '…'
-                : `${formatBrhAmount(balanceNumber, locale === 'pt' ? 'pt-BR' : 'en-US')} BRH`}
-            </strong>
-          </p>
-          {brhCreditError ? (
-            <p className="auth-inline-error" role="alert">
-              {brhCreditError}
-            </p>
-          ) : null}
-          {brhCreditSuccess ? (
-            <p className="form-success-message" role="status">
-              {brhCreditSuccess}
-            </p>
-          ) : null}
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={isCreditingBrh || isLoading}
-            onClick={() => void handleCreditTestBrh()}
-          >
-            {isCreditingBrh ? t('pages.settings.testBrhCrediting') : t('pages.settings.testBrhCreditButton')}
-          </Button>
-        </div>
       </article>
     </section>
   );

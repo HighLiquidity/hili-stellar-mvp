@@ -1,5 +1,1 @@
-import { AdminSettingsPage } from '@/views/AdminSettingsPage';
-
-export default function AdminSettingsRoutePage() {
-  return <AdminSettingsPage />;
-}
+export { default } from '@/views/AdminSettingsPage';
