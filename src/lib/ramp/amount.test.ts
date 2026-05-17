@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildOnrampExternalId, formatRampAmountFromBrl } from './amount';
+import { buildOfframpExternalId, buildOnrampExternalId, formatRampAmountFromBrl } from './amount';
 
 describe('formatRampAmountFromBrl', () => {
   it('formats with up to 7 fractional digits', () => {
@@ -18,5 +18,15 @@ describe('formatRampAmountFromBrl', () => {
 describe('buildOnrampExternalId', () => {
   it('prefers provider tx id', () => {
     expect(buildOnrampExternalId('tx-99', 'dedupe-abc')).toBe('corpx-onramp:tx-99');
+  });
+});
+
+describe('buildOfframpExternalId', () => {
+  it('uses withdraw idempotency key', () => {
+    expect(buildOfframpExternalId('abc123')).toBe('corpx-offramp:abc123');
+  });
+
+  it('rejects empty key', () => {
+    expect(() => buildOfframpExternalId('  ')).toThrow();
   });
 });

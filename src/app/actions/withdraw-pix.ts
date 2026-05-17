@@ -12,7 +12,6 @@ import {
   hasSufficientBrhBalance,
   readBrhBalanceAdmin,
 } from '@/lib/brh/balance-store';
-import { triggerBrhBurnRequest } from '@/lib/brh/burn';
 import { createCorpXAdapterFromEnv } from '@/lib/corpx/adapter';
 import { brlStringToJsonNumber } from '@/lib/corpx/pix/brl';
 import { formatDepositPixErrorMessage } from '@/lib/deposit/format-pix-error';
@@ -20,6 +19,9 @@ import { logFiatWithdrawAttempt } from '@/lib/fiat-operations/log-withdraw';
 import { insertWithdrawLedgerEntry } from '@/lib/ledger/insert-entry';
 import type { FiatOperationActor } from '@/lib/fiat-operations/types';
 import { parsePixEmv } from '@/lib/pix/emv-parser';
+import { buildOfframpExternalId } from '@/lib/ramp/amount';
+import { isRampConfigured } from '@/lib/ramp/config';
+import { startOfframpAfterWithdraw } from '@/lib/ramp/start-offramp';
 
 export type SubmitWithdrawPixResult =
   | {
@@ -30,7 +32,7 @@ export type SubmitWithdrawPixResult =
       providerTxId?: string;
       e2eId?: string;
       cashOutStatus?: string;
-      burnSkipped?: boolean;
+      offrampSkipped?: boolean;
       corpxSkipped?: boolean;
       message?: string;
     }
@@ -45,7 +47,6 @@ export type SubmitWithdrawPixResult =
         | 'EXCEEDS_MAX_WITHDRAW'
         | 'INSUFFICIENT_BRH'
         | 'SETTINGS_UNAVAILABLE'
-        | 'BURN_FAILED'
         | 'UPSTREAM';
       maxWithdrawBrl?: string;
       message?: string;
@@ -154,19 +155,8 @@ export async function submitWithdrawPixAction(input: {
     const idempotencyKey = shortCorrelationId();
     idempotencyKeyForLog = idempotencyKey;
 
-    const burnResult = await triggerBrhBurnRequest({
-      amount: amountBrl,
-      idempotencyKey,
-      source: 'fiat_withdraw_pix',
-      emv,
-    });
-
-    if (!burnResult.ok && !burnResult.skipped) {
-      result = { ok: false, code: 'BURN_FAILED', message: burnResult.message };
-      return result;
-    }
-
-    const burnSkipped = !burnResult.ok && burnResult.skipped;
+    const rampExternalId = buildOfframpExternalId(idempotencyKey);
+    const offrampSkipped = !isRampConfigured();
 
     let beneficiaryName = parsedEmv.data.merchantName;
 
@@ -200,6 +190,14 @@ export async function submitWithdrawPixAction(input: {
         amountBrl,
         e2eId: payout.e2eId,
         beneficiaryName,
+        rampExternalId,
+      });
+
+      await startOfframpAfterWithdraw({
+        amountBrl,
+        idempotencyKey,
+        providerTxId: payout.providerTxId,
+        e2eId: payout.e2eId,
       });
 
       result = {
@@ -210,7 +208,7 @@ export async function submitWithdrawPixAction(input: {
         providerTxId: payout.providerTxId,
         e2eId: payout.e2eId,
         cashOutStatus: payout.status,
-        burnSkipped,
+        offrampSkipped,
       };
       return result;
     } catch (e) {
@@ -224,10 +222,10 @@ export async function submitWithdrawPixAction(input: {
           stage: 'validated',
           amountBrl,
           beneficiaryName,
-          burnSkipped,
+          offrampSkipped,
           corpxSkipped: true,
           message: [
-            burnSkipped ? 'Burn BRH: configure BRH_BURN_API_URL (smart contract pendente).' : null,
+            offrampSkipped ? 'Off-ramp Ramp: configure RAMP_API_* para queimar BRH on-chain.' : null,
             'Cash out CorpX: configure as variáveis CORPX_* para executar o PIX.',
           ]
             .filter(Boolean)

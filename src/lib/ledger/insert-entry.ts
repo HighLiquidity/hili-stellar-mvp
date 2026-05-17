@@ -15,7 +15,10 @@ export async function insertDepositLedgerEntry(input: {
   if (!admin) return;
 
   const rampExternalId = input.settlementDedupeKey
-    ? buildOnrampExternalId(input.corpxTransactionId ?? undefined, input.settlementDedupeKey)
+    ? buildOnrampExternalId(
+        input.corpxTransactionId?.trim() || input.corpxTxid?.trim() || undefined,
+        input.settlementDedupeKey,
+      )
     : null;
 
   const { error } = await admin.from(FIAT_LEDGER_ENTRIES_TABLE).upsert(

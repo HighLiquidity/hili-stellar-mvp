@@ -23,6 +23,29 @@ export type RampOnrampCreateResponse = {
   status: RampOnrampStatus;
 };
 
+/** Off-ramp statuses from On/Off-Ramp API (custodial burn is provider-side). */
+export type RampOfframpStatus =
+  | 'pending'
+  | 'awaiting_deposit'
+  | 'submitting'
+  | 'confirmed'
+  | 'insufficient_funds'
+  | 'failed'
+  | 'needs_review'
+  | 'callback_failed';
+
+/** Custodial off-ramp: amount + externalId only; no deposit address or memo. */
+export type RampOfframpCreateRequest = {
+  amount: string;
+  externalId: string;
+  callbackUrl: string;
+};
+
+export type RampOfframpCreateResponse = {
+  id: string;
+  status: RampOfframpStatus;
+};
+
 export type RampOperationDocument = {
   id: string;
   type: RampOperationType;

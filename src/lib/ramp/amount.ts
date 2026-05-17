@@ -24,3 +24,12 @@ export function buildOnrampExternalId(providerTxId: string | undefined, dedupeKe
   const id = providerTxId?.trim() || dedupeKey.trim();
   return `corpx-onramp:${id}`.slice(0, 200);
 }
+
+/** Stable idempotency key for withdraw off-ramp (CorpX idempotency key). */
+export function buildOfframpExternalId(idempotencyKey: string): string {
+  const id = idempotencyKey.trim();
+  if (!id) {
+    throw new Error('idempotencyKey is empty');
+  }
+  return `corpx-offramp:${id}`.slice(0, 200);
+}

@@ -190,7 +190,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
         success: {
           completed: 'Saque de {{amount}} enviado via PIX.',
           e2e: 'E2E: {{e2e}}',
-          burnSkipped: 'Burn BRH ainda não executado (configure BRH_BURN_API_URL).',
+          offrampSkipped: 'Off-ramp on-chain pendente (configure RAMP_API_* no servidor).',
           validated:
             'Validação concluída (saldo e limites OK). Burn e cash out CorpX aguardam integração.',
         },
@@ -491,7 +491,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
         success: {
           completed: 'Withdrawal of {{amount}} submitted via PIX.',
           e2e: 'E2E: {{e2e}}',
-          burnSkipped: 'BRH burn not executed yet (set BRH_BURN_API_URL).',
+          offrampSkipped: 'On-chain off-ramp pending (configure RAMP_API_* on the server).',
           validated: 'Validation OK (balance and limits). Burn and CorpX cash out await integration.',
         },
       },

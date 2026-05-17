@@ -39,10 +39,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ignored: true }, { status: 200 });
   }
 
-  const txHash = typeof data?.txHash === 'string' ? data.txHash : null;
-  const reason = typeof data?.reason === 'string' ? data.reason : null;
+  const txHash =
+    (typeof data?.txHash === 'string' && data.txHash) ||
+    (typeof data?.depositTxHash === 'string' && data.depositTxHash) ||
+    null;
+  const failureReason =
+    (typeof data?.failureReason === 'string' && data.failureReason) ||
+    (typeof data?.reason === 'string' && data.reason) ||
+    null;
   const destination = typeof data?.destination === 'string' ? data.destination : null;
-  const amount = typeof data?.amount === 'string' ? data.amount : null;
+  const amount =
+    (typeof data?.amount === 'string' && data.amount) ||
+    (typeof data?.receivedAmount === 'string' && data.receivedAmount) ||
+    null;
 
   const result = await applyRampCallbackUpdate({
     rampOperationId: operationId,
@@ -51,7 +60,7 @@ export async function POST(request: Request) {
     txHash,
     destination,
     amount,
-    failureReason: reason,
+    failureReason,
     callbackData: data ?? undefined,
   });
 

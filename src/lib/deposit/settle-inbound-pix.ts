@@ -113,7 +113,7 @@ export async function settleInboundPixFromWebhook(ctx: InboundPixSettlementConte
     amountBrl: amount,
     paidAt: new Date().toISOString(),
     endToEndId,
-    corpxTransactionId: transactionId,
+    corpxTransactionId: transactionId ?? corpxTxid,
     settlementDedupeKey: dedupeKey,
   });
 

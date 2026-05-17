@@ -82,8 +82,6 @@ export function WithdrawPage() {
       }
       case 'INSUFFICIENT_BRH':
         return detail || t('pages.withdraw.errors.insufficientBrh');
-      case 'BURN_FAILED':
-        return detail || t('pages.withdraw.errors.burnFailed');
       default:
         return detail || t('pages.withdraw.errors.fallback');
     }
@@ -100,8 +98,8 @@ export function WithdrawPage() {
       if (result.e2eId) {
         parts.push(t('pages.withdraw.success.e2e').replace('{{e2e}}', result.e2eId));
       }
-      if (result.burnSkipped) {
-        parts.push(t('pages.withdraw.success.burnSkipped'));
+      if (result.offrampSkipped) {
+        parts.push(t('pages.withdraw.success.offrampSkipped'));
       }
       return parts.join(' ');
     }

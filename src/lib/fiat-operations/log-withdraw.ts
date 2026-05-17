@@ -12,7 +12,7 @@ export type FiatWithdrawLogResult =
       providerTxId?: string;
       e2eId?: string;
       cashOutStatus?: string;
-      burnSkipped?: boolean;
+      offrampSkipped?: boolean;
       corpxSkipped?: boolean;
       message?: string;
     }
@@ -59,7 +59,7 @@ export async function logFiatWithdrawAttempt(input: {
       emv_length: paymentQrCode.trim().length,
       ...(result.ok
         ? {
-            burn_skipped: result.burnSkipped ?? false,
+            offramp_skipped: result.offrampSkipped ?? false,
             corpx_skipped: result.corpxSkipped ?? false,
             cash_out_status: result.cashOutStatus ?? null,
           }

@@ -1,6 +1,8 @@
 import { getRampApiBaseUrl, getRampApiKey } from './config';
 import type {
   RampApiErrorBody,
+  RampOfframpCreateRequest,
+  RampOfframpCreateResponse,
   RampOnrampCreateRequest,
   RampOnrampCreateResponse,
   RampOperationDocument,
@@ -62,6 +64,15 @@ export async function createOnrampOperation(
   body: RampOnrampCreateRequest,
 ): Promise<RampOnrampCreateResponse> {
   return rampFetch<RampOnrampCreateResponse>('/v1/operations/onramp', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function createOfframpOperation(
+  body: RampOfframpCreateRequest,
+): Promise<RampOfframpCreateResponse> {
+  return rampFetch<RampOfframpCreateResponse>('/v1/operations/offramp', {
     method: 'POST',
     body: JSON.stringify(body),
   });
