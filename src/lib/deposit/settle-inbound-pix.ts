@@ -3,6 +3,8 @@ import { incrementBrhBalanceFromPix } from '@/lib/brh/balance-store';
 import { startOnrampAfterPixSettlement } from '@/lib/ramp/start-onramp';
 import { unwrapWebhookPayload, pickString, jsonNumberToAmountString } from '@/lib/corpx/webhooks/payload-fields';
 
+import { insertDepositLedgerEntry } from '@/lib/ledger/insert-entry';
+
 import { findDepositChargeByTxid, markDepositChargePaid } from './charge-store';
 
 export type InboundPixSettlementContext = {
@@ -105,6 +107,15 @@ export async function settleInboundPixFromWebhook(ctx: InboundPixSettlementConte
   if (marked.alreadyPaid) {
     return;
   }
+
+  await insertDepositLedgerEntry({
+    corpxTxid,
+    amountBrl: amount,
+    paidAt: new Date().toISOString(),
+    endToEndId,
+    corpxTransactionId: transactionId,
+    settlementDedupeKey: dedupeKey,
+  });
 
   const inc = await incrementBrhBalanceFromPix(amount);
   if (!inc.ok) {

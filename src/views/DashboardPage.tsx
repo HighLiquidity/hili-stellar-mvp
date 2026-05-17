@@ -1,57 +1,15 @@
 'use client';
 
-import { useMemo } from 'react';
+import Link from 'next/link';
 
+import { LedgerTransactionList } from '@/components/ledger/LedgerTransactionList';
 import { useBrhBalance } from '@/hooks/useBrhBalance';
+import { useLedgerEntries } from '@/hooks/useLedgerEntries';
 import { formatBrhAmount, formatBrlApprox } from '@/lib/format/brh-display';
 import { useI18n } from '@/lib/i18n';
 
-type TransactionDirection = 'deposit' | 'withdraw';
-type TransactionStatus = 'completed' | 'processing' | 'scheduled';
-
-interface TransactionItem {
-  id: string;
-  direction: TransactionDirection;
-  descriptionKey: string;
-  amount: number;
-  status: TransactionStatus;
-  createdAt: string;
-}
-
-const recentTransactions: TransactionItem[] = [
-  {
-    id: 'BRH-1048',
-    direction: 'deposit',
-    descriptionKey: 'treasuryTopUp',
-    amount: 125000,
-    status: 'completed',
-    createdAt: '2026-05-14T11:20:00-03:00',
-  },
-  {
-    id: 'BRH-1043',
-    direction: 'withdraw',
-    descriptionKey: 'corporateSettlement',
-    amount: 18250,
-    status: 'processing',
-    createdAt: '2026-05-14T09:05:00-03:00',
-  },
-  {
-    id: 'BRH-1037',
-    direction: 'deposit',
-    descriptionKey: 'customerFunding',
-    amount: 6400,
-    status: 'completed',
-    createdAt: '2026-05-13T16:40:00-03:00',
-  },
-  {
-    id: 'BRH-1031',
-    direction: 'withdraw',
-    descriptionKey: 'treasuryRebalance',
-    amount: 9200,
-    status: 'scheduled',
-    createdAt: '2026-05-13T10:15:00-03:00',
-  },
-];
+const DASHBOARD_RECENT_LIMIT = 8;
+const DASHBOARD_FETCH_LIMIT = 200;
 
 function formatCurrency(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
@@ -61,29 +19,19 @@ function formatCurrency(value: number, locale: string) {
   }).format(value);
 }
 
-function formatDate(value: string, locale: string) {
-  return new Intl.DateTimeFormat(locale, {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
-}
-
 export function DashboardPage() {
   const { locale, t } = useI18n();
   const localeCode = locale === 'pt' ? 'pt-BR' : 'en-US';
   const { balanceNumber, isLoading: isBrhBalanceLoading } = useBrhBalance();
+  const {
+    transactions,
+    incomingBrl,
+    outgoingBrl,
+    isLoading: isLedgerLoading,
+    error: ledgerError,
+  } = useLedgerEntries(DASHBOARD_FETCH_LIMIT);
 
-  const summary = useMemo(
-    () => ({
-      availableBalance: balanceNumber,
-      incomingVolume: 131400,
-      outgoingVolume: 27450,
-      transactionCount: recentTransactions.length,
-    }),
-    [balanceNumber],
-  );
+  const recentTransactions = transactions.slice(0, DASHBOARD_RECENT_LIMIT);
 
   return (
     <section className="dashboard-layout">
@@ -99,12 +47,12 @@ export function DashboardPage() {
           <strong className="dashboard-hero__brh-amount">
             {isBrhBalanceLoading
               ? '…'
-              : formatBrhAmount(summary.availableBalance, localeCode)}
+              : formatBrhAmount(balanceNumber, localeCode)}
             <span className="dashboard-hero__brh-ticker">BRH</span>
           </strong>
           <p className="dashboard-hero__brh-equiv">
             ≈{' '}
-            {isBrhBalanceLoading ? '…' : formatBrlApprox(summary.availableBalance, localeCode)}
+            {isBrhBalanceLoading ? '…' : formatBrlApprox(balanceNumber, localeCode)}
           </p>
           <p className="dashboard-hero__hint">{t('pages.dashboard.brhBalanceHint')}</p>
         </div>
@@ -114,34 +62,38 @@ export function DashboardPage() {
         <article className="surface dashboard-summary-card">
           <span className="dashboard-summary-card__label">{t('pages.dashboard.brhBalance')}</span>
           <strong className="dashboard-summary-card__brh">
-            {isBrhBalanceLoading ? '…' : formatBrhAmount(summary.availableBalance, localeCode)}
+            {isBrhBalanceLoading ? '…' : formatBrhAmount(balanceNumber, localeCode)}
             <span className="dashboard-summary-card__brh-ticker">BRH</span>
           </strong>
           <span className="dashboard-summary-card__brh-equiv">
             ≈{' '}
-            {isBrhBalanceLoading ? '…' : formatBrlApprox(summary.availableBalance, localeCode)}
+            {isBrhBalanceLoading ? '…' : formatBrlApprox(balanceNumber, localeCode)}
           </span>
         </article>
 
         <article className="surface dashboard-summary-card">
           <span className="dashboard-summary-card__label">{t('pages.dashboard.incomingVolume')}</span>
-          <strong>{formatCurrency(summary.incomingVolume, localeCode)}</strong>
+          <strong>
+            {isLedgerLoading ? '…' : formatCurrency(incomingBrl, localeCode)}
+          </strong>
           <span className="dashboard-summary-card__brh-equiv">
-            ≈ {formatBrhAmount(summary.incomingVolume, localeCode)} BRH
+            ≈ {isLedgerLoading ? '…' : formatBrhAmount(incomingBrl, localeCode)} BRH
           </span>
         </article>
 
         <article className="surface dashboard-summary-card">
           <span className="dashboard-summary-card__label">{t('pages.dashboard.outgoingVolume')}</span>
-          <strong>{formatCurrency(summary.outgoingVolume, localeCode)}</strong>
+          <strong>
+            {isLedgerLoading ? '…' : formatCurrency(outgoingBrl, localeCode)}
+          </strong>
           <span className="dashboard-summary-card__brh-equiv">
-            ≈ {formatBrhAmount(summary.outgoingVolume, localeCode)} BRH
+            ≈ {isLedgerLoading ? '…' : formatBrhAmount(outgoingBrl, localeCode)} BRH
           </span>
         </article>
 
         <article className="surface dashboard-summary-card">
           <span className="dashboard-summary-card__label">{t('pages.dashboard.recentActivity')}</span>
-          <strong>{summary.transactionCount}</strong>
+          <strong>{isLedgerLoading ? '…' : recentTransactions.length}</strong>
         </article>
       </div>
 
@@ -151,41 +103,24 @@ export function DashboardPage() {
             <p className="eyebrow">{t('pages.dashboard.historyEyebrow')}</p>
             <h3>{t('pages.dashboard.historyTitle')}</h3>
           </div>
-          <span className="status-pill dashboard-section-badge">{t('pages.dashboard.historyBadge')}</span>
+          <Link href="/app/statement" className="auth-text-link dashboard-section-link">
+            {t('pages.dashboard.viewStatement')}
+          </Link>
         </div>
 
-        <div className="transaction-list" role="list">
-          {recentTransactions.map((transaction) => {
-            const amountPrefix = transaction.direction === 'deposit' ? '+' : '-';
-            const toneClass = transaction.direction === 'deposit' ? 'is-positive' : 'is-negative';
+        {ledgerError ? (
+          <p className="auth-inline-error" role="alert">
+            {t('pages.dashboard.ledgerLoadError')}
+          </p>
+        ) : null}
 
-            return (
-              <article key={transaction.id} className="transaction-item" role="listitem">
-                <div className="transaction-item__main">
-                  <div className="transaction-item__heading">
-                    <strong>{transaction.id}</strong>
-                    <span className={`transaction-status transaction-status--${transaction.status}`}>
-                      {t(`pages.dashboard.status.${transaction.status}`)}
-                    </span>
-                  </div>
-                  <p>{t(`pages.dashboard.transactions.${transaction.descriptionKey}`)}</p>
-                </div>
-
-                <div className="transaction-item__meta">
-                  <strong className={`transaction-item__amount ${toneClass}`}>
-                    {amountPrefix}
-                    {formatCurrency(transaction.amount, localeCode)}
-                  </strong>
-                  <span className="transaction-item__amount-equivalent">
-                    ≈ {amountPrefix}
-                    {formatBrhAmount(transaction.amount, localeCode)} BRH
-                  </span>
-                  <span>{formatDate(transaction.createdAt, localeCode)}</span>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+        <LedgerTransactionList
+          transactions={recentTransactions}
+          isLoading={isLedgerLoading}
+          emptyMessage={t('pages.dashboard.ledgerEmpty')}
+          showCryptoHash
+          compact
+        />
       </article>
     </section>
   );

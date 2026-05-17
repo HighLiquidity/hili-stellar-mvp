@@ -1459,6 +1459,149 @@ a.user-menu__item {
   color: var(--text-muted);
 }
 
+.transaction-item__subline {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.transaction-item__hash code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+
+.transaction-item__hash-link {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.transaction-item__hash-link:hover {
+  color: var(--accent);
+}
+
+.transaction-item__hash-link code,
+.transaction-item__hash-value {
+  color: inherit;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+
+.transaction-item__hash-link code {
+  color: inherit;
+}
+
+.transaction-item__hash-pending {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.transaction-item__e2e {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.dashboard-section-link {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.ledger-list__status {
+  margin: 0;
+}
+
+.statement-ledger-card {
+  gap: 20px;
+}
+
+.statement-toolbar {
+  display: grid;
+  gap: 20px;
+}
+
+.statement-toolbar__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.statement-toolbar__title-row h2 {
+  margin: 0;
+}
+
+.statement-toolbar__export {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.statement-toolbar__export-format {
+  min-width: 120px;
+}
+
+.statement-toolbar__filters {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.statement-toolbar__summary {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.field__select {
+  appearance: auto;
+  cursor: pointer;
+}
+
+.statement-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.statement-pagination__info {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.statement-pagination__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.statement-pagination__page {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  min-width: 7rem;
+  text-align: center;
+}
+
+@media (min-width: 720px) {
+  .transaction-item {
+    grid-template-columns: 1fr auto;
+    align-items: start;
+  }
+
+  .transaction-item__meta {
+    justify-items: end;
+    text-align: right;
+  }
+}
+
 .transaction-item__heading {
   display: flex;
   flex-wrap: wrap;

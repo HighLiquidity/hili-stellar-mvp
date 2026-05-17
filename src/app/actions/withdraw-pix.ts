@@ -17,6 +17,7 @@ import { createCorpXAdapterFromEnv } from '@/lib/corpx/adapter';
 import { brlStringToJsonNumber } from '@/lib/corpx/pix/brl';
 import { formatDepositPixErrorMessage } from '@/lib/deposit/format-pix-error';
 import { logFiatWithdrawAttempt } from '@/lib/fiat-operations/log-withdraw';
+import { insertWithdrawLedgerEntry } from '@/lib/ledger/insert-entry';
 import type { FiatOperationActor } from '@/lib/fiat-operations/types';
 import { parsePixEmv } from '@/lib/pix/emv-parser';
 
@@ -193,6 +194,13 @@ export async function submitWithdrawPixAction(input: {
       if (!decremented.ok) {
         console.warn('[submitWithdrawPixAction] BRH balance decrement failed after CorpX payout');
       }
+
+      await insertWithdrawLedgerEntry({
+        idempotencyKey,
+        amountBrl,
+        e2eId: payout.e2eId,
+        beneficiaryName,
+      });
 
       result = {
         ok: true,
