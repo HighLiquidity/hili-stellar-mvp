@@ -1533,15 +1533,91 @@ a.user-menu__item {
   margin: 0;
 }
 
-.statement-toolbar__export {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 10px;
+.statement-export-menu {
+  position: relative;
+  z-index: 20;
+  flex-shrink: 0;
 }
 
-.statement-toolbar__export-format {
-  min-width: 120px;
+.statement-export-menu__trigger {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  white-space: nowrap;
+  appearance: none;
+  cursor: pointer;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.statement-export-menu__trigger:hover:not(:disabled),
+.statement-export-menu__trigger.is-open {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent-soft) 35%, var(--surface));
+  box-shadow: 0 0 0 3px rgba(88, 107, 243, 0.08);
+}
+
+.statement-export-menu__trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.statement-export-menu__chevron {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  transition: transform 180ms ease, color 180ms ease;
+}
+
+.statement-export-menu__trigger.is-open .statement-export-menu__chevron {
+  transform: rotate(180deg);
+  color: var(--accent-strong);
+}
+
+.statement-export-menu__dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  min-width: 9rem;
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.statement-export-menu__item {
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.statement-export-menu__item:hover {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
 }
 
 .statement-toolbar__filters {

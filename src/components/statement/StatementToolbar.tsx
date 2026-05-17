@@ -2,14 +2,11 @@
 
 import { useState } from 'react';
 
-import { Button } from '@/components/ui/Button';
+import { StatementExportMenu } from '@/components/statement/StatementExportMenu';
 import { InputField } from '@/components/ui/InputField';
 import type { LedgerQueryFilters, StatementPageSize } from '@/lib/ledger/filters';
-import { STATEMENT_EXPORT_MAX_ROWS, STATEMENT_PAGE_SIZE_OPTIONS } from '@/lib/ledger/filters';
-import { fetchLedgerForExport } from '@/lib/ledger/query-entries';
-import { exportStatement, type StatementExportFormat } from '@/lib/ledger/export-statement';
+import { STATEMENT_PAGE_SIZE_OPTIONS } from '@/lib/ledger/filters';
 import { useI18n } from '@/lib/i18n';
-import { supabase } from '@/integrations/supabase/client';
 
 type StatementToolbarProps = {
   filters: LedgerQueryFilters;
@@ -26,39 +23,8 @@ export function StatementToolbar({
   onFiltersChange,
   onPageSizeChange,
 }: StatementToolbarProps) {
-  const { t, locale } = useI18n();
-  const localeCode = locale === 'pt' ? 'pt-BR' : 'en-US';
-  const [exportFormat, setExportFormat] = useState<StatementExportFormat>('csv');
-  const [isExporting, setIsExporting] = useState(false);
+  const { t } = useI18n();
   const [exportError, setExportError] = useState<string | null>(null);
-
-  const handleExport = async () => {
-    setExportError(null);
-    setIsExporting(true);
-    try {
-      const result = await fetchLedgerForExport(supabase, filters, STATEMENT_EXPORT_MAX_ROWS);
-      if (!result.ok) {
-        setExportError(result.message);
-        return;
-      }
-      if (result.transactions.length === 0) {
-        setExportError(t('pages.statement.exportEmpty'));
-        return;
-      }
-
-      const stamp = new Date().toISOString().slice(0, 10);
-      await exportStatement(exportFormat, result.transactions, {
-        deposit: t('pages.ledger.type.deposit'),
-        withdraw: t('pages.ledger.type.withdraw'),
-        cryptoPending: t('pages.ledger.cryptoHashPending'),
-        fileBaseName: `extrato-${stamp}`,
-      }, localeCode);
-    } catch (e) {
-      setExportError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   return (
     <article className="surface statement-toolbar">
@@ -67,24 +33,7 @@ export function StatementToolbar({
           <p className="eyebrow">{t('pages.statement.eyebrow')}</p>
           <h2>{t('pages.statement.title')}</h2>
         </div>
-        <div className="statement-toolbar__export">
-          <label className="field statement-toolbar__export-format">
-            <span className="field__label">{t('pages.statement.exportFormat')}</span>
-            <select
-              className="field__input field__select"
-              value={exportFormat}
-              onChange={(e) => setExportFormat(e.target.value as StatementExportFormat)}
-              disabled={isExporting}
-            >
-              <option value="csv">CSV</option>
-              <option value="pdf">PDF</option>
-              <option value="ofx">OFX</option>
-            </select>
-          </label>
-          <Button type="button" variant="secondary" disabled={isExporting} onClick={() => void handleExport()}>
-            {isExporting ? t('pages.statement.exporting') : t('pages.statement.export')}
-          </Button>
-        </div>
+        <StatementExportMenu filters={filters} onError={setExportError} />
       </div>
 
       <div className="statement-toolbar__filters">

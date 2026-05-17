@@ -24,7 +24,7 @@ export function StatementPage() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <section className="page-grid page-grid--single statement-layout">
+    <section className="dashboard-layout">
       <StatementToolbar
         filters={filters}
         pageSize={pageSize}
