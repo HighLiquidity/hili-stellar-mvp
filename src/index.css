@@ -189,15 +189,19 @@ button:disabled {
   flex: 1;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
+  width: 100%;
   padding-bottom: clamp(1rem, 3vh, 2rem);
 }
 
 .auth-panel {
   display: grid;
   gap: 1.5rem;
-  width: 100%;
-  max-width: 20rem;
+  width: min(100%, 22.5rem);
+  max-width: min(100%, 22.5rem);
+  margin-inline: auto;
+  justify-items: stretch;
 }
 
 .auth-panel__intro {
@@ -301,7 +305,8 @@ button:disabled {
   }
 
   .auth-panel {
-    max-width: none;
+    width: min(100%, 22.5rem);
+    max-width: min(100%, 22.5rem);
   }
 
   .auth-layout__wide {
@@ -384,6 +389,13 @@ button:disabled {
 .auth-form {
   display: grid;
   gap: 18px;
+  width: 100%;
+}
+
+.auth-form .field,
+.auth-form .button--full {
+  width: 100%;
+  max-width: 100%;
 }
 
 .field {
@@ -955,12 +967,6 @@ a.user-menu__item {
   color: var(--text-muted);
 }
 
-.operation-events-layout {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
 .operation-events-card__header {
   display: flex;
   flex-wrap: wrap;
@@ -1000,8 +1006,7 @@ a.user-menu__item {
 
 .operation-events-table-wrap {
   overflow-x: auto;
-  margin: 0 -4px;
-  padding: 0 4px;
+  width: 100%;
 }
 
 .operation-events-table {
@@ -1112,6 +1117,105 @@ a.user-menu__item {
   color: var(--text-muted);
 }
 
+.user-management-card {
+  gap: 20px;
+}
+
+.user-management-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.user-management-form {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-muted) 55%, var(--surface));
+}
+
+.user-management-form__title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.user-management-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.user-management-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.92rem;
+  color: var(--text);
+}
+
+.user-management-checkbox input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.user-management-table-wrap {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.user-management-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.user-management-table th,
+.user-management-table td {
+  padding: 12px 14px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+}
+
+.user-management-table th {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.user-management-table__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.user-management-status {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.user-management-status.is-active {
+  background: color-mix(in srgb, var(--accent-soft) 80%, transparent);
+  color: var(--accent-strong);
+}
+
+.user-management-status.is-inactive {
+  background: color-mix(in srgb, var(--text-muted) 18%, transparent);
+  color: var(--text-muted);
+}
+
 .sidebar__nav-divider {
   height: 1px;
   margin: 6px 8px;
@@ -1145,7 +1249,6 @@ a.user-menu__item {
 
 .surface--hero {
   align-content: start;
-  min-height: 260px;
 }
 
 .deposit-awaiting-payment {
@@ -1343,13 +1446,15 @@ a.user-menu__item {
 }
 
 .dashboard-hero {
-  gap: 22px;
+  gap: 16px;
+  min-height: auto;
+  padding-block: 18px;
 }
 
 .dashboard-hero__balance {
   display: grid;
   gap: 6px;
-  padding: 20px;
+  padding: 16px 18px;
   border-radius: var(--radius-lg);
   background: var(--accent-soft);
   color: var(--text);
@@ -1748,6 +1853,14 @@ a.user-menu__item {
   .transaction-item,
   .deposit-form-card__header {
     grid-template-columns: minmax(0, 1.3fr) minmax(240px, 0.7fr);
+  }
+
+  .dashboard-hero,
+  .deposit-form-card__header {
+    align-items: start;
+  }
+
+  .transaction-item {
     align-items: center;
   }
 

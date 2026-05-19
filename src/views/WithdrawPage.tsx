@@ -143,7 +143,6 @@ export function WithdrawPage() {
         <div className="deposit-form-card__header">
           <div>
             <p className="eyebrow">{t('pages.withdraw.eyebrow')}</p>
-            <h2>{t('pages.withdraw.title')}</h2>
           </div>
 
           <aside className="brh-balance-card" aria-label={t('pages.withdraw.brhBalance')}>

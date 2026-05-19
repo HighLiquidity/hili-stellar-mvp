@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -116,24 +115,21 @@ export default function AdminSettingsPage() {
 
   if (authLoading || profile?.role !== 'admin') {
     return (
-      <section className="admin-settings-layout surface">
-        <p className="surface__lead">{t('pages.settings.loading')}</p>
+      <section className="dashboard-layout">
+        <article className="surface">
+          <p className="surface__lead">{t('pages.settings.loading')}</p>
+        </article>
       </section>
     );
   }
 
   return (
-    <section className="admin-settings-layout">
+    <section className="dashboard-layout">
       <article className="surface admin-settings-card">
         <div className="admin-settings-card__header">
           <div>
             <p className="eyebrow">{t('pages.settings.eyebrow')}</p>
-            <h2>{t('pages.settings.title')}</h2>
-            <p className="surface__lead">{t('pages.settings.description')}</p>
           </div>
-          <Link href="/app/dashboard" className="auth-text-link">
-            {t('pages.settings.back')}
-          </Link>
         </div>
 
         {loadError ? (

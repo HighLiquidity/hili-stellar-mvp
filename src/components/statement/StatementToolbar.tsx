@@ -31,7 +31,6 @@ export function StatementToolbar({
       <div className="statement-toolbar__title-row">
         <div>
           <p className="eyebrow">{t('pages.statement.eyebrow')}</p>
-          <h2>{t('pages.statement.title')}</h2>
         </div>
         <StatementExportMenu filters={filters} onError={setExportError} />
       </div>

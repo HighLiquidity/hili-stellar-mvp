@@ -139,7 +139,6 @@ export function DepositPage() {
         <div className="deposit-form-card__header">
           <div>
             <p className="eyebrow">{t('pages.deposit.eyebrow')}</p>
-            <h2>{t('pages.deposit.title')}</h2>
           </div>
 
           <aside className="brh-balance-card" aria-label={t('pages.deposit.brhBalance')}>

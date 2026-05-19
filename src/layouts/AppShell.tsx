@@ -12,6 +12,7 @@ import {
   DashboardIcon,
   DepositIcon,
   EventLogIcon,
+  UsersIcon,
   KeyIcon,
   LogoutIcon,
   MenuIcon,
@@ -128,9 +129,19 @@ export function AppShell({ children }: { children: ReactNode }) {
       profile?.role === 'admin'
         ? [
             {
+              to: '/app/users',
+              label: t('nav.users'),
+              icon: <UsersIcon width={18} height={18} />,
+            },
+            {
               to: '/app/event-logs',
               label: t('nav.eventLogs'),
               icon: <EventLogIcon width={18} height={18} />,
+            },
+            {
+              to: '/app/settings',
+              label: t('nav.settings'),
+              icon: <SettingsIcon width={18} height={18} />,
             },
           ]
         : [],
@@ -143,6 +154,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
     if (pathname.startsWith('/app/settings')) {
       return t('pages.settings.title');
+    }
+    if (pathname.startsWith('/app/users')) {
+      return t('pages.userManagement.title');
     }
     if (pathname.startsWith('/app/event-logs')) {
       return t('pages.eventLogs.title');
@@ -321,18 +335,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <KeyIcon width={16} height={16} />
                     <span>{t('shell.changePassword')}</span>
                   </button>
-
-                  {profile?.role === 'admin' ? (
-                    <Link
-                      href="/app/settings"
-                      className="user-menu__item"
-                      role="menuitem"
-                      onClick={() => setIsUserMenuOpen(false)}
-                    >
-                      <SettingsIcon width={16} height={16} />
-                      <span>{t('shell.adminSettings')}</span>
-                    </Link>
-                  ) : null}
 
                   <button
                     type="button"

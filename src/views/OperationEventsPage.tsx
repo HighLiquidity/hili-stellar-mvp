@@ -124,7 +124,7 @@ export function OperationEventsPage() {
 
   if (authLoading || profile?.role !== 'admin') {
     return (
-      <section className="operation-events-layout">
+      <section className="dashboard-layout">
         <article className="surface">
           <p className="surface__lead">{t('pages.eventLogs.loading')}</p>
         </article>
@@ -133,13 +133,11 @@ export function OperationEventsPage() {
   }
 
   return (
-    <section className="operation-events-layout">
+    <section className="dashboard-layout">
       <article className="surface">
         <div className="operation-events-card__header">
           <div>
             <p className="eyebrow">{t('pages.eventLogs.eyebrow')}</p>
-            <h2>{t('pages.eventLogs.title')}</h2>
-            <p className="surface__lead">{t('pages.eventLogs.description')}</p>
           </div>
         </div>
 

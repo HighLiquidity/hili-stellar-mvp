@@ -38,8 +38,6 @@ export function DashboardPage() {
       <article className="surface surface--hero dashboard-hero">
         <div>
           <p className="eyebrow">{t('pages.dashboard.eyebrow')}</p>
-          <h2>{t('pages.dashboard.title')}</h2>
-          <p className="surface__lead">{t('pages.dashboard.description')}</p>
         </div>
 
         <div className="dashboard-hero__balance">
