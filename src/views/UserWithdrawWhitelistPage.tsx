@@ -242,7 +242,7 @@ export function UserWithdrawWhitelistPage() {
                     <td>{row.is_active ? t('pages.userManagement.statusActive') : t('pages.userManagement.statusInactive')}</td>
                     <td>
                       <div className="user-management-actions">
-                        <Button type="button" variant="ghost" size="sm" onClick={() => openEdit(row)}>
+                        <Button type="button" variant="ghost" onClick={() => openEdit(row)}>
                           {t('pages.userManagement.edit')}
                         </Button>
                       </div>
