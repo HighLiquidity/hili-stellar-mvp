@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { getRampCallbackSecret } from '@/lib/ramp/config';
-import { applyRampCallbackUpdate } from '@/lib/ramp/operation-store';
+import { applyBrhSaleRampCallback, applyUsdcDeliveryRampCallback } from '@/lib/onramp';
+import { applyRampCallbackUpdate, findRampOperationByRampOperationId } from '@/lib/ramp/operation-store';
 import type { RampCallbackPayload } from '@/lib/ramp/types';
 import { verifyRampCallbackSignature } from '@/lib/ramp/webhook-verify';
 
@@ -70,6 +71,33 @@ export async function POST(request: Request) {
       version,
       reason: result.reason,
     });
+  }
+
+  if (result.applied) {
+    const operation = await findRampOperationByRampOperationId(operationId);
+    if (operation) {
+      try {
+        await applyBrhSaleRampCallback({
+          externalId: operation.external_id,
+          rampOperationId: operationId,
+          status,
+          failureReason,
+        });
+        await applyUsdcDeliveryRampCallback({
+          externalId: operation.external_id,
+          rampOperationId: operationId,
+          status,
+          txHash,
+          failureReason,
+        });
+      } catch (error) {
+        console.error('[ramp webhook] failed to sync onramp order', {
+          operationId,
+          externalId: operation.external_id,
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   }
 
   return NextResponse.json({ ok: true, applied: result.applied }, { status: 200 });

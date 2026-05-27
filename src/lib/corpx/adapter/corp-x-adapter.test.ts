@@ -137,6 +137,41 @@ describe('CorpXAuthManager', () => {
     }
   });
 
+  it('Login_UsesV2ScopeAndBasicAuth', async () => {
+    const seen = {
+      authorization: '',
+      body: '',
+    };
+    const server = http.createServer(async (req, res) => {
+      if (req.method === 'POST' && req.url?.startsWith('/oauth2/token')) {
+        seen.authorization = String(req.headers.authorization ?? '');
+        const chunks: Buffer[] = [];
+        for await (const c of req) chunks.push(c as Buffer);
+        seen.body = Buffer.concat(chunks).toString('utf8');
+        authTokenResponseListener(req, res);
+        return;
+      }
+      res.statusCode = 404;
+      res.end();
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const port = (server.address() as AddressInfo).port;
+    try {
+      const auth = new CorpXAuthManager({
+        authURL: `http://127.0.0.1:${port}`,
+        clientID: 'client-id',
+        clientSecret: 'client-secret',
+        tenantID: 'tenant-id',
+      });
+      await auth.login();
+      expect(seen.authorization.startsWith('Basic ')).toBe(true);
+      expect(seen.body).toContain('grant_type=client_credentials');
+      expect(seen.body).toContain('scope=api2%2Fread+api2%2Fwrite');
+    } finally {
+      await closeServer(server);
+    }
+  });
+
   it('Login_ServerError', async () => {
     const server = http.createServer((_req, res) => {
       res.statusCode = 500;
@@ -448,15 +483,16 @@ describe('CorpXAdapter', () => {
       res.statusCode = 201;
       res.end(
         JSON.stringify({
-          statusCode: 201,
-          title: 'created',
-          data: {
-            chave: 'pix-key-123',
-            identifier: 'order-123',
-            payload: '00020101021226790014br.gov.bcb.pix...',
-            status: 'ATIVA',
-            txid: 'tx-abc-123',
-          },
+          txid: 'tx-abc-123',
+          emv: '00020101021226790014br.gov.bcb.pix...',
+          identifier: 'order-123',
+          status: 'ACTIVE',
+          type: 'dynamic',
+          value: 150.75,
+          message: 'Test payment',
+          expiresAt: '2026-05-27T15:00:00Z',
+          createdAt: '2026-05-27T14:55:00Z',
+          pixKey: 'pix-key-123',
         }),
       );
     }, async ({ adapter }) => {
@@ -500,13 +536,15 @@ describe('CorpXAdapter', () => {
       res.statusCode = 201;
       res.end(
         JSON.stringify({
-          data: {
-            chave: 'static-key',
-            identifier: 'static-001',
-            payload: '00020126580014br.gov.bcb.pix...',
-            status: 'ATIVA',
-            txid: 'static-tx-123',
-          },
+          txid: 'static-tx-123',
+          emv: '00020126580014br.gov.bcb.pix...',
+          identifier: 'static-001',
+          status: 'ACTIVE',
+          type: 'static',
+          value: 0,
+          message: 'Donation',
+          createdAt: '2026-05-27T14:55:00Z',
+          pixKey: 'static-key',
         }),
       );
     }, async ({ adapter }) => {
@@ -737,7 +775,10 @@ describe('CorpXAdapter', () => {
       res.statusCode = 201;
       res.end(
         JSON.stringify({
-          data: { txid: 'tx-1', payload: 'emv', chave: 'key', status: 'ATIVA' },
+          txid: 'tx-1',
+          emv: 'emv',
+          pixKey: 'key',
+          status: 'ACTIVE',
         }),
       );
     }, async ({ adapter }) => {

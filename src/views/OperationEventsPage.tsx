@@ -14,7 +14,7 @@ import { supabase } from '../integrations/supabase/client';
 
 const PAGE_SIZE = 80;
 
-type OperationFilter = 'all' | 'fiat_deposit' | 'fiat_withdraw';
+type OperationFilter = 'all' | 'fiat_deposit' | 'fiat_withdraw' | 'fiat_onramp';
 type StatusFilter = 'all' | 'success' | 'error';
 
 function formatEventTimestamp(iso: string, localeCode: string): string {
@@ -110,6 +110,7 @@ export function OperationEventsPage() {
     () => ({
       fiat_deposit: t('pages.eventLogs.operation.deposit'),
       fiat_withdraw: t('pages.eventLogs.operation.withdraw'),
+      fiat_onramp: t('pages.eventLogs.operation.onramp'),
     }),
     [t],
   );
@@ -151,6 +152,7 @@ export function OperationEventsPage() {
               <option value="all">{t('pages.eventLogs.filter.all')}</option>
               <option value="fiat_deposit">{operationLabel.fiat_deposit}</option>
               <option value="fiat_withdraw">{operationLabel.fiat_withdraw}</option>
+              <option value="fiat_onramp">{operationLabel.fiat_onramp}</option>
             </select>
           </label>
 

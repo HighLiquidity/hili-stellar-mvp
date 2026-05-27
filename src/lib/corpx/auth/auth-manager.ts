@@ -12,7 +12,7 @@ export type CorpXTokenResponse = {
 };
 
 export type AuthManagerConfig = {
-  /** Base URL, e.g. https://auth.corpxapi.com (path /oauth2/token is appended). */
+  /** Base URL, e.g. https://auth.api.corpx.com (path /oauth2/token is appended). */
   authURL: string;
   clientID: string;
   clientSecret: string;
@@ -23,6 +23,7 @@ export type AuthManagerConfig = {
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const RENEWAL_BUFFER_MS = 5 * 60 * 1000;
+const CORPX_OAUTH_SCOPE = 'api2/read api2/write';
 
 export class CorpXAuthManager {
   private readonly tokenEndpoint: string;
@@ -55,8 +56,7 @@ export class CorpXAuthManager {
   async login(signal?: AbortSignal): Promise<void> {
     const body = new URLSearchParams({
       grant_type: 'client_credentials',
-      client_id: this.clientID,
-      client_secret: this.clientSecret,
+      scope: CORPX_OAUTH_SCOPE,
     });
 
     const controller = new AbortController();
@@ -67,7 +67,10 @@ export class CorpXAuthManager {
     try {
       response = await fetch(this.tokenEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Authorization: `Basic ${Buffer.from(`${this.clientID}:${this.clientSecret}`, 'utf8').toString('base64')}`,
+        },
         body: body.toString(),
         signal: merged,
       });
@@ -167,7 +170,7 @@ export class CorpXAuthManager {
 }
 
 export function createAuthManagerFromEnv(): CorpXAuthManager {
-  const authURL = process.env.CORPX_AUTH_URL ?? 'https://auth.corpxapi.com';
+  const authURL = process.env.CORPX_AUTH_URL ?? 'https://auth.api.corpx.com';
   const clientID = process.env.CORPX_CLIENT_ID ?? '';
   const clientSecret = process.env.CORPX_CLIENT_SECRET ?? '';
   const tenantID = process.env.CORPX_TENANT_ID ?? '';

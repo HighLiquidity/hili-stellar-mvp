@@ -38,6 +38,17 @@ export function DepositIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function OnrampIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 12h10" />
+      <path d="m10 6 6 6-6 6" />
+      <path d="M4 5h6" />
+      <path d="M4 19h6" />
+    </IconBase>
+  );
+}
+
 export function WithdrawIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <IconBase {...props}>

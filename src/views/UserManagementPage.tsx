@@ -255,34 +255,36 @@ export function UserManagementPage() {
               disabled={formMode === 'edit' || isSaving}
             />
 
-            <InputField
-              id="user-full-name"
-              label={t('pages.userManagement.fullName')}
-              type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder={t('pages.userManagement.fullNamePlaceholder')}
-              autoComplete="name"
-              required
-              disabled={isSaving}
-            />
-
-            <label className="field">
-              <span className="field__label">{t('pages.userManagement.role')}</span>
-              <select
-                className="field__input field__select"
-                value={role}
-                onChange={(e) => setRole(e.target.value as PanelUserRole)}
-                disabled={isSaving}
+            <div className="user-management-form__name-role-row">
+              <InputField
+                id="user-full-name"
+                label={t('pages.userManagement.fullName')}
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder={t('pages.userManagement.fullNamePlaceholder')}
+                autoComplete="name"
                 required
-              >
-                {ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {roleLabel(r)}
-                  </option>
-                ))}
-              </select>
-            </label>
+                disabled={isSaving}
+              />
+
+              <label className="field">
+                <span className="field__label">{t('pages.userManagement.role')}</span>
+                <select
+                  className="field__input field__select"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as PanelUserRole)}
+                  disabled={isSaving}
+                  required
+                >
+                  {ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {roleLabel(r)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
 
             <InputField
               id="user-password"

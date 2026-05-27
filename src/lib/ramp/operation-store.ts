@@ -45,6 +45,26 @@ export async function findRampOperationByExternalId(
   return (data as RampOperationRow | null) ?? null;
 }
 
+export async function findRampOperationByRampOperationId(
+  rampOperationId: string,
+): Promise<RampOperationRow | null> {
+  const admin = createSupabaseAdmin();
+  if (!admin) return null;
+
+  const { data, error } = await admin
+    .from(RAMP_OPERATIONS_TABLE)
+    .select('*')
+    .eq('ramp_operation_id', rampOperationId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[ramp/store] find by ramp_operation_id failed', error.message);
+    return null;
+  }
+
+  return (data as RampOperationRow | null) ?? null;
+}
+
 export async function insertRampOperationPending(input: {
   externalId: string;
   operationType: RampOperationType;

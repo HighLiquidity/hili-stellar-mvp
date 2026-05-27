@@ -34,25 +34,31 @@ const BIGPIX_STATUS_PARTIAL = 'PARTIAL';
 const BIGPIX_STATUS_FAILED = 'FAILED';
 
 type DynamicQrApiResponse = {
-  statusCode?: number;
-  title?: string;
-  data?: {
-    chave?: string;
-    identifier?: string;
-    payload?: string;
-    status?: string;
-    txid?: string;
-  };
+  txid?: string;
+  emv?: string;
+  identifier?: string;
+  status?: string;
+  type?: string;
+  value?: number | string;
+  message?: string;
+  expiresAt?: string;
+  createdAt?: string;
+  chave?: string;
+  pixKey?: string;
 };
 
 type StaticQrApiResponse = {
-  data?: {
-    chave?: string;
-    identifier?: string;
-    payload?: string;
-    status?: string;
-    txid?: string;
-  };
+  txid?: string;
+  emv?: string;
+  identifier?: string;
+  status?: string;
+  type?: string;
+  value?: number | string;
+  message?: string;
+  expiresAt?: string;
+  createdAt?: string;
+  chave?: string;
+  pixKey?: string;
 };
 
 type CashOutApiResponse = {
@@ -122,17 +128,16 @@ export class CorpXPixAdapter {
       throw new CorpXError(`Failed to parse PIX dynamic response: ${err.message}`, undefined, response.status);
     }
 
-    const d = parsed.data;
-    if (!d?.txid || !d.payload || !d.chave) {
+    if (!parsed.txid || !parsed.emv) {
       throw new CorpXError('CorpX PIX dynamic response missing data fields', undefined, response.status, raw.slice(0, 500));
     }
 
     return {
-      providerTxId: d.txid,
-      qrCode: d.payload,
-      pixKey: d.chave,
+      providerTxId: parsed.txid,
+      qrCode: parsed.emv,
+      pixKey: parsed.pixKey ?? parsed.chave ?? this.pixKey,
       amount: req.amount,
-      expiresAt: toIsoOrNull(req.expiresAt),
+      expiresAt: parsed.expiresAt ? toIsoOrNull(new Date(parsed.expiresAt)) : toIsoOrNull(req.expiresAt),
       status: 'active',
     };
   }
@@ -169,17 +174,16 @@ export class CorpXPixAdapter {
       throw new CorpXError(`Failed to parse PIX static response: ${err.message}`, undefined, response.status);
     }
 
-    const d = parsed.data;
-    if (!d?.txid || !d.payload || !d.chave) {
+    if (!parsed.txid || !parsed.emv) {
       throw new CorpXError('CorpX PIX static response missing data fields', undefined, response.status, raw.slice(0, 500));
     }
 
     return {
-      providerTxId: d.txid,
-      qrCode: d.payload,
-      pixKey: d.chave,
+      providerTxId: parsed.txid,
+      qrCode: parsed.emv,
+      pixKey: parsed.pixKey ?? parsed.chave ?? this.pixKey,
       amount: '0',
-      expiresAt: null,
+      expiresAt: parsed.expiresAt ? toIsoOrNull(new Date(parsed.expiresAt)) : null,
       status: 'active',
     };
   }
@@ -667,7 +671,7 @@ function amountToString(value: unknown, label: string): string {
 }
 
 export function createCorpXPixAdapterFromEnv(): CorpXPixAdapter {
-  const apiBaseURL = process.env.CORPX_API_URL ?? 'https://api.corpxapi.com';
+  const apiBaseURL = process.env.CORPX_API_URL ?? 'https://tenant.api.corpx.com';
   const accountId = process.env.CORPX_ACCOUNT_ID ?? '';
   const pixKey = process.env.CORPX_PIX_KEY ?? '';
 

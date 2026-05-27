@@ -4,7 +4,7 @@ import { CorpXProviderUnavailableError } from '../errors';
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 export type CorpXHttpClientConfig = {
-  /** e.g. https://api.corpxapi.com */
+  /** e.g. https://tenant.api.corpx.com */
   apiBaseURL: string;
   auth: CorpXAuthManager;
   timeoutMs?: number;

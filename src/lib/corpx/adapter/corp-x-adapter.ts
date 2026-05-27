@@ -312,7 +312,7 @@ function mergeAbortSignals(a?: AbortSignal, b?: AbortSignal): AbortSignal | unde
 export async function createCorpXAdapterFromEnv(options?: {
   signal?: AbortSignal;
 }): Promise<CorpXAdapter> {
-  const apiBaseURL = process.env.CORPX_API_URL ?? 'https://api.corpxapi.com';
+  const apiBaseURL = process.env.CORPX_API_URL ?? 'https://tenant.api.corpx.com';
   const accountId = process.env.CORPX_ACCOUNT_ID ?? '';
   const pixKey = process.env.CORPX_PIX_KEY ?? '';
 

@@ -16,6 +16,7 @@ import {
   KeyIcon,
   LogoutIcon,
   MenuIcon,
+  OnrampIcon,
   SettingsIcon,
   StatementIcon,
   WithdrawIcon,
@@ -105,6 +106,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         label: t('nav.dashboard'),
         icon: <DashboardIcon width={18} height={18} />,
       },
+      ...(profile?.role === 'admin'
+        ? [
+            {
+              to: '/app/onramp',
+              label: t('nav.onramp'),
+              icon: <OnrampIcon width={18} height={18} />,
+            } satisfies NavItem,
+          ]
+        : []),
       {
         to: '/app/deposit',
         label: t('nav.deposit'),
@@ -121,7 +131,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         icon: <StatementIcon width={18} height={18} />,
       },
     ],
-    [t],
+    [profile?.role, t],
   );
 
   const adminNavItems = useMemo<NavItem[]>(
@@ -132,6 +142,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               to: '/app/users',
               label: t('nav.users'),
               icon: <UsersIcon width={18} height={18} />,
+            },
+            {
+              to: '/app/withdraw-whitelist',
+              label: t('nav.withdrawWhitelist'),
+              icon: <KeyIcon width={18} height={18} />,
             },
             {
               to: '/app/event-logs',
