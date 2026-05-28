@@ -7,11 +7,11 @@ import {
   useRef,
   useState,
   type FormEvent,
-  type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { listMyActiveWithdrawWhitelistAction } from '@/app/actions/withdraw-whitelist';
+import { RampCollapsiblePanel } from '@/components/RampCollapsiblePanel';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { useAuth } from '@/hooks/useAuth';
@@ -846,14 +846,12 @@ export function OnrampPage() {
     <section className="onramp-layout">
       <div className={`onramp-grid${hasSideColumn ? ' onramp-grid--with-side' : ''}`}>
         <div className="onramp-main">
-          <article className="surface onramp-form-card">
-            <div className="onramp-form-card__header">
-              <div>
-                <p className="eyebrow">{t('pages.onramp.eyebrow')}</p>
-                <p className="surface__lead">{t('pages.onramp.description')}</p>
-              </div>
-            </div>
-
+          <RampCollapsiblePanel
+            className="onramp-form-card"
+            eyebrow={t('pages.onramp.eyebrow')}
+            title={t('pages.onramp.title')}
+            subtitle={t('pages.onramp.description')}
+          >
             {errorMessage ? (
               <p className="auth-inline-error onramp-alert" role="alert">
                 {errorMessage}
@@ -943,15 +941,14 @@ export function OnrampPage() {
                 </div>
               ) : null}
             </form>
-          </article>
+          </RampCollapsiblePanel>
 
-          <article className="surface onramp-status-card">
-            <div className="onramp-status-card__header">
-              <div>
-                <p className="eyebrow">{t('pages.onramp.statusCardEyebrow')}</p>
-                <h3>{t('pages.onramp.statusCardTitle')}</h3>
-              </div>
-
+          <RampCollapsiblePanel
+            className="onramp-status-card"
+            eyebrow={t('pages.onramp.statusCardEyebrow')}
+            title={t('pages.onramp.statusCardTitle')}
+            titleAs="h3"
+            headerActions={
               <div className="onramp-inline-actions">
                 {orderId ? (
                   <Button type="button" variant="secondary" onClick={handleRefreshStatus} disabled={isRefreshing}>
@@ -964,8 +961,8 @@ export function OnrampPage() {
                   </Button>
                 ) : null}
               </div>
-            </div>
-
+            }
+          >
             <p className="onramp-status-card__description">{statusDescription}</p>
 
             {order ? (
@@ -999,12 +996,12 @@ export function OnrampPage() {
                 </div>
               </>
             ) : null}
-          </article>
+          </RampCollapsiblePanel>
         </div>
 
         {order ? (
           <div className="onramp-side">
-            <OnrampCollapsiblePanel
+            <RampCollapsiblePanel
               eyebrow={t('pages.onramp.quoteCardEyebrow')}
               title={t('pages.onramp.quoteCardTitle')}
               badge={summaryPanelBadge}
@@ -1012,10 +1009,10 @@ export function OnrampPage() {
               onOpenChange={setSummaryPanelOpen}
             >
               {orderSummaryBody}
-            </OnrampCollapsiblePanel>
+            </RampCollapsiblePanel>
 
             {pix ? (
-              <OnrampCollapsiblePanel
+              <RampCollapsiblePanel
                 eyebrow={t('pages.onramp.pixEyebrow')}
                 title={t('pages.onramp.pixTitle')}
                 open={pixPanelOpen}
@@ -1063,62 +1060,11 @@ export function OnrampPage() {
                     ? t('pages.onramp.pixCopyPasteCopied')
                     : t('pages.onramp.pixCopyPasteButton')}
                 </Button>
-              </OnrampCollapsiblePanel>
+              </RampCollapsiblePanel>
             ) : null}
           </div>
         ) : null}
       </div>
     </section>
-  );
-}
-
-type OnrampCollapsiblePanelProps = {
-  eyebrow?: string;
-  title: string;
-  badge?: ReactNode;
-  defaultOpen?: boolean;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  children: ReactNode;
-};
-
-function OnrampCollapsiblePanel({
-  eyebrow,
-  title,
-  badge,
-  defaultOpen = true,
-  open: controlledOpen,
-  onOpenChange,
-  children,
-}: OnrampCollapsiblePanelProps) {
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
-  const isOpen = controlledOpen ?? uncontrolledOpen;
-
-  function setIsOpen(next: boolean) {
-    onOpenChange?.(next);
-    if (controlledOpen === undefined) {
-      setUncontrolledOpen(next);
-    }
-  }
-
-  return (
-    <article className="surface onramp-collapsible">
-      <button
-        type="button"
-        className="onramp-collapsible__summary"
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <span className="onramp-collapsible__heading">
-          {eyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
-          <span className="onramp-collapsible__title">{title}</span>
-        </span>
-        <span className="onramp-collapsible__meta">
-          {badge}
-          <span className={`onramp-collapsible__chevron${isOpen ? ' is-open' : ''}`} aria-hidden="true" />
-        </span>
-      </button>
-      {isOpen ? <div className="onramp-collapsible__body">{children}</div> : null}
-    </article>
   );
 }

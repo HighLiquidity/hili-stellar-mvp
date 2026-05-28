@@ -2208,13 +2208,27 @@ a.user-menu__item {
   overflow: hidden;
 }
 
-.onramp-collapsible__summary {
+.onramp-collapsible__header {
   display: flex;
-  width: 100%;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
   padding: 20px 24px;
+}
+
+.onramp-collapsible__header--solo .onramp-collapsible__toggle {
+  width: 100%;
+}
+
+.onramp-collapsible__toggle {
+  display: flex;
+  flex: 1;
+  min-width: min(100%, 220px);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0;
   border: 0;
   background: none;
   color: inherit;
@@ -2223,22 +2237,27 @@ a.user-menu__item {
   cursor: pointer;
 }
 
+.onramp-collapsible__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
 .onramp-collapsible__heading {
   display: grid;
   gap: 4px;
 }
 
 .onramp-collapsible__title {
+  margin: 0;
   font-size: 1.05rem;
   font-weight: 700;
   line-height: 1.35;
 }
 
-.onramp-collapsible__meta {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 10px;
+.onramp-collapsible__subtitle {
+  margin: 0;
 }
 
 .onramp-collapsible__chevron {
