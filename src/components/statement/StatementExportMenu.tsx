@@ -74,6 +74,8 @@ export function StatementExportMenu({ filters, onError }: StatementExportMenuPro
         {
           deposit: t('pages.ledger.type.deposit'),
           withdraw: t('pages.ledger.type.withdraw'),
+          onramp: t('pages.ledger.type.onramp'),
+          offramp: t('pages.ledger.type.offramp'),
           cryptoPending: t('pages.ledger.cryptoHashPending'),
           fileBaseName: `extrato-${stamp}`,
         },

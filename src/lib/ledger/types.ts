@@ -1,5 +1,8 @@
 export type LedgerEntryType = 'deposit' | 'withdraw';
 
+/** Origin of a statement line (legacy fiat ledger vs ramp orders). */
+export type LedgerTransactionKind = 'ledger' | 'onramp' | 'offramp';
+
 export type FiatLedgerEntryRow = {
   id: string;
   created_at: string;
@@ -15,12 +18,14 @@ export type FiatLedgerEntryRow = {
 /** View model for UI (includes on-chain hash from ramp_operations when linked). */
 export type LedgerTransaction = {
   id: string;
+  kind: LedgerTransactionKind;
   type: LedgerEntryType;
   amountBrl: string;
   createdAt: string;
   pixE2eId: string | null;
   txHash: string | null;
   beneficiaryName: string | null;
+  /** Secondary line (e.g. USDC amount on ramp orders). */
+  detail: string | null;
 };
 
-export const FIAT_LEDGER_ENTRIES_TABLE = 'fiat_ledger_entries';

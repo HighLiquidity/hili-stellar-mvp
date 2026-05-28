@@ -11,8 +11,12 @@ import {
 } from '@/lib/ledger/filters';
 import { fetchLedgerPage } from '@/lib/ledger/query-entries';
 import type { LedgerTransaction } from '@/lib/ledger/types';
-import { FIAT_LEDGER_ENTRIES_TABLE } from '@/lib/ledger/types';
-import { RAMP_OPERATIONS_TABLE } from '@/lib/ramp/operation-store';
+import {
+  FIAT_LEDGER_ENTRIES_TABLE,
+  OFFRAMP_ORDERS_TABLE,
+  ONRAMP_ORDERS_TABLE,
+  RAMP_OPERATIONS_TABLE,
+} from '@/lib/ledger/db-tables';
 
 export type UseStatementLedgerResult = {
   transactions: LedgerTransaction[];
@@ -90,6 +94,20 @@ export function useStatementLedger(initialPageSize: StatementPageSize = 25): Use
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: RAMP_OPERATIONS_TABLE },
+        () => {
+          void fetchPage();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: ONRAMP_ORDERS_TABLE },
+        () => {
+          void fetchPage();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: OFFRAMP_ORDERS_TABLE },
         () => {
           void fetchPage();
         },

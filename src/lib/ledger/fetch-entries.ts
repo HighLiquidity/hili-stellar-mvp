@@ -1,9 +1,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
-import { RAMP_OPERATIONS_TABLE } from '@/lib/ramp/operation-store';
-
+import { FIAT_LEDGER_ENTRIES_TABLE, RAMP_OPERATIONS_TABLE } from './db-tables';
 import { mapLedgerRowsToTransactions } from './map-entries';
 import type { FiatLedgerEntryRow, LedgerTransaction } from './types';
-import { FIAT_LEDGER_ENTRIES_TABLE } from './types';
 
 /** Server-side fetch (service role) for API routes or actions. */
 export async function fetchLedgerTransactionsAdmin(limit: number): Promise<LedgerTransaction[]> {
@@ -50,21 +48,4 @@ export async function fetchLedgerTransactionsAdmin(limit: number): Promise<Ledge
   }
 
   return mapLedgerRowsToTransactions(rows, rampByExternalId);
-}
-
-export function sumLedgerVolumes(transactions: LedgerTransaction[]): {
-  incomingBrl: number;
-  outgoingBrl: number;
-} {
-  let incomingBrl = 0;
-  let outgoingBrl = 0;
-
-  for (const tx of transactions) {
-    const n = Number(tx.amountBrl.replace(',', '.'));
-    if (!Number.isFinite(n)) continue;
-    if (tx.type === 'deposit') incomingBrl += n;
-    else outgoingBrl += n;
-  }
-
-  return { incomingBrl, outgoingBrl };
 }

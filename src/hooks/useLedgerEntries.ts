@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { supabase } from '@/integrations/supabase/client';
+import {
+  FIAT_LEDGER_ENTRIES_TABLE,
+  RAMP_OPERATIONS_TABLE,
+} from '@/lib/ledger/db-tables';
 import { mapLedgerRowsToTransactions } from '@/lib/ledger/map-entries';
-import { sumLedgerVolumes } from '@/lib/ledger/fetch-entries';
 import type { FiatLedgerEntryRow, LedgerTransaction } from '@/lib/ledger/types';
-import { FIAT_LEDGER_ENTRIES_TABLE } from '@/lib/ledger/types';
-import { RAMP_OPERATIONS_TABLE } from '@/lib/ramp/operation-store';
+import { sumLedgerVolumes } from '@/lib/ledger/volumes';
 
 export type UseLedgerEntriesResult = {
   transactions: LedgerTransaction[];

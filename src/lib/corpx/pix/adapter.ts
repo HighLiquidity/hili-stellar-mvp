@@ -1,5 +1,6 @@
 import { getSharedAuthManager } from '../auth/auth-manager';
 import { CorpXHttpClient } from '../client/http-client';
+import { clampCorpXPixExpirationDate } from './expiration';
 import { normalizeCorpXPixIdentifier } from './identifier';
 import {
   CorpXError,
@@ -101,7 +102,7 @@ export class CorpXPixAdapter {
     const body = {
       pixKey: this.pixKey,
       value: brlStringToJsonNumber(req.amount),
-      expirationDate: toRfc3339Utc(req.expiresAt),
+      expirationDate: toRfc3339Utc(clampCorpXPixExpirationDate(req.expiresAt)),
       identifier: normalizeCorpXPixIdentifier(req.correlationId),
       ...(req.description ? { message: req.description } : {}),
     };

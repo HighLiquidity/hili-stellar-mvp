@@ -11,6 +11,7 @@ import {
 } from '@/lib/admin-test-settings/deposit-limits';
 import { createCorpXAdapterFromEnv } from '@/lib/corpx/adapter';
 import { brlStringToJsonNumber } from '@/lib/corpx/pix/brl';
+import { clampCorpXPixExpirationDate } from '@/lib/corpx/pix/expiration';
 import { registerPendingDepositCharge } from '@/lib/deposit/charge-store';
 import { formatDepositPixErrorMessage } from '@/lib/deposit/format-pix-error';
 import { logFiatDepositQrAttempt } from '@/lib/fiat-operations/log-deposit';
@@ -102,7 +103,7 @@ export async function generateDepositPixAction(input: {
         idempotencyKey: randomUUID(),
         correlationId,
         amount,
-        expiresAt: new Date(Date.now() + PIX_CHARGE_TTL_MS),
+        expiresAt: clampCorpXPixExpirationDate(new Date(Date.now() + PIX_CHARGE_TTL_MS)),
         description: 'Fiat deposit',
       });
 

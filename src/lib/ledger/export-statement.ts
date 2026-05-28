@@ -7,6 +7,8 @@ export type StatementExportFormat = 'csv' | 'pdf' | 'ofx';
 export type StatementExportLabels = {
   deposit: string;
   withdraw: string;
+  onramp: string;
+  offramp: string;
   cryptoPending: string;
   fileBaseName: string;
 };
@@ -40,6 +42,8 @@ function formatExportDate(iso: string, localeCode: string): string {
 }
 
 function typeLabel(tx: LedgerTransaction, labels: StatementExportLabels): string {
+  if (tx.kind === 'onramp') return labels.onramp;
+  if (tx.kind === 'offramp') return labels.offramp;
   return tx.type === 'deposit' ? labels.deposit : labels.withdraw;
 }
 

@@ -5,6 +5,18 @@ import { formatBrhAmount } from '@/lib/format/brh-display';
 import type { LedgerTransaction } from '@/lib/ledger/types';
 import { useI18n } from '@/lib/i18n';
 
+function resolveTypeLabel(transaction: LedgerTransaction, t: (key: string) => string): string {
+  if (transaction.kind === 'onramp') {
+    return t('pages.ledger.type.onramp');
+  }
+  if (transaction.kind === 'offramp') {
+    return t('pages.ledger.type.offramp');
+  }
+  return transaction.type === 'deposit'
+    ? t('pages.ledger.type.deposit')
+    : t('pages.ledger.type.withdraw');
+}
+
 function formatCurrency(value: number, localeCode: string) {
   return new Intl.NumberFormat(localeCode, {
     style: 'currency',
@@ -66,10 +78,7 @@ export function LedgerTransactionList({
         const amountNum = Number(transaction.amountBrl.replace(',', '.'));
         const amountPrefix = transaction.type === 'deposit' ? '+' : '-';
         const toneClass = transaction.type === 'deposit' ? 'is-positive' : 'is-negative';
-        const typeLabel =
-          transaction.type === 'deposit'
-            ? t('pages.ledger.type.deposit')
-            : t('pages.ledger.type.withdraw');
+        const typeLabel = resolveTypeLabel(transaction, t);
 
         return (
           <article key={transaction.id} className="transaction-item" role="listitem">
@@ -80,6 +89,9 @@ export function LedgerTransactionList({
                   {t('pages.ledger.status.completed')}
                 </span>
               </div>
+              {transaction.detail ? (
+                <p className="transaction-item__subline">{transaction.detail}</p>
+              ) : null}
               {transaction.beneficiaryName && transaction.type === 'withdraw' ? (
                 <p className="transaction-item__subline">
                   {t('pages.ledger.beneficiary')}: {transaction.beneficiaryName}

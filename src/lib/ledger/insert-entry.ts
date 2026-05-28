@@ -1,7 +1,7 @@
 import { buildOnrampExternalId } from '@/lib/ramp/amount';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
-import { FIAT_LEDGER_ENTRIES_TABLE } from './types';
+import { FIAT_LEDGER_ENTRIES_TABLE } from './db-tables';
 
 export async function insertDepositLedgerEntry(input: {
   corpxTxid: string;

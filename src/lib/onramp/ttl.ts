@@ -1,5 +1,10 @@
 import '@/lib/server/only';
 
+import {
+  CORPX_PIX_MAX_EXPIRATION_SECONDS,
+  clampCorpXPixExpirationDate,
+} from '@/lib/corpx/pix/expiration';
+
 import { OnrampConfigError } from './errors';
 
 /** Default window to lock a quote and complete PIX payment (aligned). */
@@ -27,12 +32,20 @@ function readPositiveIntegerEnv(name: string, fallback: number): number {
   return parsed;
 }
 
+function capTtlSecondsForCorpXPix(ttlSeconds: number): number {
+  return Math.min(ttlSeconds, CORPX_PIX_MAX_EXPIRATION_SECONDS);
+}
+
 export function getOnrampQuoteTtlSeconds(): number {
-  return readPositiveIntegerEnv('ONRAMP_QUOTE_TTL_SECONDS', DEFAULT_ONRAMP_QUOTE_TTL_SECONDS);
+  return capTtlSecondsForCorpXPix(
+    readPositiveIntegerEnv('ONRAMP_QUOTE_TTL_SECONDS', DEFAULT_ONRAMP_QUOTE_TTL_SECONDS),
+  );
 }
 
 export function getOnrampPixTtlSeconds(): number {
-  return readPositiveIntegerEnv('ONRAMP_PIX_TTL_SECONDS', DEFAULT_ONRAMP_PIX_TTL_SECONDS);
+  return capTtlSecondsForCorpXPix(
+    readPositiveIntegerEnv('ONRAMP_PIX_TTL_SECONDS', DEFAULT_ONRAMP_PIX_TTL_SECONDS),
+  );
 }
 
 export function getOnrampMinLockRemainingSeconds(): number {
@@ -65,8 +78,8 @@ export function resolveOnrampPixExpiresAt(quoteExpiresAt: string, now = new Date
   const pixCapMs = now.getTime() + getOnrampPixTtlSeconds() * 1000;
 
   if (!Number.isFinite(quoteExpiresMs)) {
-    return new Date(pixCapMs);
+    return clampCorpXPixExpirationDate(new Date(pixCapMs), now);
   }
 
-  return new Date(Math.min(quoteExpiresMs, pixCapMs));
+  return clampCorpXPixExpirationDate(new Date(Math.min(quoteExpiresMs, pixCapMs)), now);
 }
