@@ -9,8 +9,8 @@ import { resolveOnrampPixExpiresAt } from './ttl';
 
 describe('onramp lock helpers', () => {
   it('builds stable CorpX identifiers for the order lock', () => {
-    expect(buildOnrampPixCorrelationId('order-123')).toBe('onramp:order-123:pix');
-    expect(buildOnrampPixIdempotencyKey('order-123')).toBe('onramp-lock:order-123');
+    expect(buildOnrampPixCorrelationId('order-123')).toBe('oorder123');
+    expect(buildOnrampPixIdempotencyKey('order-123')).toBe('olorder123');
   });
 
   it('detects when a quote has expired', () => {

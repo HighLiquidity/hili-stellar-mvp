@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { listMyActiveWithdrawWhitelistAction } from '@/app/actions/withdraw-whitelist';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { useAuth } from '@/hooks/useAuth';
@@ -21,6 +22,7 @@ import type {
   OnrampOrderStatus,
   OnrampQuoteResponse,
 } from '@/lib/onramp/contracts';
+import type { WithdrawWhitelistRow } from '@/lib/withdraw-whitelist/types';
 
 const CLOCK_TICK_INTERVAL_MS = 1_000;
 
@@ -289,6 +291,8 @@ export function OnrampPage() {
   const [taxId, setTaxId] = useState('');
   const [amountBrl, setAmountBrl] = useState('');
   const [destinationAddress, setDestinationAddress] = useState('');
+  const [whitelistedWallets, setWhitelistedWallets] = useState<WithdrawWhitelistRow[]>([]);
+  const [isLoadingWhitelistedWallets, setIsLoadingWhitelistedWallets] = useState(true);
 
   const [order, setOrder] = useState<OnrampOrderResponse | null>(null);
   const [isQuoting, setIsQuoting] = useState(false);
@@ -317,6 +321,9 @@ export function OnrampPage() {
   const canEditFormForNewQuote = Boolean(order?.status === 'quoted' && isQuoteExpired);
   const formFieldsLocked = (isFlowLocked && !canEditFormForNewQuote) || isQuoting || isLocking;
   const showQuoteFormActions = !isFlowLocked || Boolean(order && order.status === 'quoted');
+  const hasWhitelistedWallets = whitelistedWallets.length > 0;
+  const selectedWalletAllowed =
+    !destinationAddress.trim() || whitelistedWallets.some((wallet) => wallet.address === destinationAddress);
   const canRetryReconciliation =
     Boolean(order?.timeline.usdcDeliveredAt) &&
     order?.status !== 'complete' &&
@@ -419,6 +426,43 @@ export function OnrampPage() {
       router.replace('/app/dashboard');
     }
   }, [authLoading, isAuthorized, profile?.role, router]);
+
+  useEffect(() => {
+    if (!accessToken || authLoading || profile?.role !== 'admin') return;
+    const token = accessToken;
+
+    let cancelled = false;
+    async function loadWhitelistedWallets() {
+      setIsLoadingWhitelistedWallets(true);
+      try {
+        const result = await listMyActiveWithdrawWhitelistAction(token);
+        if (cancelled) return;
+        if (!result.ok) {
+          setWhitelistedWallets([]);
+          setErrorMessage((current) => current ?? result.message);
+          return;
+        }
+        setWhitelistedWallets(result.data);
+      } finally {
+        if (!cancelled) setIsLoadingWhitelistedWallets(false);
+      }
+    }
+
+    void loadWhitelistedWallets();
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, authLoading, profile?.role]);
+
+  useEffect(() => {
+    if (!hasWhitelistedWallets) {
+      if (!destinationAddress) return;
+      setDestinationAddress('');
+      return;
+    }
+    if (!destinationAddress || selectedWalletAllowed) return;
+    setDestinationAddress(whitelistedWallets[0]?.address ?? '');
+  }, [hasWhitelistedWallets, destinationAddress, selectedWalletAllowed, whitelistedWallets]);
 
   const loadOrder = useCallback(
     async (id: string) => {
@@ -846,24 +890,47 @@ export function OnrampPage() {
                   required
                   disabled={formFieldsLocked}
                 />
-                <InputField
-                  id="onramp-destination"
-                  label={t('pages.onramp.destinationAddress')}
-                  type="text"
-                  value={destinationAddress}
-                  onChange={(event) => setDestinationAddress(event.target.value)}
-                  placeholder={t('pages.onramp.destinationAddressPlaceholder')}
-                  autoComplete="off"
-                  required
-                  disabled={formFieldsLocked}
-                />
+                <label className="field">
+                  <span className="field__label">{t('pages.onramp.whitelistedWallet')}</span>
+                  <select
+                    className="field__input field__select"
+                    value={destinationAddress}
+                    onChange={(event) => setDestinationAddress(event.target.value)}
+                    disabled={formFieldsLocked || isLoadingWhitelistedWallets || !hasWhitelistedWallets}
+                    required
+                  >
+                    <option value="">
+                      {isLoadingWhitelistedWallets
+                        ? t('pages.onramp.whitelistedWalletLoading')
+                        : t('pages.onramp.whitelistedWalletPlaceholder')}
+                    </option>
+                    {whitelistedWallets.map((wallet) => (
+                      <option key={wallet.id} value={wallet.address}>
+                        {wallet.label?.trim() ? `${wallet.label} - ${wallet.address}` : wallet.address}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {!isLoadingWhitelistedWallets && !hasWhitelistedWallets ? (
+                  <p className="onramp-alert" role="status">
+                    {t('pages.onramp.whitelistedWalletEmpty')}
+                  </p>
+                ) : null}
               </div>
 
               {showQuoteFormActions ? (
                 <div className="onramp-inline-actions">
                   <Button
                     type="submit"
-                    disabled={!taxId.trim() || !amountBrl.trim() || !destinationAddress.trim() || isQuoting || isLocking}
+                    disabled={
+                      !taxId.trim() ||
+                      !amountBrl.trim() ||
+                      !destinationAddress.trim() ||
+                      !hasWhitelistedWallets ||
+                      isLoadingWhitelistedWallets ||
+                      isQuoting ||
+                      isLocking
+                    }
                   >
                     {isQuoting
                       ? hasActiveQuote

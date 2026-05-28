@@ -1,5 +1,6 @@
 import type { CorpXAuthManager } from '../auth/auth-manager';
 import { CorpXProviderUnavailableError } from '../errors';
+import { normalizeCorpXApiBaseURL } from './api-base-url';
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
@@ -53,7 +54,7 @@ export class CorpXHttpClient {
   private readonly timeoutMs: number;
 
   constructor(config: CorpXHttpClientConfig) {
-    this.apiBaseURL = config.apiBaseURL.replace(/\/+$/, '');
+    this.apiBaseURL = normalizeCorpXApiBaseURL(config.apiBaseURL);
     this.auth = config.auth;
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }

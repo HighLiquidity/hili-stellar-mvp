@@ -1,5 +1,6 @@
 import { getSharedAuthManager } from '../auth/auth-manager';
 import { CorpXHttpClient } from '../client/http-client';
+import { normalizeCorpXPixIdentifier } from './identifier';
 import {
   CorpXError,
   CorpXIdempotencyConflictError,
@@ -101,7 +102,7 @@ export class CorpXPixAdapter {
       pixKey: this.pixKey,
       value: brlStringToJsonNumber(req.amount),
       expirationDate: toRfc3339Utc(req.expiresAt),
-      identifier: req.correlationId,
+      identifier: normalizeCorpXPixIdentifier(req.correlationId),
       ...(req.description ? { message: req.description } : {}),
     };
 
@@ -147,7 +148,7 @@ export class CorpXPixAdapter {
 
     const body = {
       pixKey: this.pixKey,
-      identifier: req.idempotencyKey,
+      identifier: normalizeCorpXPixIdentifier(req.idempotencyKey),
       ...(req.description ? { message: req.description } : {}),
     };
 
@@ -202,7 +203,7 @@ export class CorpXPixAdapter {
       keyType: req.pixKeyType,
       key: req.pixKey,
       ...(req.description ? { description: req.description } : {}),
-      ...(req.correlationId ? { identifier: req.correlationId } : {}),
+      ...(req.correlationId ? { identifier: normalizeCorpXPixIdentifier(req.correlationId) } : {}),
     };
 
     let response: Response;
@@ -247,7 +248,7 @@ export class CorpXPixAdapter {
       keyType: req.pixKeyType,
       amount: brlStringToJsonNumber(req.amount),
       ...(req.description ? { description: req.description } : {}),
-      ...(req.correlationId ? { identifier: req.correlationId } : {}),
+      ...(req.correlationId ? { identifier: normalizeCorpXPixIdentifier(req.correlationId) } : {}),
     };
 
     let response: Response;
@@ -485,7 +486,7 @@ export class CorpXPixAdapter {
       accountId: this.accountId,
       emv: req.emv.trim(),
       ...(req.description ? { description: req.description } : {}),
-      ...(req.correlationId ? { identifier: req.correlationId } : {}),
+      ...(req.correlationId ? { identifier: normalizeCorpXPixIdentifier(req.correlationId) } : {}),
     };
 
     if (req.amount?.trim()) {

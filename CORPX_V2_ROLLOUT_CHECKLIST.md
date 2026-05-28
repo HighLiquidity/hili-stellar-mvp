@@ -1,7 +1,7 @@
 # CorpX v2 Rollout Checklist
 
 ## 1) Environment and credentials
-- [ ] Set `CORPX_API_URL=https://tenant.api.corpx.com`
+- [ ] Set `CORPX_API_URL` to `https://tenant.api.corpx.com` or `https://tenant.api.corpx.com/v1` (both work; avoid double `/v1` in paths)
 - [ ] Set `CORPX_AUTH_URL=https://auth.api.corpx.com`
 - [ ] Set new `CORPX_CLIENT_ID` and `CORPX_CLIENT_SECRET` for v2 cutover
 - [ ] Confirm `CORPX_TENANT_ID`, `CORPX_ACCOUNT_ID`, and `CORPX_PIX_KEY`

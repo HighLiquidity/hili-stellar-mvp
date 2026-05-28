@@ -1,0 +1,162 @@
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { OfframpOrderRow } from './order-store';
+
+const findOfframpOrderByIdMock = vi.fn();
+const markOfframpOrderStatusMock = vi.fn();
+const createCorpXAdapterFromEnvMock = vi.fn();
+const logOfframpEventMock = vi.fn();
+const placeMarketOrderByQuoteAmountMock = vi.fn();
+const startOfframpAfterWithdrawMock = vi.fn();
+const findRampOperationByExternalIdMock = vi.fn();
+
+vi.mock('./order-store', () => ({
+  findOfframpOrderById: findOfframpOrderByIdMock,
+  markOfframpOrderStatus: markOfframpOrderStatusMock,
+}));
+
+vi.mock('@/lib/corpx/adapter', () => ({
+  createCorpXAdapterFromEnv: createCorpXAdapterFromEnvMock,
+}));
+
+vi.mock('@/lib/fiat-operations/log-offramp', () => ({
+  logOfframpEvent: logOfframpEventMock,
+}));
+
+vi.mock('@/lib/server/binance', () => ({
+  binance: {
+    market: {
+      placeMarketOrderByQuoteAmount: placeMarketOrderByQuoteAmountMock,
+    },
+  },
+}));
+
+vi.mock('@/lib/ramp/start-offramp', () => ({
+  startOfframpAfterWithdraw: startOfframpAfterWithdrawMock,
+}));
+
+vi.mock('@/lib/ramp/operation-store', () => ({
+  findRampOperationByExternalId: findRampOperationByExternalIdMock,
+}));
+
+let retryOfframpReconciliation: (orderId: string) => Promise<{ accepted: true; orderId: string }>;
+
+function makeOrder(overrides: Partial<OfframpOrderRow> = {}): OfframpOrderRow {
+  return {
+    id: 'order-123',
+    status: 'pix_sent',
+    amount_usdc: '100.00',
+    amount_brl: '550.00',
+    quote_symbol: 'USDCBRL',
+    quote_side: 'SELL',
+    quote_rate: '5.5',
+    quote_source: 'test',
+    quote_spread_bps: 0,
+    quote_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    quote_locked_at: new Date().toISOString(),
+    payout_pix_key: 'user@example.com',
+    payout_beneficiary_name: 'Test User',
+    payout_reference: null,
+    payout_provider_tx_id: 'pix-provider-1',
+    payout_end_to_end_id: 'e2e-1',
+    usdc_deposit_external_id: 'offramp-usdc-deposit:order-123',
+    usdc_deposit_ramp_operation_id: 'ramp-deposit-1',
+    usdc_deposit_address: '0xabc',
+    usdc_deposit_memo: 'offramp:order-123',
+    usdc_received_amount: '100.00',
+    usdc_received_tx_hash: '0xtx',
+    brh_issue_external_id: null,
+    brh_issue_ramp_operation_id: null,
+    brh_redemption_external_id: null,
+    brh_redemption_ramp_operation_id: null,
+    binance_symbol: null,
+    binance_side: null,
+    binance_client_order_id: null,
+    binance_order_id: null,
+    binance_executed_qty: null,
+    binance_cummulative_quote_qty: null,
+    binance_status: null,
+    failure_code: null,
+    failure_reason: null,
+    needs_review_reason: null,
+    created_by_user_id: null,
+    created_by_email: null,
+    quoted_at: new Date().toISOString(),
+    usdc_received_at: new Date().toISOString(),
+    pix_sent_at: new Date().toISOString(),
+    brh_recorded_at: null,
+    fx_settled_at: null,
+    complete_at: null,
+    expired_at: null,
+    refunded_at: null,
+    metadata: {},
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+describe('offramp reconciliation orchestration', () => {
+  beforeAll(async () => {
+    ({ retryOfframpReconciliation } = await import('./reconciliation'));
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    createCorpXAdapterFromEnvMock.mockResolvedValue({
+      pix: {
+        initiatePIXCashOut: vi.fn(),
+      },
+    });
+    markOfframpOrderStatusMock.mockImplementation(async ({ status, patch }: { status: string; patch?: Record<string, unknown> }) => ({
+      ok: true,
+      row: makeOrder({
+        status: status as OfframpOrderRow['status'],
+        ...((patch ?? {}) as Partial<OfframpOrderRow>),
+      }),
+    }));
+    startOfframpAfterWithdrawMock.mockResolvedValue(undefined);
+    findRampOperationByExternalIdMock.mockResolvedValue({ status: 'pending', ramp_operation_id: 'ramp-brh-1' });
+    placeMarketOrderByQuoteAmountMock.mockResolvedValue({
+      symbol: 'USDCBRL',
+      side: 'SELL',
+      orderId: 999,
+      executedQty: '100.00',
+      cummulativeQuoteQty: '550.00',
+      status: 'FILLED',
+    });
+  });
+
+  it('does not execute FX while BRH redemption is still pending confirmation', async () => {
+    findOfframpOrderByIdMock
+      .mockResolvedValueOnce(makeOrder({ status: 'pix_sent' }))
+      .mockResolvedValueOnce(makeOrder({ status: 'pix_sent' }))
+      .mockResolvedValueOnce(makeOrder({ status: 'pix_sent' }));
+
+    await retryOfframpReconciliation('order-123');
+
+    expect(startOfframpAfterWithdrawMock).toHaveBeenCalledTimes(1);
+    expect(placeMarketOrderByQuoteAmountMock).not.toHaveBeenCalled();
+  });
+
+  it('executes FX and marks complete only after brh_recorded', async () => {
+    findOfframpOrderByIdMock
+      .mockResolvedValueOnce(makeOrder({ status: 'brh_recorded', brh_redemption_external_id: 'offramp-brh-redemption:order-123' }))
+      .mockResolvedValueOnce(makeOrder({ status: 'brh_recorded', brh_redemption_external_id: 'offramp-brh-redemption:order-123' }))
+      .mockResolvedValueOnce(makeOrder({ status: 'fx_settled', binance_order_id: '999' }));
+
+    await retryOfframpReconciliation('order-123');
+
+    expect(placeMarketOrderByQuoteAmountMock).toHaveBeenCalledTimes(1);
+    expect(markOfframpOrderStatusMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'fx_settled',
+      }),
+    );
+    expect(markOfframpOrderStatusMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'complete',
+      }),
+    );
+  });
+});

@@ -20,7 +20,7 @@ const baseRow: OnrampOrderRow = {
   quote_source: 'binance:api/v3/ticker/price',
   quote_spread_bps: 0,
   corpx_txid: 'corpx-123',
-  corpx_identifier: 'onramp:order-123:pix',
+  corpx_identifier: 'oorder123',
   corpx_expires_at: '2026-05-27T15:00:00.000Z',
   pix_copy_paste: '00020101021226880014br.gov.bcb.pix2566example.com/pix1235204000053039865406100.005802BR5913HighLiquidity6009Sao Paulo62070503***6304ABCD',
   corpx_event_type: null,

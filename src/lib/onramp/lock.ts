@@ -31,12 +31,19 @@ import {
 } from './order-store';
 
 import {
+  buildOnrampPixCorrelationId,
+  buildOnrampPixIdempotencyKey,
+} from '@/lib/corpx/pix/identifier';
+
+import {
 
   hasMinimumQuoteTimeToLock,
 
   resolveOnrampPixExpiresAt,
 
 } from './ttl';
+
+export { buildOnrampPixCorrelationId, buildOnrampPixIdempotencyKey } from '@/lib/corpx/pix/identifier';
 
 
 
@@ -103,20 +110,6 @@ export function isOnrampQuoteExpired(expiresAt: string, now = new Date()): boole
 }
 
 
-
-export function buildOnrampPixCorrelationId(orderId: string): string {
-
-  return `onramp:${orderId}:pix`;
-
-}
-
-
-
-export function buildOnrampPixIdempotencyKey(orderId: string): string {
-
-  return `onramp-lock:${orderId}`;
-
-}
 
 
 

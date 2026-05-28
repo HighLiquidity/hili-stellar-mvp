@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
 import {
+  deleteWithdrawWhitelistAction,
   listWithdrawWhitelistAction,
   listWhitelistUsersAction,
   upsertWithdrawWhitelistAction,
@@ -48,7 +49,6 @@ export function UserWithdrawWhitelistPage() {
   const [address, setAddress] = useState('');
   const [network, setNetwork] = useState<WithdrawWhitelistNetwork>('STELLAR_TESTNET');
   const [label, setLabel] = useState('');
-  const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
@@ -109,7 +109,6 @@ export function UserWithdrawWhitelistPage() {
     setAddress('');
     setNetwork('STELLAR_TESTNET');
     setLabel('');
-    setIsActive(true);
     setFormError(null);
   };
 
@@ -126,7 +125,6 @@ export function UserWithdrawWhitelistPage() {
     setAddress(row.address);
     setNetwork(row.network);
     setLabel(row.label ?? '');
-    setIsActive(row.is_active);
     setFormError(null);
     setSuccessMessage(null);
   };
@@ -150,7 +148,7 @@ export function UserWithdrawWhitelistPage() {
         address,
         network,
         label,
-        isActive,
+        isActive: true,
       });
 
       if (!result.ok) {
@@ -169,6 +167,39 @@ export function UserWithdrawWhitelistPage() {
       );
 
       resetForm();
+      await loadRows();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (row: EditableRow) => {
+    setFormError(null);
+    setSuccessMessage(null);
+
+    const confirmed = window.confirm(
+      t('pages.withdrawWhitelist.deleteConfirm').replace('{{address}}', row.address),
+    );
+    if (!confirmed) return;
+
+    setIsSaving(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        setFormError(t('pages.userManagement.errors.session'));
+        return;
+      }
+
+      const result = await deleteWithdrawWhitelistAction(token, row.id);
+      if (!result.ok) {
+        setFormError(result.message);
+        return;
+      }
+
+      if (editingId === row.id) {
+        resetForm();
+      }
+      setSuccessMessage(t('pages.withdrawWhitelist.deleteSuccess'));
       await loadRows();
     } finally {
       setIsSaving(false);
@@ -228,7 +259,6 @@ export function UserWithdrawWhitelistPage() {
                   <th scope="col">{t('pages.withdrawWhitelist.columns.address')}</th>
                   <th scope="col">{t('pages.withdrawWhitelist.columns.network')}</th>
                   <th scope="col">{t('pages.withdrawWhitelist.columns.label')}</th>
-                  <th scope="col">{t('pages.withdrawWhitelist.columns.status')}</th>
                   <th scope="col">{t('pages.withdrawWhitelist.columns.actions')}</th>
                 </tr>
               </thead>
@@ -239,11 +269,13 @@ export function UserWithdrawWhitelistPage() {
                     <td>{row.address}</td>
                     <td>{row.network}</td>
                     <td>{row.label ?? '—'}</td>
-                    <td>{row.is_active ? t('pages.userManagement.statusActive') : t('pages.userManagement.statusInactive')}</td>
                     <td>
                       <div className="user-management-actions">
                         <Button type="button" variant="ghost" onClick={() => openEdit(row)}>
                           {t('pages.userManagement.edit')}
+                        </Button>
+                        <Button type="button" variant="ghost" onClick={() => void handleDelete(row)} disabled={isSaving}>
+                          {t('pages.userManagement.delete')}
                         </Button>
                       </div>
                     </td>

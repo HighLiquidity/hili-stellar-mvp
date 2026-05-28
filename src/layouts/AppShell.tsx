@@ -17,6 +17,7 @@ import {
   LogoutIcon,
   MenuIcon,
   OnrampIcon,
+  OfframpIcon,
   SettingsIcon,
   StatementIcon,
   WithdrawIcon,
@@ -112,6 +113,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               to: '/app/onramp',
               label: t('nav.onramp'),
               icon: <OnrampIcon width={18} height={18} />,
+            } satisfies NavItem,
+            {
+              to: '/app/offramp',
+              label: t('nav.offramp'),
+              icon: <OfframpIcon width={18} height={18} />,
             } satisfies NavItem,
           ]
         : []),

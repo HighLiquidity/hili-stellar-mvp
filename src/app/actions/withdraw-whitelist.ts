@@ -1,6 +1,7 @@
 'use server';
 
 import { requireAdminFromAccessToken } from '@/lib/users/require-admin';
+import { requireOperatorOrAdminFromAccessToken } from '@/lib/users/require-panel-role';
 import type { WithdrawWhitelistNetwork, WithdrawWhitelistRow } from '@/lib/withdraw-whitelist/types';
 
 const WHITELIST_TABLE = 'user_withdraw_whitelist';
@@ -114,6 +115,26 @@ export async function listWithdrawWhitelistAction(
   }
 }
 
+export async function listMyActiveWithdrawWhitelistAction(
+  accessToken: string,
+): Promise<ActionResult<WithdrawWhitelistRow[]>> {
+  try {
+    const { admin, userId } = await requireOperatorOrAdminFromAccessToken(accessToken);
+    const { data, error } = await admin
+      .from(WHITELIST_TABLE)
+      .select(WHITELIST_COLUMNS)
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .order('label', { ascending: true })
+      .order('address', { ascending: true });
+
+    if (error) return { ok: false, message: error.message };
+    return { ok: true, data: (data ?? []) as WithdrawWhitelistRow[] };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function upsertWithdrawWhitelistAction(
   accessToken: string,
   input: {
@@ -171,6 +192,25 @@ export async function upsertWithdrawWhitelistAction(
 
     if (error) return { ok: false, message: error.message };
     return { ok: true, data: { id: data?.id } };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function deleteWithdrawWhitelistAction(
+  accessToken: string,
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const { admin } = await requireAdminFromAccessToken(accessToken);
+    const targetId = id.trim();
+    if (!targetId) {
+      return { ok: false, message: 'ID inválido.' };
+    }
+
+    const { error } = await admin.from(WHITELIST_TABLE).delete().eq('id', targetId);
+    if (error) return { ok: false, message: error.message };
+    return { ok: true, data: { id: targetId } };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }

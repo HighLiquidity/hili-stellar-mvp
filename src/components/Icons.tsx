@@ -49,6 +49,17 @@ export function OnrampIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function OfframpIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <path d="M20 12H10" />
+      <path d="m14 6-6 6 6 6" />
+      <path d="M14 5h6" />
+      <path d="M14 19h6" />
+    </IconBase>
+  );
+}
+
 export function WithdrawIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <IconBase {...props}>
