@@ -119,6 +119,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               label: t('nav.offramp'),
               icon: <OfframpIcon width={18} height={18} />,
             } satisfies NavItem,
+            {
+              to: '/app/ramp-orders',
+              label: t('nav.rampOrders'),
+              icon: <StatementIcon width={18} height={18} />,
+            } satisfies NavItem,
           ]
         : []),
       {

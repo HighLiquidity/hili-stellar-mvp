@@ -19,6 +19,13 @@ function formatCurrency(value: number, locale: string) {
   }).format(value);
 }
 
+function formatUsdcAmount(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 export function DashboardPage() {
   const { locale, t } = useI18n();
   const localeCode = locale === 'pt' ? 'pt-BR' : 'en-US';
@@ -27,6 +34,8 @@ export function DashboardPage() {
     transactions,
     incomingBrl,
     outgoingBrl,
+    usdcReceived,
+    usdcSent,
     isLoading: isLedgerLoading,
     error: ledgerError,
   } = useLedgerEntries(DASHBOARD_FETCH_LIMIT);
@@ -56,43 +65,51 @@ export function DashboardPage() {
         </div>
       </article>
 
-      <div className="dashboard-summary-grid">
-        <article className="surface dashboard-summary-card">
-          <span className="dashboard-summary-card__label">{t('pages.dashboard.brhBalance')}</span>
-          <strong className="dashboard-summary-card__brh">
-            {isBrhBalanceLoading ? '…' : formatBrhAmount(balanceNumber, localeCode)}
-            <span className="dashboard-summary-card__brh-ticker">BRH</span>
-          </strong>
-          <span className="dashboard-summary-card__brh-equiv">
-            ≈{' '}
-            {isBrhBalanceLoading ? '…' : formatBrlApprox(balanceNumber, localeCode)}
-          </span>
-        </article>
+      <div className="dashboard-overview">
+        <p className="eyebrow dashboard-overview__eyebrow">{t('pages.dashboard.overviewEyebrow')}</p>
+        <div className="dashboard-summary-grid">
+          <article className="surface dashboard-summary-card">
+            <span className="dashboard-summary-card__label">{t('pages.dashboard.incomingVolume')}</span>
+            <strong>
+              {isLedgerLoading ? '…' : formatCurrency(incomingBrl, localeCode)}
+            </strong>
+            <span className="dashboard-summary-card__brh-equiv">
+              ≈ {isLedgerLoading ? '…' : formatBrhAmount(incomingBrl, localeCode)} BRH
+            </span>
+          </article>
 
-        <article className="surface dashboard-summary-card">
-          <span className="dashboard-summary-card__label">{t('pages.dashboard.incomingVolume')}</span>
-          <strong>
-            {isLedgerLoading ? '…' : formatCurrency(incomingBrl, localeCode)}
-          </strong>
-          <span className="dashboard-summary-card__brh-equiv">
-            ≈ {isLedgerLoading ? '…' : formatBrhAmount(incomingBrl, localeCode)} BRH
-          </span>
-        </article>
+          <article className="surface dashboard-summary-card">
+            <span className="dashboard-summary-card__label">{t('pages.dashboard.outgoingVolume')}</span>
+            <strong>
+              {isLedgerLoading ? '…' : formatCurrency(outgoingBrl, localeCode)}
+            </strong>
+            <span className="dashboard-summary-card__brh-equiv">
+              ≈ {isLedgerLoading ? '…' : formatBrhAmount(outgoingBrl, localeCode)} BRH
+            </span>
+          </article>
 
-        <article className="surface dashboard-summary-card">
-          <span className="dashboard-summary-card__label">{t('pages.dashboard.outgoingVolume')}</span>
-          <strong>
-            {isLedgerLoading ? '…' : formatCurrency(outgoingBrl, localeCode)}
-          </strong>
-          <span className="dashboard-summary-card__brh-equiv">
-            ≈ {isLedgerLoading ? '…' : formatBrhAmount(outgoingBrl, localeCode)} BRH
-          </span>
-        </article>
+          <article className="surface dashboard-summary-card">
+            <span className="dashboard-summary-card__label">{t('pages.dashboard.usdcReceived')}</span>
+            <strong className="dashboard-summary-card__usdc">
+              {isLedgerLoading ? '…' : formatUsdcAmount(usdcReceived, localeCode)}
+              <span className="dashboard-summary-card__usdc-ticker">USDC</span>
+            </strong>
+            <span className="dashboard-summary-card__brh-equiv">
+              {t('pages.dashboard.usdcReceivedHint')}
+            </span>
+          </article>
 
-        <article className="surface dashboard-summary-card">
-          <span className="dashboard-summary-card__label">{t('pages.dashboard.recentActivity')}</span>
-          <strong>{isLedgerLoading ? '…' : recentTransactions.length}</strong>
-        </article>
+          <article className="surface dashboard-summary-card">
+            <span className="dashboard-summary-card__label">{t('pages.dashboard.usdcSent')}</span>
+            <strong className="dashboard-summary-card__usdc">
+              {isLedgerLoading ? '…' : formatUsdcAmount(usdcSent, localeCode)}
+              <span className="dashboard-summary-card__usdc-ticker">USDC</span>
+            </strong>
+            <span className="dashboard-summary-card__brh-equiv">
+              {t('pages.dashboard.usdcSentHint')}
+            </span>
+          </article>
+        </div>
       </div>
 
       <article className="surface dashboard-transactions">

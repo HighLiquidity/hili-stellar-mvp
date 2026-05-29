@@ -1,3 +1,7 @@
+import type { RampOrderFlow } from '@/lib/ramp/list-contracts';
+
+export type { RampOrderFlow };
+
 export type LedgerEntryType = 'deposit' | 'withdraw';
 
 /** Origin of a statement line (legacy fiat ledger vs ramp orders). */
@@ -27,5 +31,8 @@ export type LedgerTransaction = {
   beneficiaryName: string | null;
   /** Secondary line (e.g. USDC amount on ramp orders). */
   detail: string | null;
+  /** Linked on/off-ramp order id (statement lines only). */
+  orderId: string | null;
+  orderFlow: RampOrderFlow | null;
 };
 

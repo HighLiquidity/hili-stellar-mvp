@@ -1396,6 +1396,12 @@ a.user-menu__item {
   gap: 10px;
 }
 
+.onramp-reference-list {
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
 .onramp-meta-list p,
 .onramp-reference-list p,
 .onramp-status-card__description,
@@ -1413,6 +1419,13 @@ a.user-menu__item {
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 0.82rem;
   word-break: break-all;
+}
+
+.onramp-reference-list__hash {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .onramp-status-badge {
@@ -1756,11 +1769,36 @@ a.user-menu__item {
   gap: 6px;
 }
 
+.dashboard-summary-card__usdc {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.dashboard-summary-card__usdc-ticker {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+  opacity: 0.75;
+  align-self: center;
+}
+
 .dashboard-hero__label,
 .dashboard-summary-card__label,
 .transaction-item__meta span,
 .transaction-item__main p {
   color: var(--text-muted);
+}
+
+.dashboard-overview {
+  display: grid;
+  gap: 12px;
+}
+
+.dashboard-overview__eyebrow {
+  margin: 0;
 }
 
 .dashboard-summary-grid {
@@ -2291,4 +2329,101 @@ a.user-menu__item {
 
 .onramp-summary-actions {
   padding-top: 4px;
+}
+
+.ramp-orders-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.ramp-orders-tabs__tab {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.ramp-orders-tabs__tab:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.ramp-orders-tabs__tab.is-active {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent-soft) 35%, var(--surface));
+  box-shadow: 0 0 0 3px rgba(88, 107, 243, 0.08);
+}
+
+.ramp-orders-card {
+  gap: 20px;
+}
+
+.ramp-orders-table-wrap {
+  overflow-x: auto;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+
+.ramp-orders-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.ramp-orders-table th,
+.ramp-orders-table td {
+  padding: 12px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.ramp-orders-table th {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ramp-orders-table__status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-soft) 50%, transparent);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ramp-orders-table__counterpart {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ramp-orders-table__id {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.ramp-orders-table__actions {
+  text-align: right;
+  white-space: nowrap;
 }

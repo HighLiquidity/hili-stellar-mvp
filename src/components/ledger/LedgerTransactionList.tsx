@@ -1,9 +1,12 @@
 'use client';
 
+import Link from 'next/link';
+
 import { CryptoTxHashLink } from '@/components/ledger/CryptoTxHashLink';
 import { formatBrhAmount } from '@/lib/format/brh-display';
 import type { LedgerTransaction } from '@/lib/ledger/types';
 import { useI18n } from '@/lib/i18n';
+import { rampOrderDetailHref } from '@/lib/ramp/order-links';
 
 function resolveTypeLabel(transaction: LedgerTransaction, t: (key: string) => string): string {
   if (transaction.kind === 'onramp') {
@@ -91,6 +94,16 @@ export function LedgerTransactionList({
               </div>
               {transaction.detail ? (
                 <p className="transaction-item__subline">{transaction.detail}</p>
+              ) : null}
+              {transaction.orderId && transaction.orderFlow ? (
+                <p className="transaction-item__subline">
+                  <Link
+                    href={rampOrderDetailHref(transaction.orderFlow, transaction.orderId)}
+                    className="auth-text-link"
+                  >
+                    {t('pages.ledger.viewOrder')}
+                  </Link>
+                </p>
               ) : null}
               {transaction.beneficiaryName && transaction.type === 'withdraw' ? (
                 <p className="transaction-item__subline">

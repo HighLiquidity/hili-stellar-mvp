@@ -31,6 +31,8 @@ export function mapOnrampOrdersToTransactions(rows: OnrampStatementRow[]): Ledge
     txHash: row.usdc_delivery_tx_hash?.trim() || null,
     beneficiaryName: null,
     detail: row.amount_usdc?.trim() ? `${row.amount_usdc.trim()} USDC` : null,
+    orderId: row.id,
+    orderFlow: 'onramp',
   }));
 }
 
@@ -45,6 +47,8 @@ export function mapOfframpOrdersToTransactions(rows: OfframpStatementRow[]): Led
     txHash: row.usdc_received_tx_hash?.trim() || null,
     beneficiaryName: row.payout_beneficiary_name?.trim() || null,
     detail: row.amount_usdc?.trim() ? `${row.amount_usdc.trim()} USDC` : null,
+    orderId: row.id,
+    orderFlow: 'offramp',
   }));
 }
 

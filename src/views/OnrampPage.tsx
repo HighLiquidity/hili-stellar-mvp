@@ -11,6 +11,7 @@ import {
 import { useRouter } from 'next/navigation';
 
 import { listMyActiveWithdrawWhitelistAction } from '@/app/actions/withdraw-whitelist';
+import { CryptoTxHashLink } from '@/components/ledger/CryptoTxHashLink';
 import { RampCollapsiblePanel } from '@/components/RampCollapsiblePanel';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
@@ -281,7 +282,11 @@ async function fetchOnrampJson<T>(
   return payload as T;
 }
 
-export function OnrampPage() {
+type OnrampPageProps = {
+  initialOrderId?: string | null;
+};
+
+export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
   const router = useRouter();
   const { t, locale } = useI18n();
   const { session, profile, isLoading: authLoading, isAuthorized } = useAuth();
@@ -307,6 +312,7 @@ export function OnrampPage() {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const hadPixRef = useRef(false);
   const quoteExpirySyncedRef = useRef(false);
+  const loadedInitialOrderRef = useRef<string | null>(null);
 
   const orderId = order?.orderId ?? null;
   const orderStatus = order?.status ?? null;
@@ -479,6 +485,18 @@ export function OnrampPage() {
     },
     [accessToken, t],
   );
+
+  useEffect(() => {
+    const id = initialOrderId?.trim();
+    if (!accessToken || !id) return;
+    if (loadedInitialOrderRef.current === id) return;
+
+    loadedInitialOrderRef.current = id;
+    void loadOrder(id).catch((error) => {
+      loadedInitialOrderRef.current = null;
+      setErrorMessage(error instanceof Error ? error.message : String(error));
+    });
+  }, [accessToken, initialOrderId, loadOrder]);
 
   useEffect(() => {
     if (!order) return;
@@ -754,34 +772,6 @@ export function OnrampPage() {
         </p>
       ) : null}
 
-      {(order.references.deliveryTxHash || order.failure || order.references.binanceClientOrderId) ? (
-        <div className="onramp-reference-list">
-          {order.references.deliveryTxHash ? (
-            <p>
-              <strong>{t('pages.onramp.references.deliveryTxHash')}</strong>{' '}
-              <code>{order.references.deliveryTxHash}</code>
-            </p>
-          ) : null}
-          {order.references.binanceClientOrderId ? (
-            <p>
-              <strong>{t('pages.onramp.references.binanceClientOrderId')}</strong>{' '}
-              <code>{order.references.binanceClientOrderId}</code>
-            </p>
-          ) : null}
-          {order.references.binanceWithdrawOrderId ? (
-            <p>
-              <strong>{t('pages.onramp.references.binanceWithdrawOrderId')}</strong>{' '}
-              <code>{order.references.binanceWithdrawOrderId}</code>
-            </p>
-          ) : null}
-          {order.failure?.reason ? (
-            <p>
-              <strong>{t('pages.onramp.references.failureReason')}</strong> {order.failure.reason}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
       {isQuoteReady ? (
         <div className="onramp-summary-actions">
           <Button type="button" fullWidth onClick={handleLockQuote} disabled={isLocking}>
@@ -994,6 +984,37 @@ export function OnrampPage() {
                     <strong>{formatDateTime(order.timeline.usdcDeliveredAt, localeCode)}</strong>
                   </div>
                 </div>
+
+                {order.references.deliveryTxHash ||
+                order.references.binanceClientOrderId ||
+                order.references.binanceWithdrawOrderId ||
+                order.failure?.reason ? (
+                  <div className="onramp-reference-list">
+                    {order.references.deliveryTxHash ? (
+                      <p className="onramp-reference-list__hash">
+                        <strong>{t('pages.onramp.references.deliveryTxHash')}</strong>{' '}
+                        <CryptoTxHashLink txHash={order.references.deliveryTxHash} />
+                      </p>
+                    ) : null}
+                    {order.references.binanceClientOrderId ? (
+                      <p>
+                        <strong>{t('pages.onramp.references.binanceClientOrderId')}</strong>{' '}
+                        <code>{order.references.binanceClientOrderId}</code>
+                      </p>
+                    ) : null}
+                    {order.references.binanceWithdrawOrderId ? (
+                      <p>
+                        <strong>{t('pages.onramp.references.binanceWithdrawOrderId')}</strong>{' '}
+                        <code>{order.references.binanceWithdrawOrderId}</code>
+                      </p>
+                    ) : null}
+                    {order.failure?.reason ? (
+                      <p>
+                        <strong>{t('pages.onramp.references.failureReason')}</strong> {order.failure.reason}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </>
             ) : null}
           </RampCollapsiblePanel>

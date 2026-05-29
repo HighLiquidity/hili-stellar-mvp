@@ -14,5 +14,7 @@ export function mapLedgerRowsToTransactions(
     txHash: row.ramp_external_id ? (rampByExternalId.get(row.ramp_external_id) ?? null) : null,
     beneficiaryName: row.beneficiary_name,
     detail: null,
+    orderId: null,
+    orderFlow: null,
   }));
 }

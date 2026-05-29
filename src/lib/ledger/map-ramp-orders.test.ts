@@ -58,6 +58,8 @@ describe('statement ramp mapping', () => {
         txHash: null,
         beneficiaryName: null,
         detail: null,
+        orderId: null,
+        orderFlow: null,
       },
       {
         id: 'b',
@@ -69,6 +71,8 @@ describe('statement ramp mapping', () => {
         txHash: null,
         beneficiaryName: null,
         detail: null,
+        orderId: null,
+        orderFlow: null,
       },
     ]);
 
