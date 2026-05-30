@@ -7,7 +7,8 @@ const markOfframpOrderStatusMock = vi.fn();
 const createCorpXAdapterFromEnvMock = vi.fn();
 const logOfframpEventMock = vi.fn();
 const placeMarketOrderByQuoteAmountMock = vi.fn();
-const startOfframpAfterWithdrawMock = vi.fn();
+const startOfframpBrhIssueForOrderMock = vi.fn();
+const startOfframpBrhRedemptionForOrderMock = vi.fn();
 const findRampOperationByExternalIdMock = vi.fn();
 
 vi.mock('./order-store', () => ({
@@ -31,8 +32,9 @@ vi.mock('@/lib/server/binance', () => ({
   },
 }));
 
-vi.mock('@/lib/ramp/start-offramp', () => ({
-  startOfframpAfterWithdraw: startOfframpAfterWithdrawMock,
+vi.mock('./brh-record', () => ({
+  startOfframpBrhIssueForOrder: startOfframpBrhIssueForOrderMock,
+  startOfframpBrhRedemptionForOrder: startOfframpBrhRedemptionForOrderMock,
 }));
 
 vi.mock('@/lib/ramp/operation-store', () => ({
@@ -61,8 +63,9 @@ function makeOrder(overrides: Partial<OfframpOrderRow> = {}): OfframpOrderRow {
     payout_end_to_end_id: 'e2e-1',
     usdc_deposit_external_id: 'offramp-usdc-deposit:order-123',
     usdc_deposit_ramp_operation_id: 'ramp-deposit-1',
-    usdc_deposit_address: '0xabc',
-    usdc_deposit_memo: 'offramp:order-123',
+    usdc_deposit_address: 'G...USDC',
+    usdc_deposit_memo: 'K5QF3ZB7H2N8XA1C',
+    usdc_deposit_expires_at: new Date(Date.now() + 86_400_000).toISOString(),
     usdc_received_amount: '100.00',
     usdc_received_tx_hash: '0xtx',
     brh_issue_external_id: null,
@@ -115,7 +118,16 @@ describe('offramp reconciliation orchestration', () => {
         ...((patch ?? {}) as Partial<OfframpOrderRow>),
       }),
     }));
-    startOfframpAfterWithdrawMock.mockResolvedValue(undefined);
+    startOfframpBrhIssueForOrderMock.mockResolvedValue({
+      externalId: 'offramp-brh-issue:order-123',
+      rampOperationId: 'ramp-brh-issue-1',
+      status: 'pending',
+    });
+    startOfframpBrhRedemptionForOrderMock.mockResolvedValue({
+      externalId: 'offramp-brh-redemption:order-123',
+      rampOperationId: 'ramp-brh-1',
+      status: 'pending',
+    });
     findRampOperationByExternalIdMock.mockResolvedValue({ status: 'pending', ramp_operation_id: 'ramp-brh-1' });
     placeMarketOrderByQuoteAmountMock.mockResolvedValue({
       symbol: 'USDCBRL',
@@ -135,7 +147,8 @@ describe('offramp reconciliation orchestration', () => {
 
     await retryOfframpReconciliation('order-123');
 
-    expect(startOfframpAfterWithdrawMock).toHaveBeenCalledTimes(1);
+    expect(startOfframpBrhIssueForOrderMock).toHaveBeenCalledTimes(1);
+    expect(startOfframpBrhRedemptionForOrderMock).toHaveBeenCalledTimes(1);
     expect(placeMarketOrderByQuoteAmountMock).not.toHaveBeenCalled();
   });
 

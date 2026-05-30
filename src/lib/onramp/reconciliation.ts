@@ -16,7 +16,7 @@ import {
   updateOnrampOrder,
 } from './order-store';
 import {
-  isBinanceClientOrderId,
+  needsBinanceClientOrderIdRefresh,
 } from '@/lib/server/binance/client-order-id';
 import {
   assertBinanceMarketQuoteNotionalForSymbol,
@@ -27,6 +27,7 @@ import {
   buildOnrampBinanceWithdrawOrderId,
   buildOnrampBrhRedemptionExternalId,
 } from './references';
+import { normalizeBinanceUsdcAmount } from './binance-withdraw-min';
 
 const RECONCILIATION_START_STATUSES = ['usdc_delivered', 'needs_review', 'fx_settled', 'brh_redeemed'] as const;
 
@@ -90,23 +91,38 @@ async function markReconciliationNeedsReview(
   }
 }
 
-async function ensureTradeClientOrderId(order: OnrampOrderRow): Promise<OnrampOrderRow | null> {
-  if (order.binance_client_order_id && isBinanceClientOrderId(order.binance_client_order_id)) {
+/** Ensures Binance trade/withdraw ids are legal before the first reconciliation attempt. */
+export async function prepareOnrampBinanceReconciliationIds(
+  order: OnrampOrderRow,
+): Promise<OnrampOrderRow | null> {
+  const patch: {
+    binance_client_order_id?: string;
+    binance_withdraw_order_id?: string;
+  } = {};
+
+  if (needsBinanceClientOrderIdRefresh(order.binance_client_order_id)) {
+    patch.binance_client_order_id = buildOnrampBinanceClientOrderId(order.id);
+  }
+
+  if (needsBinanceClientOrderIdRefresh(order.binance_withdraw_order_id)) {
+    patch.binance_withdraw_order_id = buildOnrampBinanceWithdrawOrderId(order.id);
+  }
+
+  if (Object.keys(patch).length === 0) {
     return order;
   }
 
   const prepared = await updateOnrampOrder({
     orderId: order.id,
     expectedStatus: [...RECONCILIATION_START_STATUSES, 'complete'],
-    patch: {
-      binance_client_order_id: buildOnrampBinanceClientOrderId(order.id),
-    },
+    patch,
   });
 
   if (!prepared.ok) {
-    console.error('[onramp/reconcile] failed to persist binance client order id', {
+    console.error('[onramp/reconcile] failed to persist binance reconciliation ids', {
       orderId: order.id,
       reason: prepared.reason,
+      patch,
     });
     return null;
   }
@@ -114,28 +130,16 @@ async function ensureTradeClientOrderId(order: OnrampOrderRow): Promise<OnrampOr
   return prepared.row;
 }
 
+async function ensureTradeClientOrderId(order: OnrampOrderRow): Promise<OnrampOrderRow | null> {
+  return prepareOnrampBinanceReconciliationIds(order);
+}
+
 async function ensureWithdrawOrderId(order: OnrampOrderRow): Promise<OnrampOrderRow | null> {
-  if (order.binance_withdraw_order_id && isBinanceClientOrderId(order.binance_withdraw_order_id)) {
-    return order;
+  if (needsBinanceClientOrderIdRefresh(order.binance_withdraw_order_id)) {
+    return prepareOnrampBinanceReconciliationIds(order);
   }
 
-  const prepared = await updateOnrampOrder({
-    orderId: order.id,
-    expectedStatus: [...RECONCILIATION_START_STATUSES, 'complete'],
-    patch: {
-      binance_withdraw_order_id: buildOnrampBinanceWithdrawOrderId(order.id),
-    },
-  });
-
-  if (!prepared.ok) {
-    console.error('[onramp/reconcile] failed to persist binance withdraw order id', {
-      orderId: order.id,
-      reason: prepared.reason,
-    });
-    return null;
-  }
-
-  return prepared.row;
+  return order;
 }
 
 async function executeBinanceTrade(order: OnrampOrderRow): Promise<OnrampOrderRow | null> {
@@ -150,6 +154,18 @@ async function executeBinanceTrade(order: OnrampOrderRow): Promise<OnrampOrderRo
 
       if (updated.ok) {
         return updated.row;
+      }
+    }
+
+    if (order.failure_reason || order.failure_code) {
+      const cleared = await updateOnrampOrder({
+        orderId: order.id,
+        expectedStatus: [...RECONCILIATION_START_STATUSES, 'complete'],
+        patch: clearOnrampFailurePatch(),
+      });
+
+      if (cleared.ok) {
+        return cleared.row;
       }
     }
 
@@ -252,21 +268,191 @@ async function registerBrhRedemption(order: OnrampOrderRow): Promise<OnrampOrder
   return updated.row;
 }
 
-async function requestBinanceWithdraw(order: OnrampOrderRow): Promise<OnrampOrderRow | null> {
-  if (order.binance_withdraw_id) {
-    if (order.status === 'brh_redeemed') {
-      const updated = await markOnrampOrderStatus({
-        orderId: order.id,
-        status: 'complete',
-        expectedStatus: ['brh_redeemed', 'needs_review', 'complete'],
-        patch: clearOnrampFailurePatch(),
-      });
+async function resolveBinanceWithdrawAmount(
+  order: OnrampOrderRow,
+): Promise<{ ok: true; order: OnrampOrderRow; amount: string } | { ok: false; reason: string }> {
+  const symbol = (order.binance_symbol ?? order.quote_symbol)?.trim().toUpperCase();
+  if (!symbol) {
+    return { ok: false, reason: 'Símbolo Binance da ordem não encontrado para calcular o saque.' };
+  }
 
-      if (updated.ok) {
-        return updated.row;
-      }
+  let executedQty = order.binance_executed_qty?.trim() ?? '';
+  let binanceStatus = order.binance_status;
+
+  const refreshFromBinance = async (query: { orderId?: string; origClientOrderId?: string }) => {
+    const remote = await binance.market.getSpotOrder({
+      symbol,
+      ...query,
+    });
+
+    if (remote.executedQty?.trim()) {
+      executedQty = remote.executedQty.trim();
     }
 
+    binanceStatus = remote.status;
+  };
+
+  if (order.binance_order_id) {
+    try {
+      await refreshFromBinance({ orderId: order.binance_order_id });
+    } catch (error) {
+      console.warn('[onramp/reconcile] failed to refresh binance trade by order id', {
+        orderId: order.id,
+        binanceOrderId: order.binance_order_id,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (!executedQty && order.binance_client_order_id) {
+    try {
+      await refreshFromBinance({ origClientOrderId: order.binance_client_order_id });
+    } catch (error) {
+      console.warn('[onramp/reconcile] failed to refresh binance trade by client order id', {
+        orderId: order.id,
+        binanceClientOrderId: order.binance_client_order_id,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (!executedQty && order.amount_usdc?.trim()) {
+    executedQty = order.amount_usdc.trim();
+  }
+
+  if (!executedQty) {
+    return {
+      ok: false,
+      reason:
+        'Quantidade executada na recompra Binance é obrigatória antes do saque. O saque usa o valor bruto do trade; a taxa de rede é descontada pela Binance.',
+    };
+  }
+
+  let withdrawAmount: string;
+  try {
+    withdrawAmount = normalizeBinanceUsdcAmount(executedQty, 'binance_executed_qty');
+  } catch (error) {
+    return {
+      ok: false,
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  const patch: {
+    binance_executed_qty?: string;
+    binance_status?: string;
+  } = {};
+
+  if (withdrawAmount !== order.binance_executed_qty?.trim()) {
+    patch.binance_executed_qty = withdrawAmount;
+  }
+
+  if (binanceStatus?.trim() && binanceStatus !== order.binance_status) {
+    patch.binance_status = binanceStatus.trim();
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return { ok: true, order, amount: withdrawAmount };
+  }
+
+  const updated = await updateOnrampOrder({
+    orderId: order.id,
+    expectedStatus: [...RECONCILIATION_START_STATUSES, 'complete'],
+    patch,
+  });
+
+  if (!updated.ok) {
+    console.warn('[onramp/reconcile] failed to persist refreshed binance trade snapshot', {
+      orderId: order.id,
+      reason: updated.reason,
+      patch,
+    });
+    return { ok: true, order, amount: withdrawAmount };
+  }
+
+  return { ok: true, order: updated.row, amount: withdrawAmount };
+}
+
+async function completeOnrampOrderAfterBinanceWithdraw(
+  order: OnrampOrderRow,
+  patch: {
+    binance_withdraw_order_id?: string | null;
+    binance_withdraw_id: string;
+    binance_withdraw_amount?: string | null;
+    binance_withdraw_network?: string | null;
+  },
+): Promise<OnrampOrderRow | null> {
+  const updated = await markOnrampOrderStatus({
+    orderId: order.id,
+    status: 'complete',
+    expectedStatus: ['brh_redeemed', 'needs_review', 'fx_settled', 'complete'],
+    patch: {
+      ...patch,
+      ...clearOnrampFailurePatch(),
+    },
+  });
+
+  if (!updated.ok) {
+    await markReconciliationNeedsReview(
+      order.id,
+      ONRAMP_FAILURE_CODES.WITHDRAW_PERSIST_FAILED,
+      `Falha ao persistir o withdraw Binance: ${updated.reason}`,
+    );
+    return null;
+  }
+
+  return updated.row;
+}
+
+async function syncExistingBinanceWithdraw(order: OnrampOrderRow): Promise<OnrampOrderRow | null> {
+  if (order.binance_withdraw_id) {
+    return completeOnrampOrderAfterBinanceWithdraw(order, {
+      binance_withdraw_order_id: order.binance_withdraw_order_id,
+      binance_withdraw_id: order.binance_withdraw_id,
+      binance_withdraw_amount: order.binance_withdraw_amount,
+      binance_withdraw_network: order.binance_withdraw_network,
+    });
+  }
+
+  const withdrawOrderId = order.binance_withdraw_order_id?.trim();
+  if (!withdrawOrderId) {
+    return null;
+  }
+
+  try {
+    const record = await binance.withdraw.getWithdrawByOrderId(withdrawOrderId);
+    if (!record?.id) {
+      return null;
+    }
+
+    return completeOnrampOrderAfterBinanceWithdraw(order, {
+      binance_withdraw_order_id: withdrawOrderId,
+      binance_withdraw_id: record.id,
+      binance_withdraw_amount: record.amount,
+      binance_withdraw_network: record.network?.toUpperCase() ?? order.binance_withdraw_network,
+    });
+  } catch (error) {
+    console.warn('[onramp/reconcile] failed to sync existing binance withdraw', {
+      orderId: order.id,
+      withdrawOrderId,
+      reason: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+async function requestBinanceWithdraw(order: OnrampOrderRow): Promise<OnrampOrderRow | null> {
+  const synced = await syncExistingBinanceWithdraw(order);
+  if (synced) {
+    console.info('[onramp/reconcile] binance withdraw already recorded', {
+      orderId: synced.id,
+      withdrawId: synced.binance_withdraw_id,
+      withdrawOrderId: synced.binance_withdraw_order_id,
+    });
+    return synced;
+  }
+
+  if (order.binance_withdraw_id) {
     return order;
   }
 
@@ -292,7 +478,18 @@ async function requestBinanceWithdraw(order: OnrampOrderRow): Promise<OnrampOrde
     return null;
   }
 
-  const withdrawAmount = prepared.binance_executed_qty ?? prepared.amount_usdc;
+  const resolved = await resolveBinanceWithdrawAmount(prepared);
+  if (!resolved.ok) {
+    await markReconciliationNeedsReview(
+      prepared.id,
+      ONRAMP_FAILURE_CODES.WITHDRAW_PREPARE_FAILED,
+      resolved.reason,
+    );
+    return null;
+  }
+
+  const withdrawOrder = resolved.order;
+  const withdrawAmount = resolved.amount;
 
   try {
     const result = await binance.withdraw.requestCryptoWithdraw({
@@ -305,37 +502,34 @@ async function requestBinanceWithdraw(order: OnrampOrderRow): Promise<OnrampOrde
       withdrawOrderId: prepared.binance_withdraw_order_id,
     });
 
-    const updated = await markOnrampOrderStatus({
-      orderId: prepared.id,
-      status: 'complete',
-      expectedStatus: ['brh_redeemed', 'needs_review', 'complete'],
-      patch: {
-        binance_withdraw_order_id: prepared.binance_withdraw_order_id,
-        binance_withdraw_id: result.id,
-        binance_withdraw_network: distributor.network,
-        binance_withdraw_amount: withdrawAmount,
-        ...clearOnrampFailurePatch(),
-      },
+    const completed = await completeOnrampOrderAfterBinanceWithdraw(withdrawOrder, {
+      binance_withdraw_order_id: prepared.binance_withdraw_order_id,
+      binance_withdraw_id: result.id,
+      binance_withdraw_amount: withdrawAmount,
+      binance_withdraw_network: distributor.network,
     });
 
-    if (!updated.ok) {
-      await markReconciliationNeedsReview(
-        prepared.id,
-        ONRAMP_FAILURE_CODES.WITHDRAW_PERSIST_FAILED,
-        `Falha ao persistir o withdraw Binance: ${updated.reason}`,
-      );
+    if (!completed) {
       return null;
     }
 
+    await updateOnrampOrder({
+      orderId: completed.id,
+      expectedStatus: 'complete',
+      patch: {
+        binance_executed_qty: withdrawAmount,
+      },
+    });
+
     console.info('[onramp/reconcile] binance withdraw requested', {
-      orderId: updated.row.id,
+      orderId: completed.id,
       withdrawId: result.id,
       withdrawOrderId: prepared.binance_withdraw_order_id,
       amount: withdrawAmount,
       network: distributor.network,
     });
 
-    return updated.row;
+    return completed;
   } catch (error) {
     await markReconciliationNeedsReview(
       prepared.id,
@@ -357,25 +551,52 @@ export async function startOnrampReconciliation(orderId: string): Promise<void> 
     throw new OnrampOperationError('On-ramp order not found.', 404);
   }
 
-  if (order.status === 'complete') {
+  let activeOrder = order;
+
+  if (
+    activeOrder.usdc_delivered_at &&
+    (activeOrder.failure_code || activeOrder.failure_reason || activeOrder.needs_review_reason)
+  ) {
+    const cleared = await updateOnrampOrder({
+      orderId: activeOrder.id,
+      expectedStatus: [...RECONCILIATION_START_STATUSES, 'complete'],
+      patch: clearOnrampFailurePatch(),
+    });
+
+    if (cleared.ok) {
+      activeOrder = cleared.row;
+    }
+  }
+
+  if (activeOrder.status === 'complete') {
     return;
   }
 
-  if (!RECONCILIATION_START_STATUSES.includes(order.status as (typeof RECONCILIATION_START_STATUSES)[number])) {
+  if (!RECONCILIATION_START_STATUSES.includes(activeOrder.status as (typeof RECONCILIATION_START_STATUSES)[number])) {
     throw new OnrampOperationError(
-      `On-ramp reconciliation cannot start from status "${order.status}".`,
+      `On-ramp reconciliation cannot start from status "${activeOrder.status}".`,
       409,
     );
   }
 
-  if (order.status === 'needs_review' && !order.usdc_delivered_at) {
+  if (activeOrder.status === 'needs_review' && !activeOrder.usdc_delivered_at) {
     throw new OnrampOperationError(
       'On-ramp reconciliation requires a delivered order or a post-delivery retry context.',
       409,
     );
   }
 
-  const afterTrade = await executeBinanceTrade(order);
+  const prepared = await prepareOnrampBinanceReconciliationIds(activeOrder);
+  if (!prepared) {
+    await markReconciliationNeedsReview(
+      activeOrder.id,
+      ONRAMP_FAILURE_CODES.FX_PREPARE_FAILED,
+      'Não foi possível preparar os ids Binance da reconciliação.',
+    );
+    return;
+  }
+
+  const afterTrade = await executeBinanceTrade(prepared);
   if (!afterTrade) return;
 
   const afterRedemption = await registerBrhRedemption(afterTrade);

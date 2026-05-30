@@ -4,6 +4,8 @@ import { logOnrampEvent } from '@/lib/fiat-operations/log-onramp';
 import { createOnrampOperation, RampApiError } from '@/lib/ramp/client';
 import { getRampCallbackUrl, isRampConfigured } from '@/lib/ramp/config';
 import { formatRampAmountFromBrl } from '@/lib/ramp/amount';
+import { truncateUtf8Bytes } from '@/lib/ramp/memo';
+import { RAMP_ASSET_BRH, RAMP_CATEGORY_CLIENT } from '@/lib/ramp/requests';
 import {
   findRampOperationByExternalId,
   insertRampOperationPending,
@@ -37,7 +39,7 @@ export type BrhSaleRampStatus =
   | 'callback_failed';
 
 function buildBrhSaleMemo(orderId: string): string {
-  return `brh-sale:${orderId}`.slice(0, 28);
+  return truncateUtf8Bytes(`brh-sale:${orderId}`, 28);
 }
 
 function normalizeRampFailureReason(error: unknown): string {
@@ -188,6 +190,8 @@ export async function startBrhSaleForOnrampOrder(orderId: string): Promise<void>
       externalId,
       callbackUrl,
       memo,
+      assetCode: RAMP_ASSET_BRH,
+      category: RAMP_CATEGORY_CLIENT,
     });
 
     await updateRampOperationAfterCreate({

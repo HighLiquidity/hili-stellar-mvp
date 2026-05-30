@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getRampCallbackSecret } from '@/lib/ramp/config';
 import { applyBrhSaleRampCallback, applyUsdcDeliveryRampCallback } from '@/lib/onramp';
-import { applyOfframpBrhRedemptionRampCallback, applyOfframpUsdcDepositRampCallback } from '@/lib/offramp';
+import { applyOfframpBrhIssueRampCallback, applyOfframpBrhRedemptionRampCallback, applyOfframpUsdcDepositRampCallback } from '@/lib/offramp';
 import { applyRampCallbackUpdate, findRampOperationByRampOperationId } from '@/lib/ramp/operation-store';
 import type { RampCallbackPayload } from '@/lib/ramp/types';
 import { verifyRampCallbackSignature } from '@/lib/ramp/webhook-verify';
@@ -97,6 +97,12 @@ export async function POST(request: Request) {
           status,
           txHash,
           amount,
+          failureReason,
+        });
+        await applyOfframpBrhIssueRampCallback({
+          externalId: operation.external_id,
+          rampOperationId: operationId,
+          status,
           failureReason,
         });
         await applyOfframpBrhRedemptionRampCallback({

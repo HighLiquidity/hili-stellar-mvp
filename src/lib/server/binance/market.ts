@@ -4,6 +4,7 @@ import { BinanceClient, createBinanceClient } from './client';
 import { normalizeBinanceClientOrderId } from './client-order-id';
 import { BinanceValidationError } from './errors';
 import type {
+  BinanceGetSpotOrderRequest,
   BinanceMarketOrderByQuoteAmountRequest,
   BinanceMarketOrderRequest,
   BinanceMarketOrderResponse,
@@ -40,17 +41,6 @@ function normalizePositiveDecimalString(value: string, fieldName: string): strin
 
   if (!/[1-9]/.test(normalized)) {
     throw new BinanceValidationError(`${fieldName} must be greater than zero`);
-  }
-
-  return normalized;
-}
-
-function normalizeOptionalString(value: string | undefined, fieldName: string): string | undefined {
-  if (value === undefined) return undefined;
-
-  const normalized = value.trim();
-  if (!normalized) {
-    throw new BinanceValidationError(`${fieldName} must not be empty`);
   }
 
   return normalized;
@@ -137,6 +127,33 @@ export async function placeMarketOrderByQuoteAmount(
   client: BinanceClient = createBinanceClient(),
 ): Promise<BinanceMarketOrderResponse> {
   return client.signedPost<BinanceMarketOrderResponse>('/api/v3/order', buildMarketOrderPayload(order));
+}
+
+/** Fetches a spot order by exchange id or client order id. */
+export async function getSpotOrder(
+  input: BinanceGetSpotOrderRequest,
+  client: BinanceClient = createBinanceClient(),
+): Promise<BinanceMarketOrderResponse> {
+  const symbol = normalizeTickerSymbol(input.symbol);
+  const orderId = input.orderId?.trim();
+  const origClientOrderId = normalizeBinanceClientOrderId(
+    input.origClientOrderId,
+    'Binance origClientOrderId',
+  );
+
+  if (!orderId && !origClientOrderId) {
+    throw new BinanceValidationError('Binance orderId or origClientOrderId is required');
+  }
+
+  if (orderId && origClientOrderId) {
+    throw new BinanceValidationError('Provide either orderId or origClientOrderId, not both');
+  }
+
+  return client.signedGet<BinanceMarketOrderResponse>('/api/v3/order', {
+    symbol,
+    orderId,
+    origClientOrderId,
+  });
 }
 
 export { buildMarketOrderPayload };

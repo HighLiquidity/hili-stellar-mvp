@@ -1,6 +1,7 @@
 import { buildOfframpExternalId, formatRampAmountFromBrl } from './amount';
 import { createOfframpOperation, RampApiError } from './client';
 import { getRampCallbackUrl, isRampConfigured } from './config';
+import { RAMP_ASSET_BRH, RAMP_CATEGORY_CLIENT } from './requests';
 import {
   findRampOperationByExternalId,
   insertRampOperationPending,
@@ -103,6 +104,8 @@ export async function startOfframpAfterWithdraw(input: StartOfframpInput): Promi
       amount: rampAmount,
       externalId,
       callbackUrl,
+      assetCode: RAMP_ASSET_BRH,
+      category: RAMP_CATEGORY_CLIENT,
     });
 
     await updateRampOperationAfterCreate({

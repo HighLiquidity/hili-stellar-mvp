@@ -6,11 +6,17 @@ import {
   buildOnrampBinanceClientOrderId,
   buildOnrampBinanceWithdrawOrderId,
   isBinanceClientOrderId,
+  isLegacyOnrampBinanceReferenceId,
+  needsBinanceClientOrderIdRefresh,
 } from './client-order-id';
 
 describe('Binance client order ids', () => {
   it('rejects legacy colon-separated ids', () => {
     expect(isBinanceClientOrderId('onramp:order-123:fx')).toBe(false);
+    expect(isLegacyOnrampBinanceReferenceId('onramp:order-123:fx')).toBe(true);
+    expect(isLegacyOnrampBinanceReferenceId('onramp:order-123:usdc-refill')).toBe(true);
+    expect(needsBinanceClientOrderIdRefresh('onramp:order-123:fx')).toBe(true);
+    expect(needsBinanceClientOrderIdRefresh('orf_order123')).toBe(false);
   });
 
   it('builds on-ramp trade ids within Binance limits', () => {

@@ -4,7 +4,7 @@ import { createCorpXAdapterFromEnv } from '@/lib/corpx/adapter';
 import type { CorpXPIXKeyType } from '@/lib/corpx/pix';
 import { logOfframpEvent } from '@/lib/fiat-operations/log-offramp';
 import { binance } from '@/lib/server/binance';
-import { startOfframpAfterWithdraw } from '@/lib/ramp/start-offramp';
+import { startOfframpBrhIssueForOrder, startOfframpBrhRedemptionForOrder } from './brh-record';
 import { findRampOperationByExternalId } from '@/lib/ramp/operation-store';
 import {
   OFFRAMP_FAILURE_CODES,
@@ -21,6 +21,7 @@ import {
 } from '@/lib/server/binance/exchange-info';
 import {
   buildOfframpBinanceClientOrderId,
+  buildOfframpBrhIssueExternalId,
   buildOfframpBrhRedemptionExternalId,
   buildOfframpPixPayoutIdempotencyKey,
   buildOfframpPixPayoutReference,
@@ -186,15 +187,74 @@ async function registerBrhRecord(order: OfframpOrderRow): Promise<void> {
     throw new OfframpOperationError('Cannot record BRH step before PIX payout is sent', 409);
   }
 
-  const externalId = order.brh_redemption_external_id ?? buildOfframpBrhRedemptionExternalId(order.id);
+  const issueExternalId = order.brh_issue_external_id ?? buildOfframpBrhIssueExternalId(order.id);
+  const redemptionExternalId =
+    order.brh_redemption_external_id ?? buildOfframpBrhRedemptionExternalId(order.id);
 
   try {
-    await startOfframpAfterWithdraw({
-      amountBrl: order.amount_brl,
-      idempotencyKey: externalId,
-      providerTxId: order.payout_provider_tx_id ?? undefined,
-      e2eId: order.payout_end_to_end_id ?? undefined,
+    const issue = await startOfframpBrhIssueForOrder(order);
+    const redemption = await startOfframpBrhRedemptionForOrder(order);
+
+    const issueOperation = await findRampOperationByExternalId(issue.externalId);
+    const redemptionOperation = await findRampOperationByExternalId(redemption.externalId);
+
+    const persisted = await markOfframpOrderStatus({
+      orderId: order.id,
+      status: order.status,
+      expectedStatus: ['pix_sent', 'needs_review', 'brh_recorded'],
+      patch: {
+        brh_issue_external_id: issue.externalId,
+        brh_issue_ramp_operation_id: issueOperation?.ramp_operation_id ?? issue.rampOperationId,
+        brh_redemption_external_id: redemption.externalId,
+        brh_redemption_ramp_operation_id:
+          redemptionOperation?.ramp_operation_id ?? redemption.rampOperationId,
+        ...clearOfframpFailurePatch(),
+      },
     });
+
+    if (!persisted.ok) {
+      await markNeedsReview(order, OFFRAMP_FAILURE_CODES.BRH_RECORD_FAILED, `Failed to persist BRH submit ids: ${persisted.reason}`);
+      return;
+    }
+
+    await logOfframpEvent({
+      phase: 'brh_record_submit',
+      status: 'success',
+      amountBrl: persisted.row.amount_brl,
+      correlationId: persisted.row.id,
+      metadata: {
+        source: 'offramp/reconcile',
+        order_id: persisted.row.id,
+        issue_external_id: issueExternalId,
+        redemption_external_id: redemptionExternalId,
+        issue_ramp_operation_id: persisted.row.brh_issue_ramp_operation_id,
+        redemption_ramp_operation_id: persisted.row.brh_redemption_ramp_operation_id,
+        redemption_ramp_status: redemptionOperation?.status ?? redemption.status,
+      },
+    });
+
+    if (redemptionOperation?.status === 'confirmed' || redemptionOperation?.status === 'completed') {
+      const updated = await markOfframpOrderStatus({
+        orderId: order.id,
+        status: 'brh_recorded',
+        expectedStatus: ['pix_sent', 'needs_review', 'brh_recorded'],
+        patch: {
+          brh_issue_external_id: issue.externalId,
+          brh_issue_ramp_operation_id: persisted.row.brh_issue_ramp_operation_id,
+          brh_redemption_external_id: redemption.externalId,
+          brh_redemption_ramp_operation_id: persisted.row.brh_redemption_ramp_operation_id,
+          ...clearOfframpFailurePatch(),
+        },
+      });
+
+      if (!updated.ok) {
+        await markNeedsReview(
+          order,
+          OFFRAMP_FAILURE_CODES.BRH_RECORD_FAILED,
+          `Failed to persist brh_recorded after confirmation: ${updated.reason}`,
+        );
+      }
+    }
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     await markNeedsReview(order, OFFRAMP_FAILURE_CODES.BRH_RECORD_FAILED, reason);
@@ -205,63 +265,13 @@ async function registerBrhRecord(order: OfframpOrderRow): Promise<void> {
       correlationId: order.id,
       errorCode: OFFRAMP_FAILURE_CODES.BRH_RECORD_FAILED,
       errorMessage: reason,
-      metadata: { source: 'offramp/reconcile', order_id: order.id, external_id: externalId },
-    });
-    return;
-  }
-
-  const rampOperation = await findRampOperationByExternalId(externalId);
-  const persisted = await markOfframpOrderStatus({
-    orderId: order.id,
-    status: order.status,
-    expectedStatus: ['pix_sent', 'needs_review', 'brh_recorded'],
-    patch: {
-      brh_redemption_external_id: externalId,
-      brh_redemption_ramp_operation_id: rampOperation?.ramp_operation_id ?? order.brh_redemption_ramp_operation_id,
-      ...clearOfframpFailurePatch(),
-    },
-  });
-
-  if (!persisted.ok) {
-    await markNeedsReview(order, OFFRAMP_FAILURE_CODES.BRH_RECORD_FAILED, `Failed to persist BRH submit ids: ${persisted.reason}`);
-    return;
-  }
-
-  await logOfframpEvent({
-    phase: 'brh_record_submit',
-    status: 'success',
-    amountBrl: persisted.row.amount_brl,
-    correlationId: persisted.row.id,
-    metadata: {
-      source: 'offramp/reconcile',
-      order_id: persisted.row.id,
-      external_id: externalId,
-      ramp_operation_id: persisted.row.brh_redemption_ramp_operation_id,
-      ramp_status: rampOperation?.status ?? null,
-    },
-  });
-
-  if (rampOperation?.status === 'confirmed') {
-    const updated = await markOfframpOrderStatus({
-      orderId: order.id,
-      status: 'brh_recorded',
-      expectedStatus: ['pix_sent', 'needs_review', 'brh_recorded'],
-      patch: {
-        brh_redemption_external_id: externalId,
-        brh_redemption_ramp_operation_id:
-          rampOperation.ramp_operation_id ?? persisted.row.brh_redemption_ramp_operation_id,
-        ...clearOfframpFailurePatch(),
+      metadata: {
+        source: 'offramp/reconcile',
+        order_id: order.id,
+        issue_external_id: issueExternalId,
+        redemption_external_id: redemptionExternalId,
       },
     });
-
-    if (!updated.ok) {
-      await markNeedsReview(
-        order,
-        OFFRAMP_FAILURE_CODES.BRH_RECORD_FAILED,
-        `Failed to persist brh_recorded after confirmation: ${updated.reason}`,
-      );
-      return;
-    }
   }
 }
 

@@ -15,6 +15,7 @@ export function mapBrhRedemptionRampStatusToOfframpStatus(status: string): {
 } {
   switch (status) {
     case 'confirmed':
+    case 'completed':
       return { nextStatus: 'brh_recorded' };
     case 'failed':
       return { nextStatus: 'failed' };

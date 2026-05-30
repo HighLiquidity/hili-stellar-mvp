@@ -70,6 +70,13 @@ export type BinanceOrderFill = {
   tradeId: number;
 };
 
+/** Query input for GET /api/v3/order. */
+export type BinanceGetSpotOrderRequest = {
+  symbol: string;
+  orderId?: string;
+  origClientOrderId?: string;
+};
+
 /** Relevant Binance response fields for spot market-order execution. */
 export type BinanceMarketOrderResponse = {
   symbol: string;

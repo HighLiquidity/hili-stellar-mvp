@@ -2,6 +2,7 @@ import { buildOnrampExternalId, formatRampAmountFromBrl } from './amount';
 import { createOnrampOperation, RampApiError } from './client';
 import { getRampCallbackUrl, isRampConfigured } from './config';
 import { buildOnrampMemo } from './memo';
+import { RAMP_ASSET_BRH, RAMP_CATEGORY_CLIENT } from './requests';
 import {
   findRampOperationByExternalId,
   insertRampOperationPending,
@@ -106,6 +107,8 @@ export async function startOnrampAfterPixSettlement(input: StartOnrampInput): Pr
       externalId,
       callbackUrl,
       memo,
+      assetCode: RAMP_ASSET_BRH,
+      category: RAMP_CATEGORY_CLIENT,
     });
 
     await updateRampOperationAfterCreate({

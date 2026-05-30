@@ -12,6 +12,7 @@ export function mapUsdcDepositRampStatusToOfframpStatus(status: string): {
 } {
   switch (status) {
     case 'confirmed':
+    case 'completed':
       return { nextStatus: 'usdc_received', failureCode: null };
     case 'failed':
       return { nextStatus: 'failed', failureCode: OFFRAMP_FAILURE_CODES.USDC_DEPOSIT_CALLBACK_FAILED };

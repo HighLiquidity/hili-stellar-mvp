@@ -50,6 +50,7 @@ export function UserWithdrawWhitelistPage() {
   const [address, setAddress] = useState('');
   const [network, setNetwork] = useState<WithdrawWhitelistNetwork>('STELLAR_TESTNET');
   const [label, setLabel] = useState('');
+  const [memo, setMemo] = useState('');
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
@@ -136,6 +137,7 @@ export function UserWithdrawWhitelistPage() {
       setNetwork(result.ok ? result.data.network : 'STELLAR_TESTNET');
     });
     setLabel('');
+    setMemo('');
     setFormError(null);
   };
 
@@ -152,6 +154,7 @@ export function UserWithdrawWhitelistPage() {
     setAddress(row.address);
     setNetwork(row.network);
     setLabel(row.label ?? '');
+    setMemo(row.memo ?? '');
     setFormError(null);
     setSuccessMessage(null);
   };
@@ -175,6 +178,7 @@ export function UserWithdrawWhitelistPage() {
         address,
         network,
         label,
+        memo,
         isActive: true,
       });
 
@@ -286,6 +290,7 @@ export function UserWithdrawWhitelistPage() {
                   <th scope="col">{t('pages.withdrawWhitelist.columns.address')}</th>
                   <th scope="col">{t('pages.withdrawWhitelist.columns.network')}</th>
                   <th scope="col">{t('pages.withdrawWhitelist.columns.label')}</th>
+                  <th scope="col">{t('pages.withdrawWhitelist.columns.memo')}</th>
                   <th scope="col">{t('pages.withdrawWhitelist.columns.actions')}</th>
                 </tr>
               </thead>
@@ -296,6 +301,7 @@ export function UserWithdrawWhitelistPage() {
                     <td>{row.address}</td>
                     <td>{row.network}</td>
                     <td>{row.label ?? '—'}</td>
+                    <td>{row.memo ?? '—'}</td>
                     <td>
                       <div className="user-management-actions">
                         <Button type="button" variant="ghost" onClick={() => openEdit(row)}>
@@ -372,6 +378,15 @@ export function UserWithdrawWhitelistPage() {
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder={t('pages.withdrawWhitelist.labelPlaceholder')}
+              />
+              <InputField
+                id="whitelist-memo"
+                label={t('pages.withdrawWhitelist.memo')}
+                type="text"
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+                placeholder={t('pages.withdrawWhitelist.memoPlaceholder')}
+                maxLength={28}
               />
               <div className="user-management-form__actions">
                 <Button type="submit" disabled={isSaving}>

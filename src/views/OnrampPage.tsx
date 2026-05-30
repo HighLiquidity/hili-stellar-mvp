@@ -23,6 +23,7 @@ import type {
   OnrampOrderStatus,
   OnrampQuoteResponse,
 } from '@/lib/onramp/contracts';
+import { calculateNetUsdcDeliveredToClient } from '@/lib/onramp/usdc-delivery-fee';
 import type { WithdrawWhitelistRow } from '@/lib/withdraw-whitelist/types';
 
 const CLOCK_TICK_INTERVAL_MS = 1_000;
@@ -298,7 +299,6 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
   const [amountUsdc, setAmountUsdc] = useState('');
   const [quoteAmountMode, setQuoteAmountMode] = useState<'brl' | 'usdc' | null>(null);
   const [destinationAddress, setDestinationAddress] = useState('');
-  const [destinationMemo, setDestinationMemo] = useState('');
   const [whitelistedWallets, setWhitelistedWallets] = useState<WithdrawWhitelistRow[]>([]);
   const [isLoadingWhitelistedWallets, setIsLoadingWhitelistedWallets] = useState(true);
 
@@ -330,6 +330,10 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
   const canEditFormForNewQuote = Boolean(order?.status === 'quoted' && isQuoteExpired);
   const formFieldsLocked = (isFlowLocked && !canEditFormForNewQuote) || isQuoting || isLocking;
   const showQuoteFormActions = !isFlowLocked || Boolean(order && order.status === 'quoted');
+  const selectedWallet = useMemo(
+    () => whitelistedWallets.find((wallet) => wallet.address === destinationAddress) ?? null,
+    [destinationAddress, whitelistedWallets],
+  );
   const hasWhitelistedWallets = whitelistedWallets.length > 0;
   const selectedWalletAllowed =
     !destinationAddress.trim() || whitelistedWallets.some((wallet) => wallet.address === destinationAddress);
@@ -654,13 +658,11 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
               taxId,
               amountUsdc: amountUsdc.trim(),
               destinationAddress,
-              destinationMemo: destinationMemo.trim() || null,
             }
           : {
               taxId,
               amountBrl: amountBrl.trim(),
               destinationAddress,
-              destinationMemo: destinationMemo.trim() || null,
             };
 
       const quoted = await fetchOnrampJson<OnrampQuoteResponse>(accessToken, '/api/onramp/orders/quote', {
@@ -766,6 +768,15 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
     }
   }
 
+  const netUsdcReceiveAmount = useMemo(() => {
+    if (!order) return null;
+    try {
+      return calculateNetUsdcDeliveredToClient(order.quote.amountUsdc);
+    } catch {
+      return null;
+    }
+  }, [order]);
+
   const orderSummaryBody = order ? (
     <>
       <div className="onramp-summary-grid">
@@ -773,16 +784,21 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
           <span>{t('pages.onramp.summary.pay')}</span>
           <strong>{formatBrlAmount(order.quote.amountBrl, localeCode)}</strong>
         </div>
-        <div className="onramp-summary-field">
+        <div className="onramp-summary-field onramp-summary-field--receive">
           <span>{t('pages.onramp.summary.receive')}</span>
-          <strong>{`${formatUsdcAmount(order.quote.amountUsdc, localeCode)} USDC`}</strong>
+          <strong>
+            {netUsdcReceiveAmount
+              ? `${formatUsdcAmount(netUsdcReceiveAmount, localeCode)} USDC`
+              : `${formatUsdcAmount(order.quote.amountUsdc, localeCode)} USDC`}
+          </strong>
+          <p className="onramp-summary-field__fee-note">{t('pages.onramp.summary.receiveFeeNote')}</p>
         </div>
-        <div className="onramp-summary-field">
+        <div className="onramp-summary-field onramp-summary-field--full">
           <span>{t('pages.onramp.summary.destination')}</span>
           <strong>{order.destination.address}</strong>
         </div>
         {order.destination.memo ? (
-          <div className="onramp-summary-field">
+          <div className="onramp-summary-field onramp-summary-field--full">
             <span>{t('pages.onramp.destinationMemo')}</span>
             <strong>
               <code>{order.destination.memo}</code>
@@ -951,27 +967,24 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
                     </option>
                     {whitelistedWallets.map((wallet) => (
                       <option key={wallet.id} value={wallet.address}>
-                        {wallet.label?.trim() ? `${wallet.label} - ${wallet.address}` : wallet.address}
+                        {wallet.label?.trim()
+                          ? `${wallet.label} - ${wallet.address}`
+                          : wallet.address}
+                        {wallet.memo ? ` (${wallet.memo})` : ''}
                       </option>
                     ))}
                   </select>
                 </label>
+                {selectedWallet?.memo ? (
+                  <p className="onramp-form__wallet-meta" role="status">
+                    {t('pages.onramp.whitelistedWalletMemo')}: <code>{selectedWallet.memo}</code>
+                  </p>
+                ) : null}
                 {!isLoadingWhitelistedWallets && !hasWhitelistedWallets ? (
                   <p className="onramp-alert" role="status">
                     {t('pages.onramp.whitelistedWalletEmpty')}
                   </p>
                 ) : null}
-                <InputField
-                  id="onramp-destination-memo"
-                  label={t('pages.onramp.destinationMemo')}
-                  type="text"
-                  value={destinationMemo}
-                  onChange={(event) => setDestinationMemo(event.target.value)}
-                  placeholder={t('pages.onramp.destinationMemoPlaceholder')}
-                  autoComplete="off"
-                  disabled={formFieldsLocked}
-                  maxLength={28}
-                />
               </div>
 
               {showQuoteFormActions ? (

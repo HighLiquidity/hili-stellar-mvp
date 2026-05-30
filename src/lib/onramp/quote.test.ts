@@ -11,6 +11,8 @@ import {
   normalizeOnrampDestinationMemo,
   normalizeOnrampTaxId,
 } from './quote';
+import { assertGrossUsdcCoversDeliveryFee } from './usdc-delivery-fee';
+import { assertUsdcMeetsBinanceMinWithdraw } from './binance-withdraw-min';
 
 const VALID_STELLAR_ADDRESS = `G${'A'.repeat(55)}`;
 
@@ -59,5 +61,13 @@ describe('onramp quote helpers', () => {
   it('calculates quoted BRL from USDC using decimal-safe rounding', () => {
     expect(calculateQuotedBrlAmount('20.00', '5.00')).toBe('100.00');
     expect(calculateQuotedBrlAmount('18.2268185', '5.486421')).toBe('100.00');
+  });
+
+  it('rejects quotes whose gross USDC does not cover the delivery fee', () => {
+    expect(() => assertGrossUsdcCoversDeliveryFee('1')).toThrowError(/greater than the USDC delivery fee/);
+  });
+
+  it('rejects quotes below the Binance minimum withdraw', () => {
+    expect(() => assertUsdcMeetsBinanceMinWithdraw('4.99')).toThrowError(/Binance minimum withdraw/);
   });
 });

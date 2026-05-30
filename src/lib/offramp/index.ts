@@ -5,6 +5,8 @@ export * from './order-store';
 export * from './quote';
 export * from './lock';
 export * from './read';
+export * from './brh-issue';
+export * from './brh-record';
 export * from './brh-redemption';
 export * from './reconciliation';
 export * from './references';

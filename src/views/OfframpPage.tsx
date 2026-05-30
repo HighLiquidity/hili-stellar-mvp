@@ -837,26 +837,26 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
                 onOpenChange={setDepositPanelOpen}
               >
                 <div className="onramp-summary-grid">
-                  <div className="onramp-summary-field">
+                  <div className="onramp-summary-field onramp-summary-field--full">
                     <span>{t('pages.offramp.depositAddress')}</span>
                     <strong>
                       <code>{deposit.address}</code>
                     </strong>
                   </div>
                   {deposit.memo ? (
-                    <div className="onramp-summary-field">
+                    <div className="onramp-summary-field onramp-summary-field--full">
                       <span>{t('pages.offramp.depositMemo')}</span>
                       <strong>
                         <code>{deposit.memo}</code>
                       </strong>
                     </div>
                   ) : null}
-                  <div className="onramp-summary-field">
-                    <span>{t('pages.offramp.depositExternalId')}</span>
-                    <strong>
-                      <code>{deposit.externalId}</code>
-                    </strong>
-                  </div>
+                  {deposit.expiresAt ? (
+                    <div className="onramp-summary-field onramp-summary-field--full">
+                      <span>{t('pages.offramp.depositExpiresAt')}</span>
+                      <strong>{formatDateTime(deposit.expiresAt, localeCode)}</strong>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="onramp-inline-actions">

@@ -26,7 +26,13 @@ import {
 } from './errors';
 import { ping } from './health';
 import { filterNonZeroBalances, getAccountInfo, getNonZeroBalances } from './account';
-import { buildMarketOrderPayload, getTickerPrice, placeMarketOrder, placeMarketOrderByQuoteAmount } from './market';
+import {
+  buildMarketOrderPayload,
+  getSpotOrder,
+  getTickerPrice,
+  placeMarketOrder,
+  placeMarketOrderByQuoteAmount,
+} from './market';
 import { appendBinanceSignature, signBinanceMessage, signBinanceQuery } from './signer';
 import {
   buildCryptoWithdrawPayload,
@@ -84,7 +90,13 @@ export {
   BinanceValidationError,
 };
 export { signBinanceMessage, signBinanceQuery, appendBinanceSignature };
-export { getTickerPrice, placeMarketOrder, placeMarketOrderByQuoteAmount, buildMarketOrderPayload };
+export {
+  getSpotOrder,
+  getTickerPrice,
+  placeMarketOrder,
+  placeMarketOrderByQuoteAmount,
+  buildMarketOrderPayload,
+};
 export { getAccountInfo, getNonZeroBalances, filterNonZeroBalances };
 export {
   requestCryptoWithdraw,
@@ -128,6 +140,7 @@ export const binance = {
     ping,
   },
   market: {
+    getSpotOrder,
     getTickerPrice,
     placeMarketOrder,
     placeMarketOrderByQuoteAmount,
@@ -169,6 +182,7 @@ export type {
   BinanceCoinNetworkConfig,
   BinanceCryptoWithdrawRequest,
   BinanceCryptoWithdrawResponse,
+  BinanceGetSpotOrderRequest,
   BinanceMarketOrderByQuoteAmountRequest,
   BinanceNonZeroBalance,
   BinanceMarketOrderRequest,

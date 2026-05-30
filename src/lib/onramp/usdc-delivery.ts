@@ -28,6 +28,8 @@ import {
   isOnrampUsdcDeliveryExternalId,
 } from './references';
 import { startOnrampReconciliation } from './reconciliation';
+import { RAMP_ASSET_USDC, RAMP_CATEGORY_CLIENT } from '@/lib/ramp/requests';
+import { calculateNetUsdcDeliveredToClient } from './usdc-delivery-fee';
 import { resolveOnrampUsdcDeliveryMemo } from './usdc-delivery-memo';
 
 function normalizeRampFailureReason(error: unknown): string {
@@ -100,7 +102,7 @@ export async function startUsdcDeliveryForOnrampOrder(orderId: string): Promise<
     throw new OnrampOperationError('On-ramp order not found.', 404);
   }
 
-  if (order.status === 'usdc_delivered' || order.status === 'complete') {
+  if (order.usdc_delivered_at || order.status === 'usdc_delivered' || order.status === 'complete') {
     return;
   }
 
@@ -146,7 +148,8 @@ export async function startUsdcDeliveryForOnrampOrder(orderId: string): Promise<
 
   let rampAmount: string;
   try {
-    rampAmount = formatRampPositiveAmount(order.amount_usdc);
+    const netAmountUsdc = calculateNetUsdcDeliveredToClient(order.amount_usdc);
+    rampAmount = formatRampPositiveAmount(netAmountUsdc);
   } catch (error) {
     await markOnrampNeedsReview(
       order.id,
@@ -195,6 +198,8 @@ export async function startUsdcDeliveryForOnrampOrder(orderId: string): Promise<
       callbackUrl,
       destination: order.destination_address,
       memo,
+      assetCode: RAMP_ASSET_USDC,
+      category: RAMP_CATEGORY_CLIENT,
     });
 
     await updateRampOperationAfterCreate({
@@ -218,6 +223,8 @@ export async function startUsdcDeliveryForOnrampOrder(orderId: string): Promise<
       externalId,
       rampOperationId: created.id,
       status: created.status,
+      grossAmountUsdc: order.amount_usdc,
+      netAmountUsdc: rampAmount,
     });
     await logOnrampEvent({
       phase: 'usdc_delivery_submit',

@@ -27,6 +27,7 @@ export type OfframpOrderRow = {
   usdc_deposit_ramp_operation_id: string | null;
   usdc_deposit_address: string | null;
   usdc_deposit_memo: string | null;
+  usdc_deposit_expires_at: string | null;
   usdc_received_amount: string | null;
   usdc_received_tx_hash: string | null;
   brh_issue_external_id: string | null;
@@ -110,6 +111,7 @@ function normalizeUpdatePatch(input: UpdateOfframpOrderPatch): Record<string, un
   if ('usdc_deposit_ramp_operation_id' in patch) patch.usdc_deposit_ramp_operation_id = normalizeOptionalString(input.usdc_deposit_ramp_operation_id);
   if ('usdc_deposit_address' in patch) patch.usdc_deposit_address = normalizeOptionalString(input.usdc_deposit_address);
   if ('usdc_deposit_memo' in patch) patch.usdc_deposit_memo = normalizeOptionalString(input.usdc_deposit_memo);
+  if ('usdc_deposit_expires_at' in patch) patch.usdc_deposit_expires_at = normalizeOptionalString(input.usdc_deposit_expires_at);
   if ('usdc_received_amount' in patch) patch.usdc_received_amount = normalizeOptionalString(input.usdc_received_amount);
   if ('usdc_received_tx_hash' in patch) patch.usdc_received_tx_hash = normalizeOptionalString(input.usdc_received_tx_hash);
   if ('brh_issue_external_id' in patch) patch.brh_issue_external_id = normalizeOptionalString(input.brh_issue_external_id);
@@ -157,6 +159,22 @@ export async function findOfframpOrderByUsdcDepositExternalId(externalId: string
     .maybeSingle();
   if (error) {
     console.error('[offramp/store] find by usdc deposit external id failed', error.message);
+    return null;
+  }
+  return (data as OfframpOrderRow | null) ?? null;
+}
+
+export async function findOfframpOrderByBrhIssueExternalId(externalId: string): Promise<OfframpOrderRow | null> {
+  const admin = createSupabaseAdmin();
+  if (!admin) return null;
+
+  const { data, error } = await admin
+    .from(OFFRAMP_ORDERS_TABLE)
+    .select('*')
+    .eq('brh_issue_external_id', externalId)
+    .maybeSingle();
+  if (error) {
+    console.error('[offramp/store] find by brh issue external id failed', error.message);
     return null;
   }
   return (data as OfframpOrderRow | null) ?? null;
@@ -231,7 +249,8 @@ export async function lockQuotedOfframpOrderWithDeposit(input: {
   orderId: string;
   usdcDepositExternalId: string;
   usdcDepositAddress: string;
-  usdcDepositMemo?: string | null;
+  usdcDepositMemo: string;
+  usdcDepositExpiresAt: string;
   usdcDepositRampOperationId?: string | null;
 }): Promise<{ ok: true; row: OfframpOrderRow } | { ok: false; reason: string }> {
   const admin = createSupabaseAdmin();
@@ -245,7 +264,8 @@ export async function lockQuotedOfframpOrderWithDeposit(input: {
       quote_locked_at: now,
       usdc_deposit_external_id: input.usdcDepositExternalId.trim(),
       usdc_deposit_address: input.usdcDepositAddress.trim(),
-      usdc_deposit_memo: normalizeOptionalString(input.usdcDepositMemo),
+      usdc_deposit_memo: input.usdcDepositMemo.trim(),
+      usdc_deposit_expires_at: input.usdcDepositExpiresAt.trim(),
       usdc_deposit_ramp_operation_id: normalizeOptionalString(input.usdcDepositRampOperationId),
       updated_at: now,
     })

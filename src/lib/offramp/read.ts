@@ -33,6 +33,7 @@ export async function readOfframpOrder(orderId: string): Promise<OfframpOrderRes
           rampOperationId: row.usdc_deposit_ramp_operation_id,
           address: row.usdc_deposit_address ?? '',
           memo: row.usdc_deposit_memo,
+          expiresAt: row.usdc_deposit_expires_at,
           receivedAmount: row.usdc_received_amount,
           txHash: row.usdc_received_tx_hash,
         }

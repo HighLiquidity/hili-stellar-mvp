@@ -7,7 +7,13 @@ import { assertBinanceMarketQuoteNotionalForSymbol } from '@/lib/server/binance/
 import { truncateUtf8Bytes } from '@/lib/ramp/memo';
 
 import { OnrampConfigError, OnrampOperationError, OnrampValidationError } from './errors';
-import { createQuotedOnrampOrder, type OnrampOrderRow } from './order-store';
+import { assertUsdcMeetsBinanceMinWithdraw } from './binance-withdraw-min';
+import { assertGrossUsdcCoversDeliveryFee } from './usdc-delivery-fee';
+import { createQuotedOnrampOrder, type OnrampOrderRow, updateOnrampOrder } from './order-store';
+import {
+  buildOnrampBinanceClientOrderId,
+  buildOnrampBinanceWithdrawOrderId,
+} from './references';
 import {
   DEFAULT_ONRAMP_QUOTE_TTL_SECONDS,
   getOnrampQuoteTtlSeconds,
@@ -367,6 +373,14 @@ export async function createOnrampQuote(input: CreateOnrampQuoteInput): Promise<
   assertWithinConfiguredDepositLimit(amountBrl, maxDepositResult.maxDepositBrl);
 
   try {
+    assertGrossUsdcCoversDeliveryFee(amountUsdc);
+    assertUsdcMeetsBinanceMinWithdraw(amountUsdc);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new OnrampValidationError(message);
+  }
+
+  try {
     await assertBinanceMarketQuoteNotionalForSymbol(symbol, amountBrl);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -412,5 +426,22 @@ export async function createOnrampQuote(input: CreateOnrampQuoteInput): Promise<
     throw new OnrampOperationError('Failed to persist on-ramp quote.');
   }
 
-  return buildOnrampQuoteResponse(created.row);
+  const withBinanceIds = await updateOnrampOrder({
+    orderId: created.row.id,
+    expectedStatus: 'quoted',
+    patch: {
+      binance_client_order_id: buildOnrampBinanceClientOrderId(created.row.id),
+      binance_withdraw_order_id: buildOnrampBinanceWithdrawOrderId(created.row.id),
+    },
+  });
+
+  if (!withBinanceIds.ok) {
+    console.error('[onramp/quote] failed to persist binance reconciliation ids', {
+      orderId: created.row.id,
+      reason: withBinanceIds.reason,
+    });
+    throw new OnrampOperationError('Failed to persist on-ramp quote.');
+  }
+
+  return buildOnrampQuoteResponse(withBinanceIds.row);
 }

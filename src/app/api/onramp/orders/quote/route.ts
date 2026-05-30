@@ -5,7 +5,7 @@ import { createOnrampQuote } from '@/lib/onramp';
 
 import { badRequest, handleOnrampRouteError, requireOnrampRouteOperator } from '../../_utils';
 import { getOnrampWithdrawNetwork } from '@/lib/withdraw-whitelist/onramp-network';
-import { isWithdrawAddressWhitelistedOnNetwork } from '@/lib/withdraw-whitelist/store';
+import { findActiveWithdrawWhitelistEntry } from '@/lib/withdraw-whitelist/store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,7 +15,6 @@ type QuoteRequestBody = {
   amountBrl?: unknown;
   amountUsdc?: unknown;
   destinationAddress?: unknown;
-  destinationMemo?: unknown;
 };
 
 function readOptionalAmountString(value: unknown): string | null {
@@ -85,26 +84,14 @@ export async function POST(request: Request) {
     return badRequest('amountBrl or amountUsdc must be provided as a non-empty string');
   }
 
-  if (body.destinationMemo != null && typeof body.destinationMemo !== 'string') {
-    await logOnrampEvent({
-      phase: 'quote',
-      status: 'error',
-      actor: { email: auth.ctx.email, userId: auth.ctx.userId },
-      errorCode: 'ONRAMP_BAD_REQUEST',
-      errorMessage: 'destinationMemo must be null or a string when provided',
-      metadata: { source: 'api/onramp/orders/quote' },
-    });
-    return badRequest('destinationMemo must be null or a string when provided');
-  }
-
   const network = getOnrampWithdrawNetwork();
 
-  const isWhitelisted = await isWithdrawAddressWhitelistedOnNetwork({
+  const whitelistEntry = await findActiveWithdrawWhitelistEntry({
     address: body.destinationAddress,
     network,
   });
 
-  if (!isWhitelisted) {
+  if (!whitelistEntry) {
     await logOnrampEvent({
       phase: 'quote',
       status: 'error',
@@ -130,7 +117,7 @@ export async function POST(request: Request) {
       amountBrl: amountBrl ?? undefined,
       amountUsdc: amountUsdc ?? undefined,
       destinationAddress: body.destinationAddress,
-      destinationMemo: typeof body.destinationMemo === 'string' ? body.destinationMemo : null,
+      destinationMemo: whitelistEntry.memo,
       actorEmail: auth.ctx.email,
       actorUserId: auth.ctx.userId,
     });

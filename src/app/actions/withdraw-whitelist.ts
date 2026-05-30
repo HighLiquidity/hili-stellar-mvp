@@ -6,13 +6,14 @@ import {
   getOnrampWithdrawNetwork,
   normalizeWithdrawWhitelistAddress,
 } from '@/lib/withdraw-whitelist/onramp-network';
+import { normalizeWithdrawWhitelistMemo } from '@/lib/withdraw-whitelist/memo';
 import { listActiveWithdrawWhitelistOnNetwork } from '@/lib/withdraw-whitelist/store';
 import type { WithdrawWhitelistNetwork, WithdrawWhitelistRow } from '@/lib/withdraw-whitelist/types';
 
 const WHITELIST_TABLE = 'user_withdraw_whitelist';
 const PANEL_ACCESS_TABLE = 'panel_access_list';
 const WHITELIST_COLUMNS =
-  'id, user_id, address, network, label, is_active, created_at, updated_at, created_by_email';
+  'id, user_id, address, network, label, memo, is_active, created_at, updated_at, created_by_email';
 
 type UserOption = {
   email: string;
@@ -171,6 +172,7 @@ export async function upsertWithdrawWhitelistAction(
     address: string;
     network: WithdrawWhitelistNetwork;
     label?: string | null;
+    memo?: string | null;
     isActive: boolean;
   },
 ): Promise<ActionResult<{ id?: string }>> {
@@ -178,6 +180,15 @@ export async function upsertWithdrawWhitelistAction(
     const { admin, email: actorEmail } = await requireAdminFromAccessToken(accessToken);
     const userEmail = normalizeEmail(input.userEmail);
     const address = normalizeWithdrawWhitelistAddress(input.address);
+    let memo: string | null;
+    try {
+      memo = normalizeWithdrawWhitelistMemo(input.memo);
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : 'Memo inválido.',
+      };
+    }
 
     if (!userEmail || !userEmail.includes('@')) {
       return { ok: false, message: 'E-mail inválido.' };
@@ -196,6 +207,7 @@ export async function upsertWithdrawWhitelistAction(
       address,
       network: input.network,
       label: input.label?.trim() || null,
+      memo,
       is_active: input.isActive,
       updated_at: new Date().toISOString(),
     };

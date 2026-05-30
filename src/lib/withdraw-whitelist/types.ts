@@ -6,6 +6,7 @@ export type WithdrawWhitelistRow = {
   address: string;
   network: WithdrawWhitelistNetwork;
   label: string | null;
+  memo: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -17,6 +18,7 @@ export type WithdrawWhitelistInsert = {
   address: string;
   network: WithdrawWhitelistNetwork;
   label?: string | null;
+  memo?: string | null;
   isActive?: boolean;
   createdByEmail?: string | null;
 };

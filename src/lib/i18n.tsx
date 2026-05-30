@@ -145,7 +145,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
         whitelistedWalletEmpty:
           'Nenhuma wallet whitelistada para seu usuário. Entre em contato com um admin para cadastrar.',
         destinationMemo: 'Memo / tag',
-        destinationMemoPlaceholder: 'Opcional — memo Stellar (até 28 caracteres)',
+        whitelistedWalletMemo: 'Memo cadastrado na whitelist',
         quoteAction: 'Consultar quote',
         quoteLoading: 'Consultando quote...',
         newQuoteAction: 'Nova cotação',
@@ -174,6 +174,8 @@ const dictionaries: Record<Locale, TranslationTree> = {
         summary: {
           pay: 'Você paga',
           receive: 'Você recebe',
+          receiveFeeNote:
+            'Valor líquido na wallet. Taxa operacional de 1 USDC na entrega Stellar, já descontada do total negociado.',
           destination: 'Wallet destino',
           quoteExpiresAt: 'Quote válida até',
           paymentExpiresAt: 'Cobrança PIX válida até',
@@ -264,6 +266,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
         depositPlaceholder: 'Endereço e memo aparecerão aqui quando a quote for travada.',
         depositAddress: 'Endereço',
         depositMemo: 'Memo',
+        depositExpiresAt: 'Prazo do depósito (Ramp)',
         depositExternalId: 'ID externo (Ramp)',
         copyAddress: 'Copiar endereço',
         copyMemo: 'Copiar memo',
@@ -558,11 +561,14 @@ const dictionaries: Record<Locale, TranslationTree> = {
           network: 'Rede',
           label: 'Rótulo',
           labelPlaceholder: 'Opcional (ex.: Carteira principal)',
+          memo: 'Memo Stellar',
+          memoPlaceholder: 'Opcional — até 28 caracteres (obrigatório se a wallet exigir)',
           columns: {
             user: 'Usuário',
             address: 'Endereço',
             network: 'Rede',
             label: 'Rótulo',
+            memo: 'Memo',
             actions: 'Ações',
           },
           createSuccess: 'Wallet adicionada à whitelist.',
@@ -756,7 +762,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
         whitelistedWalletEmpty:
           'No whitelisted wallet found for your user. Please contact an admin to register one.',
         destinationMemo: 'Memo / tag',
-        destinationMemoPlaceholder: 'Optional — Stellar memo (up to 28 characters)',
+        whitelistedWalletMemo: 'Memo registered on whitelist',
         quoteAction: 'Get quote',
         quoteLoading: 'Getting quote...',
         newQuoteAction: 'New quote',
@@ -785,6 +791,8 @@ const dictionaries: Record<Locale, TranslationTree> = {
         summary: {
           pay: 'You pay',
           receive: 'You receive',
+          receiveFeeNote:
+            'Net amount to your wallet. A 1 USDC Stellar delivery fee is already deducted from the traded total.',
           destination: 'Destination wallet',
           quoteExpiresAt: 'Quote valid until',
           paymentExpiresAt: 'PIX charge valid until',
@@ -874,6 +882,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
         depositPlaceholder: 'Address and memo will appear here once the quote is locked.',
         depositAddress: 'Address',
         depositMemo: 'Memo',
+        depositExpiresAt: 'Deposit deadline (Ramp)',
         depositExternalId: 'External ID (Ramp)',
         copyAddress: 'Copy address',
         copyMemo: 'Copy memo',
@@ -1167,11 +1176,14 @@ const dictionaries: Record<Locale, TranslationTree> = {
           network: 'Network',
           label: 'Label',
           labelPlaceholder: 'Optional (e.g. Main wallet)',
+          memo: 'Stellar memo',
+          memoPlaceholder: 'Optional — up to 28 characters (required if the wallet needs one)',
           columns: {
             user: 'User',
             address: 'Address',
             network: 'Network',
             label: 'Label',
+            memo: 'Memo',
             actions: 'Actions',
           },
           createSuccess: 'Wallet added to whitelist.',

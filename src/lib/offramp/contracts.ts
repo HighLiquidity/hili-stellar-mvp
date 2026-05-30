@@ -29,6 +29,8 @@ export type OfframpDepositInstructionsView = {
   externalId: string;
   address: string;
   memo: string | null;
+  /** Ramp API deposit window (`expiresAt`), distinct from quote TTL. */
+  expiresAt: string | null;
 };
 
 export type OfframpQuoteResponse = {

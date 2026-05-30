@@ -1345,6 +1345,30 @@ a.user-menu__item {
   gap: 18px;
 }
 
+.onramp-form__wallet-meta {
+  margin: -6px 0 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.onramp-form__wallet-meta code {
+  font-size: 0.92em;
+}
+
+.onramp-summary-field--receive,
+.onramp-summary-field--full {
+  grid-column: 1 / -1;
+}
+
+.onramp-summary-field__fee-note {
+  margin: 6px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  font-weight: 400;
+}
+
 .onramp-form__amount-row {
   display: grid;
   grid-template-columns: 1fr;

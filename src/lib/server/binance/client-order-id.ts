@@ -10,6 +10,24 @@ export function isBinanceClientOrderId(value: string): boolean {
   return BINANCE_CLIENT_ORDER_ID_PATTERN.test(value.trim());
 }
 
+/** Legacy on-ramp ids persisted before Binance charset rules (`onramp:{orderId}:fx`). */
+export function isLegacyOnrampBinanceReferenceId(value: string): boolean {
+  return /^onramp:[^:]+:(fx|usdc-refill)$/.test(value.trim());
+}
+
+export function needsBinanceClientOrderIdRefresh(value: string | null | undefined): boolean {
+  if (!value?.trim()) {
+    return true;
+  }
+
+  const normalized = value.trim();
+  if (isLegacyOnrampBinanceReferenceId(normalized)) {
+    return true;
+  }
+
+  return !isBinanceClientOrderId(normalized);
+}
+
 /**
  * Builds a deterministic Binance client order id from an internal order id.
  * Strips illegal characters and enforces max length (UUID hex fits with short prefixes).
