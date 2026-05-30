@@ -1345,6 +1345,18 @@ a.user-menu__item {
   gap: 18px;
 }
 
+.onramp-form__amount-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+@media (min-width: 640px) {
+  .onramp-form__amount-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .onramp-form-card__header,
 .onramp-summary-card__header,
 .onramp-status-card__header,

@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { listMyActiveWithdrawWhitelistAction } from '@/app/actions/withdraw-whitelist';
+import { listOnrampWithdrawWhitelistAction } from '@/app/actions/withdraw-whitelist';
 import { CryptoTxHashLink } from '@/components/ledger/CryptoTxHashLink';
 import { RampCollapsiblePanel } from '@/components/RampCollapsiblePanel';
 import { Button } from '@/components/ui/Button';
@@ -295,7 +295,10 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
 
   const [taxId, setTaxId] = useState('');
   const [amountBrl, setAmountBrl] = useState('');
+  const [amountUsdc, setAmountUsdc] = useState('');
+  const [quoteAmountMode, setQuoteAmountMode] = useState<'brl' | 'usdc' | null>(null);
   const [destinationAddress, setDestinationAddress] = useState('');
+  const [destinationMemo, setDestinationMemo] = useState('');
   const [whitelistedWallets, setWhitelistedWallets] = useState<WithdrawWhitelistRow[]>([]);
   const [isLoadingWhitelistedWallets, setIsLoadingWhitelistedWallets] = useState(true);
 
@@ -336,6 +339,29 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
     order?.status !== 'failed' &&
     order?.status !== 'expired' &&
     order?.status !== 'refunded';
+  const hasQuoteAmount = Boolean(amountBrl.trim() || amountUsdc.trim());
+  const brlAmountDisabled = formFieldsLocked || quoteAmountMode === 'usdc';
+  const usdcAmountDisabled = formFieldsLocked || quoteAmountMode === 'brl';
+
+  function handleAmountBrlChange(value: string) {
+    setAmountBrl(value);
+    if (value.trim()) {
+      setQuoteAmountMode('brl');
+      setAmountUsdc('');
+    } else if (quoteAmountMode === 'brl') {
+      setQuoteAmountMode(null);
+    }
+  }
+
+  function handleAmountUsdcChange(value: string) {
+    setAmountUsdc(value);
+    if (value.trim()) {
+      setQuoteAmountMode('usdc');
+      setAmountBrl('');
+    } else if (quoteAmountMode === 'usdc') {
+      setQuoteAmountMode(null);
+    }
+  }
 
   const quoteCountdown = order ? formatRemainingMs(order.quote.expiresAt, nowMs) : null;
   const paymentExpiresAt = order?.pix?.expiresAt ?? order?.quote.expiresAt ?? null;
@@ -441,7 +467,7 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
     async function loadWhitelistedWallets() {
       setIsLoadingWhitelistedWallets(true);
       try {
-        const result = await listMyActiveWithdrawWhitelistAction(token);
+        const result = await listOnrampWithdrawWhitelistAction(token);
         if (cancelled) return;
         if (!result.ok) {
           setWhitelistedWallets([]);
@@ -621,13 +647,25 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
     setIsQuoting(true);
 
     try {
+      const quoteBasis = quoteAmountMode ?? (amountUsdc.trim() ? 'usdc' : 'brl');
+      const quoteBody =
+        quoteBasis === 'usdc'
+          ? {
+              taxId,
+              amountUsdc: amountUsdc.trim(),
+              destinationAddress,
+              destinationMemo: destinationMemo.trim() || null,
+            }
+          : {
+              taxId,
+              amountBrl: amountBrl.trim(),
+              destinationAddress,
+              destinationMemo: destinationMemo.trim() || null,
+            };
+
       const quoted = await fetchOnrampJson<OnrampQuoteResponse>(accessToken, '/api/onramp/orders/quote', {
         method: 'POST',
-        body: JSON.stringify({
-          taxId,
-          amountBrl,
-          destinationAddress,
-        }),
+        body: JSON.stringify(quoteBody),
       });
 
       setSummaryPanelOpen(true);
@@ -743,6 +781,14 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
           <span>{t('pages.onramp.summary.destination')}</span>
           <strong>{order.destination.address}</strong>
         </div>
+        {order.destination.memo ? (
+          <div className="onramp-summary-field">
+            <span>{t('pages.onramp.destinationMemo')}</span>
+            <strong>
+              <code>{order.destination.memo}</code>
+            </strong>
+          </div>
+        ) : null}
         <div className="onramp-summary-field">
           <span>
             {order.pix
@@ -867,17 +913,28 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
                   required
                   disabled={formFieldsLocked}
                 />
-                <InputField
-                  id="onramp-amount"
-                  label={t('pages.onramp.amountBrl')}
-                  type="text"
-                  inputMode="decimal"
-                  value={amountBrl}
-                  onChange={(event) => setAmountBrl(event.target.value)}
-                  placeholder={t('pages.onramp.amountBrlPlaceholder')}
-                  required
-                  disabled={formFieldsLocked}
-                />
+                <div className="onramp-form__amount-row">
+                  <InputField
+                    id="onramp-amount-brl"
+                    label={t('pages.onramp.amountBrl')}
+                    type="text"
+                    inputMode="decimal"
+                    value={amountBrl}
+                    onChange={(event) => handleAmountBrlChange(event.target.value)}
+                    placeholder={t('pages.onramp.amountBrlPlaceholder')}
+                    disabled={brlAmountDisabled}
+                  />
+                  <InputField
+                    id="onramp-amount-usdc"
+                    label={t('pages.onramp.amountUsdc')}
+                    type="text"
+                    inputMode="decimal"
+                    value={amountUsdc}
+                    onChange={(event) => handleAmountUsdcChange(event.target.value)}
+                    placeholder={t('pages.onramp.amountUsdcPlaceholder')}
+                    disabled={usdcAmountDisabled}
+                  />
+                </div>
                 <label className="field">
                   <span className="field__label">{t('pages.onramp.whitelistedWallet')}</span>
                   <select
@@ -904,6 +961,17 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
                     {t('pages.onramp.whitelistedWalletEmpty')}
                   </p>
                 ) : null}
+                <InputField
+                  id="onramp-destination-memo"
+                  label={t('pages.onramp.destinationMemo')}
+                  type="text"
+                  value={destinationMemo}
+                  onChange={(event) => setDestinationMemo(event.target.value)}
+                  placeholder={t('pages.onramp.destinationMemoPlaceholder')}
+                  autoComplete="off"
+                  disabled={formFieldsLocked}
+                  maxLength={28}
+                />
               </div>
 
               {showQuoteFormActions ? (
@@ -912,7 +980,7 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
                     type="submit"
                     disabled={
                       !taxId.trim() ||
-                      !amountBrl.trim() ||
+                      !hasQuoteAmount ||
                       !destinationAddress.trim() ||
                       !hasWhitelistedWallets ||
                       isLoadingWhitelistedWallets ||

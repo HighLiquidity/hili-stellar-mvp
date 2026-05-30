@@ -1,6 +1,7 @@
 import '@/lib/server/only';
 
 import { BinanceClient, createBinanceClient } from './client';
+import { normalizeBinanceClientOrderId } from './client-order-id';
 import { BinanceValidationError } from './errors';
 import type {
   BinanceMarketOrderByQuoteAmountRequest,
@@ -77,7 +78,10 @@ function buildMarketOrderPayload(
 ): BinanceMarketOrderPayload {
   const symbol = normalizeTickerSymbol(input.symbol);
   const side = normalizeOrderSide(input.side);
-  const newClientOrderId = normalizeOptionalString(input.newClientOrderId, 'Binance newClientOrderId');
+  const newClientOrderId = normalizeBinanceClientOrderId(
+    input.newClientOrderId,
+    'Binance newClientOrderId',
+  );
 
   if ('quantity' in input) {
     return {

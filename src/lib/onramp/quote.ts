@@ -3,6 +3,8 @@ import '@/lib/server/only';
 import { isDepositAboveMax, loadMaxDepositBrl, parseMaxDepositBrl } from '@/lib/admin-test-settings/deposit-limits';
 import { brlStringToJsonNumber } from '@/lib/corpx/pix/brl';
 import { binance } from '@/lib/server/binance';
+import { assertBinanceMarketQuoteNotionalForSymbol } from '@/lib/server/binance/exchange-info';
+import { truncateUtf8Bytes } from '@/lib/ramp/memo';
 
 import { OnrampConfigError, OnrampOperationError, OnrampValidationError } from './errors';
 import { createQuotedOnrampOrder, type OnrampOrderRow } from './order-store';
@@ -17,10 +19,14 @@ export const DEFAULT_ONRAMP_QUOTE_SPREAD_BPS = 0;
 
 const INTERNAL_DECIMAL_SCALE = BigInt(18);
 const USDC_DECIMALS = BigInt(7);
+const BRL_DECIMALS = BigInt(2);
 const RATE_DECIMALS = BigInt(8);
 const POSITIVE_DECIMAL_PATTERN = /^\d+(?:\.\d+)?$/;
 const BRL_AMOUNT_PATTERN = /^\d+(?:\.\d{1,2})?$/;
+const USDC_AMOUNT_PATTERN = /^\d+(?:\.\d{1,7})?$/;
 const STELLAR_ACCOUNT_PATTERN = /^G[A-Z2-7]{55}$/;
+/** Stellar text memo limit (UTF-8 bytes) for on-chain payouts. */
+const STELLAR_TEXT_MEMO_MAX_BYTES = 28;
 
 const ZERO_BIGINT = BigInt(0);
 const TWO_BIGINT = BigInt(2);
@@ -28,9 +34,12 @@ const TEN = BigInt(10);
 const FIVE_THOUSAND = BigInt(5_000);
 const TEN_THOUSAND = BigInt(10_000);
 
+export type OnrampQuoteBasis = 'brl' | 'usdc';
+
 export type CreateOnrampQuoteInput = {
   taxId: string;
-  amountBrl: string;
+  amountBrl?: string;
+  amountUsdc?: string;
   destinationAddress: string;
   destinationMemo?: string | null;
   actorEmail?: string | null;
@@ -108,6 +117,23 @@ function divideScaledIntegers(dividend: bigint, divisor: bigint, outputScale: bi
   return (scaledDividend + divisor / TWO_BIGINT) / divisor;
 }
 
+function multiplyScaledToOutputScale(
+  left: bigint,
+  leftScale: bigint,
+  right: bigint,
+  rightScale: bigint,
+  outputScale: bigint,
+): bigint {
+  const product = left * right;
+  const excessScale = leftScale + rightScale - outputScale;
+  if (excessScale <= ZERO_BIGINT) {
+    return product * pow10(-excessScale);
+  }
+
+  const divisor = pow10(excessScale);
+  return (product + divisor / TWO_BIGINT) / divisor;
+}
+
 function readNonNegativeIntegerEnv(name: string, fallback: number): number {
   const raw = process.env[name]?.trim();
   if (!raw) {
@@ -161,6 +187,46 @@ export function normalizeOnrampAmountBrl(amountBrl: string): string {
   return numericAmount.toFixed(2);
 }
 
+export function normalizeOnrampAmountUsdc(amountUsdc: string): string {
+  const normalized = amountUsdc.trim().replace(',', '.');
+  if (!USDC_AMOUNT_PATTERN.test(normalized)) {
+    throw new OnrampValidationError('amountUsdc must be a positive USDC amount with up to 7 decimals.');
+  }
+
+  const numericAmount = decimalToScaledInteger(normalized, USDC_DECIMALS, 'amountUsdc');
+  if (numericAmount <= ZERO_BIGINT) {
+    throw new OnrampValidationError('amountUsdc must be greater than zero.');
+  }
+
+  return formatScaledInteger(numericAmount, USDC_DECIMALS, {
+    minFractionDigits: 2,
+    maxFractionDigits: Number(USDC_DECIMALS),
+  });
+}
+
+function resolveQuoteAmountInput(input: CreateOnrampQuoteInput): {
+  quoteBasis: OnrampQuoteBasis;
+  amountBrl?: string;
+  amountUsdc?: string;
+} {
+  const hasBrl = typeof input.amountBrl === 'string' && input.amountBrl.trim().length > 0;
+  const hasUsdc = typeof input.amountUsdc === 'string' && input.amountUsdc.trim().length > 0;
+
+  if (hasBrl && hasUsdc) {
+    throw new OnrampValidationError('Provide either amountBrl or amountUsdc, not both.');
+  }
+
+  if (!hasBrl && !hasUsdc) {
+    throw new OnrampValidationError('amountBrl or amountUsdc is required.');
+  }
+
+  if (hasUsdc) {
+    return { quoteBasis: 'usdc', amountUsdc: input.amountUsdc };
+  }
+
+  return { quoteBasis: 'brl', amountBrl: input.amountBrl };
+}
+
 export function normalizeOnrampDestinationAddress(destinationAddress: string): string {
   const normalized = destinationAddress.trim().toUpperCase();
   if (!normalized) {
@@ -188,7 +254,7 @@ export function normalizeOnrampDestinationMemo(destinationMemo?: string | null):
     throw new OnrampValidationError('destinationMemo must be 128 characters or less.');
   }
 
-  return normalized;
+  return truncateUtf8Bytes(normalized, STELLAR_TEXT_MEMO_MAX_BYTES);
 }
 
 export function applyOnrampQuoteSpread(rateBrlPerUsdc: string, spreadBps: number): string {
@@ -225,6 +291,21 @@ export function calculateQuotedUsdcAmount(amountBrl: string, effectiveRateBrlPer
   });
 }
 
+export function calculateQuotedBrlAmount(amountUsdc: string, effectiveRateBrlPerUsdc: string): string {
+  const amount = decimalToScaledInteger(amountUsdc, USDC_DECIMALS, 'amountUsdc');
+  const rate = decimalToScaledInteger(effectiveRateBrlPerUsdc, INTERNAL_DECIMAL_SCALE, 'quote rate');
+
+  if (amount <= ZERO_BIGINT) {
+    throw new OnrampValidationError('amountUsdc must be greater than zero.');
+  }
+
+  const quotedBrl = multiplyScaledToOutputScale(amount, USDC_DECIMALS, rate, INTERNAL_DECIMAL_SCALE, BRL_DECIMALS);
+  return formatScaledInteger(quotedBrl, BRL_DECIMALS, {
+    minFractionDigits: 2,
+    maxFractionDigits: Number(BRL_DECIMALS),
+  });
+}
+
 export function buildOnrampQuoteResponse(row: OnrampOrderRow): OnrampQuoteResponse {
   return {
     orderId: row.id,
@@ -257,8 +338,8 @@ function assertWithinConfiguredDepositLimit(amountBrl: string, maxDepositBrl: st
 }
 
 export async function createOnrampQuote(input: CreateOnrampQuoteInput): Promise<OnrampQuoteResponse> {
+  const resolved = resolveQuoteAmountInput(input);
   const taxId = normalizeOnrampTaxId(input.taxId);
-  const amountBrl = normalizeOnrampAmountBrl(input.amountBrl);
   const destinationAddress = normalizeOnrampDestinationAddress(input.destinationAddress);
   const destinationMemo = normalizeOnrampDestinationMemo(input.destinationMemo);
 
@@ -267,14 +348,31 @@ export async function createOnrampQuote(input: CreateOnrampQuoteInput): Promise<
     throw new OnrampConfigError(maxDepositResult.reason);
   }
 
-  assertWithinConfiguredDepositLimit(amountBrl, maxDepositResult.maxDepositBrl);
-
   const symbol = getOnrampQuoteSymbol();
   const spreadBps = getOnrampQuoteSpreadBps();
   const ttlSeconds = getOnrampQuoteTtlSeconds();
   const ticker = await binance.market.getTickerPrice(symbol);
   const effectiveRate = applyOnrampQuoteSpread(ticker.price, spreadBps);
-  const amountUsdc = calculateQuotedUsdcAmount(amountBrl, effectiveRate);
+
+  let amountBrl: string;
+  let amountUsdc: string;
+  if (resolved.quoteBasis === 'brl') {
+    amountBrl = normalizeOnrampAmountBrl(resolved.amountBrl!);
+    amountUsdc = calculateQuotedUsdcAmount(amountBrl, effectiveRate);
+  } else {
+    amountUsdc = normalizeOnrampAmountUsdc(resolved.amountUsdc!);
+    amountBrl = calculateQuotedBrlAmount(amountUsdc, effectiveRate);
+  }
+
+  assertWithinConfiguredDepositLimit(amountBrl, maxDepositResult.maxDepositBrl);
+
+  try {
+    await assertBinanceMarketQuoteNotionalForSymbol(symbol, amountBrl);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new OnrampValidationError(message);
+  }
+
   const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
 
   const created = await createQuotedOnrampOrder({
@@ -298,6 +396,7 @@ export async function createOnrampQuote(input: CreateOnrampQuoteInput): Promise<
         effectiveRate,
         spreadBps,
         ttlSeconds,
+        quoteBasis: resolved.quoteBasis,
       },
       reservation: {
         mode: 'logical_order_row',

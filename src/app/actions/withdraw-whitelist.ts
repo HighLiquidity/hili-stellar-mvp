@@ -2,6 +2,11 @@
 
 import { requireAdminFromAccessToken } from '@/lib/users/require-admin';
 import { requireOperatorOrAdminFromAccessToken } from '@/lib/users/require-panel-role';
+import {
+  getOnrampWithdrawNetwork,
+  normalizeWithdrawWhitelistAddress,
+} from '@/lib/withdraw-whitelist/onramp-network';
+import { listActiveWithdrawWhitelistOnNetwork } from '@/lib/withdraw-whitelist/store';
 import type { WithdrawWhitelistNetwork, WithdrawWhitelistRow } from '@/lib/withdraw-whitelist/types';
 
 const WHITELIST_TABLE = 'user_withdraw_whitelist';
@@ -115,6 +120,29 @@ export async function listWithdrawWhitelistAction(
   }
 }
 
+export async function getOnrampWithdrawNetworkAction(
+  accessToken: string,
+): Promise<ActionResult<{ network: WithdrawWhitelistNetwork }>> {
+  try {
+    await requireAdminFromAccessToken(accessToken);
+    return { ok: true, data: { network: getOnrampWithdrawNetwork() } };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function listOnrampWithdrawWhitelistAction(
+  accessToken: string,
+): Promise<ActionResult<WithdrawWhitelistRow[]>> {
+  try {
+    await requireAdminFromAccessToken(accessToken);
+    const rows = await listActiveWithdrawWhitelistOnNetwork(getOnrampWithdrawNetwork());
+    return { ok: true, data: rows };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function listMyActiveWithdrawWhitelistAction(
   accessToken: string,
 ): Promise<ActionResult<WithdrawWhitelistRow[]>> {
@@ -149,7 +177,7 @@ export async function upsertWithdrawWhitelistAction(
   try {
     const { admin, email: actorEmail } = await requireAdminFromAccessToken(accessToken);
     const userEmail = normalizeEmail(input.userEmail);
-    const address = input.address.trim();
+    const address = normalizeWithdrawWhitelistAddress(input.address);
 
     if (!userEmail || !userEmail.includes('@')) {
       return { ok: false, message: 'E-mail inválido.' };

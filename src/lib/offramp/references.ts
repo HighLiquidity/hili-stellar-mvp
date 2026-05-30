@@ -32,3 +32,5 @@ export function buildOfframpBrhRedemptionExternalId(orderId: string): string {
 export function isOfframpBrhRedemptionExternalId(externalId: string): boolean {
   return externalId.startsWith(OFFRAMP_BRH_REDEMPTION_PREFIX);
 }
+
+export { buildOfframpBinanceClientOrderId } from '@/lib/server/binance/client-order-id';

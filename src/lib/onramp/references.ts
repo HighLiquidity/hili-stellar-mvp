@@ -17,16 +17,13 @@ export function buildOnrampUsdcDeliveryExternalId(orderId: string): string {
   return `onramp:${normalizeOrderId(orderId)}:client-usdc`;
 }
 
-export function buildOnrampBinanceClientOrderId(orderId: string): string {
-  return `onramp:${normalizeOrderId(orderId)}:fx`;
-}
+export {
+  buildOnrampBinanceClientOrderId,
+  buildOnrampBinanceWithdrawOrderId,
+} from '@/lib/server/binance/client-order-id';
 
 export function buildOnrampBrhRedemptionExternalId(orderId: string): string {
   return `onramp:${normalizeOrderId(orderId)}:brh-redemption`;
-}
-
-export function buildOnrampBinanceWithdrawOrderId(orderId: string): string {
-  return `onramp:${normalizeOrderId(orderId)}:usdc-refill`;
 }
 
 export function isOnrampBrhSaleExternalId(externalId: string): boolean {

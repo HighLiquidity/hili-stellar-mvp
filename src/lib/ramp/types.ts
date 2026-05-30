@@ -10,11 +10,14 @@ export type RampOnrampStatus =
 
 export type RampOperationType = 'onramp' | 'offramp';
 
-/** MVP: provider manages custodial mint; destination is not supplied by us. */
+/** Custodial on-ramp; optional destination + memo for client USDC payout on Stellar. */
 export type RampOnrampCreateRequest = {
   amount: string;
   externalId: string;
   callbackUrl: string;
+  /** Stellar public key (G…) when the provider routes USDC to the end user. */
+  destination?: string;
+  /** Stellar text memo (max 28 UTF-8 bytes). */
   memo?: string;
 };
 

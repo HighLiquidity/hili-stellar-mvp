@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import {
   deleteWithdrawWhitelistAction,
+  getOnrampWithdrawNetworkAction,
   listWithdrawWhitelistAction,
   listWhitelistUsersAction,
   upsertWithdrawWhitelistAction,
@@ -102,12 +103,38 @@ export function UserWithdrawWhitelistPage() {
     void loadRows();
   }, [authLoading, profile?.role, loadRows]);
 
+  useEffect(() => {
+    if (authLoading || profile?.role !== 'admin') return;
+
+    let cancelled = false;
+    async function loadDefaultNetwork() {
+      const token = await getAccessToken();
+      if (!token || cancelled) return;
+
+      const result = await getOnrampWithdrawNetworkAction(token);
+      if (!result.ok || cancelled) return;
+      setNetwork(result.data.network);
+    }
+
+    void loadDefaultNetwork();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, profile?.role]);
+
   const resetForm = () => {
     setFormMode(null);
     setEditingId(null);
     setUserEmail('');
     setAddress('');
-    setNetwork('STELLAR_TESTNET');
+    void getAccessToken().then(async (token) => {
+      if (!token) {
+        setNetwork('STELLAR_TESTNET');
+        return;
+      }
+      const result = await getOnrampWithdrawNetworkAction(token);
+      setNetwork(result.ok ? result.data.network : 'STELLAR_TESTNET');
+    });
     setLabel('');
     setFormError(null);
   };

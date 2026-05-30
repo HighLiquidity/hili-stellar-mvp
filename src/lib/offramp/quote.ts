@@ -1,6 +1,7 @@
 import '@/lib/server/only';
 
 import { binance } from '@/lib/server/binance';
+import { assertBinanceMarketQuoteNotionalForSymbol } from '@/lib/server/binance/exchange-info';
 
 import type { OfframpQuoteResponse } from './contracts';
 import { OfframpConfigError, OfframpOperationError, OfframpValidationError } from './errors';
@@ -229,6 +230,12 @@ export async function createOfframpQuote(input: CreateOfframpQuoteInput): Promis
   const ticker = await binance.market.getTickerPrice(symbol);
   const effectiveRate = applyOfframpQuoteSpread(ticker.price, spreadBps);
   const amountBrl = calculateQuotedBrlAmount(amountUsdc, effectiveRate);
+  try {
+    await assertBinanceMarketQuoteNotionalForSymbol(symbol, amountBrl);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new OfframpValidationError(message);
+  }
   const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
 
   const created = await createQuotedOfframpOrder({

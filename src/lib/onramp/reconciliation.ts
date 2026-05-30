@@ -16,6 +16,13 @@ import {
   updateOnrampOrder,
 } from './order-store';
 import {
+  isBinanceClientOrderId,
+} from '@/lib/server/binance/client-order-id';
+import {
+  assertBinanceMarketQuoteNotionalForSymbol,
+  formatBinanceTradeErrorMessage,
+} from '@/lib/server/binance/exchange-info';
+import {
   buildOnrampBinanceClientOrderId,
   buildOnrampBinanceWithdrawOrderId,
   buildOnrampBrhRedemptionExternalId,
@@ -84,7 +91,7 @@ async function markReconciliationNeedsReview(
 }
 
 async function ensureTradeClientOrderId(order: OnrampOrderRow): Promise<OnrampOrderRow | null> {
-  if (order.binance_client_order_id) {
+  if (order.binance_client_order_id && isBinanceClientOrderId(order.binance_client_order_id)) {
     return order;
   }
 
@@ -108,7 +115,7 @@ async function ensureTradeClientOrderId(order: OnrampOrderRow): Promise<OnrampOr
 }
 
 async function ensureWithdrawOrderId(order: OnrampOrderRow): Promise<OnrampOrderRow | null> {
-  if (order.binance_withdraw_order_id) {
+  if (order.binance_withdraw_order_id && isBinanceClientOrderId(order.binance_withdraw_order_id)) {
     return order;
   }
 
@@ -160,6 +167,8 @@ async function executeBinanceTrade(order: OnrampOrderRow): Promise<OnrampOrderRo
   }
 
   try {
+    await assertBinanceMarketQuoteNotionalForSymbol(prepared.quote_symbol, prepared.amount_brl);
+
     const result = await binance.market.placeMarketOrderByQuoteAmount({
       symbol: prepared.quote_symbol,
       side: prepared.quote_side,
@@ -205,7 +214,7 @@ async function executeBinanceTrade(order: OnrampOrderRow): Promise<OnrampOrderRo
     await markReconciliationNeedsReview(
       prepared.id,
       ONRAMP_FAILURE_CODES.FX_TRADE_FAILED,
-      error instanceof Error ? error.message : String(error),
+      formatBinanceTradeErrorMessage(error, prepared.quote_symbol),
     );
     return null;
   }

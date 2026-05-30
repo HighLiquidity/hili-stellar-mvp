@@ -14,9 +14,9 @@ describe('onramp BRH sale helpers', () => {
   it('builds stable external ids for the next orchestration steps', () => {
     expect(buildOnrampBrhSaleExternalId('order-123')).toBe('onramp:order-123:brh-sale');
     expect(buildOnrampUsdcDeliveryExternalId('order-123')).toBe('onramp:order-123:client-usdc');
-    expect(buildOnrampBinanceClientOrderId('order-123')).toBe('onramp:order-123:fx');
+    expect(buildOnrampBinanceClientOrderId('order-123')).toBe('orf_order123');
     expect(buildOnrampBrhRedemptionExternalId('order-123')).toBe('onramp:order-123:brh-redemption');
-    expect(buildOnrampBinanceWithdrawOrderId('order-123')).toBe('onramp:order-123:usdc-refill');
+    expect(buildOnrampBinanceWithdrawOrderId('order-123')).toBe('orw_order123');
     expect(isOnrampBrhSaleExternalId('onramp:order-123:brh-sale')).toBe(true);
     expect(isOnrampBrhSaleExternalId('onramp:order-123:client-usdc')).toBe(false);
   });

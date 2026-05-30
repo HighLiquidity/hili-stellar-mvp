@@ -14,7 +14,13 @@ import {
 } from './failure-codes';
 import { OfframpOperationError } from './errors';
 import { findOfframpOrderById, markOfframpOrderStatus, type OfframpOrderRow } from './order-store';
+import { isBinanceClientOrderId } from '@/lib/server/binance/client-order-id';
 import {
+  assertBinanceMarketQuoteNotionalForSymbol,
+  formatBinanceTradeErrorMessage,
+} from '@/lib/server/binance/exchange-info';
+import {
+  buildOfframpBinanceClientOrderId,
   buildOfframpBrhRedemptionExternalId,
   buildOfframpPixPayoutIdempotencyKey,
   buildOfframpPixPayoutReference,
@@ -288,9 +294,14 @@ async function executeFxTrade(order: OfframpOrderRow): Promise<void> {
     return;
   }
 
-  const clientOrderId = order.binance_client_order_id ?? `offramp-fx:${order.id}`.slice(0, 36);
+  const clientOrderId =
+    order.binance_client_order_id && isBinanceClientOrderId(order.binance_client_order_id)
+      ? order.binance_client_order_id
+      : buildOfframpBinanceClientOrderId(order.id);
 
   try {
+    await assertBinanceMarketQuoteNotionalForSymbol(order.quote_symbol, order.amount_brl);
+
     const result = await binance.market.placeMarketOrderByQuoteAmount({
       symbol: order.quote_symbol,
       side: order.quote_side,
@@ -337,7 +348,7 @@ async function executeFxTrade(order: OfframpOrderRow): Promise<void> {
       },
     });
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+    const reason = formatBinanceTradeErrorMessage(error, order.quote_symbol);
     await markNeedsReview(order, OFFRAMP_FAILURE_CODES.FX_TRADE_FAILED, reason);
     await logOfframpEvent({
       phase: 'fx_trade',

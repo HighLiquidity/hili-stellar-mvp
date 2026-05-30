@@ -28,10 +28,7 @@ import {
   isOnrampUsdcDeliveryExternalId,
 } from './references';
 import { startOnrampReconciliation } from './reconciliation';
-
-function buildUsdcDeliveryMemo(orderId: string): string {
-  return `client-usdc:${orderId}`.slice(0, 28);
-}
+import { resolveOnrampUsdcDeliveryMemo } from './usdc-delivery-memo';
 
 function normalizeRampFailureReason(error: unknown): string {
   return error instanceof RampApiError
@@ -115,7 +112,7 @@ export async function startUsdcDeliveryForOnrampOrder(orderId: string): Promise<
   }
 
   const externalId = order.usdc_delivery_external_id ?? buildOnrampUsdcDeliveryExternalId(order.id);
-  const memo = buildUsdcDeliveryMemo(order.id);
+  const memo = resolveOnrampUsdcDeliveryMemo(order);
 
   await updateOnrampOrder({
     orderId: order.id,
@@ -192,15 +189,11 @@ export async function startUsdcDeliveryForOnrampOrder(orderId: string): Promise<
   }
 
   try {
-    /**
-     * The current Ramp client only exposes the custodial onramp shape already used elsewhere
-     * in the project. We keep the user destination persisted locally and correlate callbacks
-     * through the dedicated external id until the provider client exposes explicit destination fields.
-     */
     const created = await createOnrampOperation({
       amount: rampAmount,
       externalId,
       callbackUrl,
+      destination: order.destination_address,
       memo,
     });
 

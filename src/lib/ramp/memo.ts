@@ -4,7 +4,7 @@ export function buildOnrampMemo(providerTxId: string | undefined, dedupeKey: str
   return truncateUtf8Bytes(raw, 28);
 }
 
-function truncateUtf8Bytes(input: string, maxBytes: number): string {
+export function truncateUtf8Bytes(input: string, maxBytes: number): string {
   const encoder = new TextEncoder();
   if (encoder.encode(input).length <= maxBytes) return input;
 

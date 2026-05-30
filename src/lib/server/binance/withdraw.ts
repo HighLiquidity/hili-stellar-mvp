@@ -1,6 +1,7 @@
 import '@/lib/server/only';
 
 import { BinanceClient, createBinanceClient } from './client';
+import { normalizeBinanceClientOrderId } from './client-order-id';
 import { BinanceValidationError } from './errors';
 import type {
   BinanceCoinConfig,
@@ -138,7 +139,10 @@ export function buildCryptoWithdrawPayload(
   const network = normalizeNetwork(input.network);
   const addressTag = normalizeOptionalString(input.addressTag);
   const name = normalizeOptionalString(input.name);
-  const withdrawOrderId = normalizeOptionalString(input.withdrawOrderId);
+  const withdrawOrderId = normalizeBinanceClientOrderId(
+    input.withdrawOrderId,
+    'Binance withdrawOrderId',
+  );
   const walletType = normalizeWalletType(input.walletType);
 
   if (networkConfig) {

@@ -31,7 +31,7 @@ describe('buildMarketOrderPayload', () => {
         symbol: 'usdcbrl',
         side: 'BUY',
         quoteOrderQty: '100.00',
-        newClientOrderId: 'onramp:123:fx',
+        newClientOrderId: 'orf_123',
       }),
     ).toEqual({
       symbol: 'USDCBRL',
@@ -39,8 +39,19 @@ describe('buildMarketOrderPayload', () => {
       type: 'MARKET',
       quoteOrderQty: '100.00',
       newOrderRespType: 'FULL',
-      newClientOrderId: 'onramp:123:fx',
+      newClientOrderId: 'orf_123',
     });
+  });
+
+  it('rejects illegal newClientOrderId characters', () => {
+    expect(() =>
+      buildMarketOrderPayload({
+        symbol: 'USDCBRL',
+        side: 'BUY',
+        quoteOrderQty: '100.00',
+        newClientOrderId: 'onramp:123:fx',
+      }),
+    ).toThrowError(BinanceValidationError);
   });
 
   it('rejects empty symbol', () => {
@@ -108,7 +119,7 @@ describe('market service functions', () => {
         symbol: 'USDCBRL',
         side: 'BUY',
         quoteOrderQty: '100.00',
-        newClientOrderId: 'onramp:123:fx',
+        newClientOrderId: 'orf_123',
       },
       client as never,
     );
@@ -119,7 +130,7 @@ describe('market service functions', () => {
       type: 'MARKET',
       quoteOrderQty: '100.00',
       newOrderRespType: 'FULL',
-      newClientOrderId: 'onramp:123:fx',
+      newClientOrderId: 'orf_123',
     });
   });
 });
