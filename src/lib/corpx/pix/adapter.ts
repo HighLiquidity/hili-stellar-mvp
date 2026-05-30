@@ -230,7 +230,7 @@ export class CorpXPixAdapter {
       throw new CorpXError(`Failed to parse PIX cash out response: ${err.message}`, undefined, response.status);
     }
 
-    const amountStr = amountToString(parsed.amount, 'PIX cash out amount');
+    const amountStr = amountToStringOrFallback(parsed.amount, 'PIX cash out amount', req.amount);
 
     return {
       providerTxId: parsed.transactionId ?? '',
@@ -670,6 +670,18 @@ function amountToString(value: unknown, label: string): string {
     return value.trim();
   }
   throw new CorpXError(`Failed to parse ${label}`);
+}
+
+function amountToStringOrFallback(value: unknown, label: string, fallback: string): string {
+  try {
+    return amountToString(value, label);
+  } catch {
+    const trimmedFallback = fallback.trim();
+    if (trimmedFallback) {
+      return trimmedFallback;
+    }
+    throw new CorpXError(`Failed to parse ${label}`);
+  }
 }
 
 export function createCorpXPixAdapterFromEnv(): CorpXPixAdapter {

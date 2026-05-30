@@ -3,11 +3,32 @@ import '@/lib/server/only';
 import type { OfframpOrderResponse } from './contracts';
 import { OfframpOperationError } from './errors';
 import { findOfframpOrderById } from './order-store';
+import { syncOfframpBrhRecordFromRamp, shouldContinueOfframpReconciliationOnRead } from './brh-sync';
+import { syncOfframpPixPayoutFromCorpX } from './pix-payout-sync';
+import { retryOfframpReconciliation } from './reconciliation';
+import { syncOfframpUsdcDepositFromRamp } from './usdc-deposit';
 
 export async function readOfframpOrder(orderId: string): Promise<OfframpOrderResponse> {
-  const row = await findOfframpOrderById(orderId);
+  let row = await findOfframpOrderById(orderId);
   if (!row) {
     throw new OfframpOperationError('Order not found', 404);
+  }
+
+  row = await syncOfframpUsdcDepositFromRamp(row);
+  row = await syncOfframpPixPayoutFromCorpX(row);
+  row = await syncOfframpBrhRecordFromRamp(row);
+
+  if (shouldContinueOfframpReconciliationOnRead(row.status)) {
+    try {
+      await retryOfframpReconciliation(row.id);
+      row = (await findOfframpOrderById(row.id)) ?? row;
+    } catch (error) {
+      console.warn('[offramp/read] failed to continue reconciliation', {
+        orderId: row.id,
+        status: row.status,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   return {

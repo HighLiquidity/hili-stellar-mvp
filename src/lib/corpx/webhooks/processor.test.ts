@@ -46,4 +46,18 @@ describe('CorpX webhook processor', () => {
     expect(result.updatedFields?.txid).toBe('t1');
     expect(result.updatedFields?.amount).toBe('10.00');
   });
+
+  it('parses pix.out.completed payload with identifier', () => {
+    const result = processCorpXWebhookEvent('pix_out_completed', {
+      transactionId: 'tx-out-1',
+      endToEndId: 'E2E-OUT-001',
+      identifier: 'a1b2c3d4e5f67890abcdef1234567890',
+      description: 'offramp-pix:order-123',
+      amount: 500,
+      status: 'COMPLETED',
+    });
+    expect(result.requiresAction).toBe('mark_settlement_complete');
+    expect(result.updatedFields?.identifier).toBe('a1b2c3d4e5f67890abcdef1234567890');
+    expect(result.updatedFields?.description).toBe('offramp-pix:order-123');
+  });
 });

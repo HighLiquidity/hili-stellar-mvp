@@ -89,6 +89,8 @@ function processPIXOutCompleted(eventType: string, payload: unknown): WebhookPro
       amount: amountStr,
       currency: pickString(transfer, 'currency') ?? jsonNumberToAmountString(transfer.currency) ?? '',
       end_to_end_id: pickString(transfer, 'endToEndId', 'end_to_end_id') ?? '',
+      identifier: pickString(transfer, 'identifier', 'correlationId', 'correlation_id') ?? '',
+      description: pickString(transfer, 'description', 'reference', 'memo') ?? '',
       status: pickString(transfer, 'status') ?? '',
     },
     requiresAction: 'mark_settlement_complete',
@@ -116,6 +118,8 @@ function processPIXOutFailed(eventType: string, payload: unknown): WebhookProces
     errorMessage: errorMessage || undefined,
     updatedFields: {
       error_code: pickString(transfer, 'errorCode', 'error_code') ?? '',
+      identifier: pickString(transfer, 'identifier', 'correlationId', 'correlation_id') ?? '',
+      description: pickString(transfer, 'description', 'reference', 'memo') ?? '',
     },
     requiresAction: 'mark_settlement_failed',
   };

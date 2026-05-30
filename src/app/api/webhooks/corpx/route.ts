@@ -9,6 +9,7 @@ import {
   recordCorpXWebhookDelivery,
 } from '@/lib/corpx/webhooks';
 import { settleInboundPixFromWebhook } from '@/lib/deposit/settle-inbound-pix';
+import { settleOutboundPixFromWebhook } from '@/lib/offramp/pix-payout-webhook';
 
 /**
  * CorpX → your app (IP allowlist + Supabase dedup + audit log).
@@ -65,15 +66,24 @@ export async function POST(request: Request) {
   }
 
   const result = processor.processWebhookEvent(eventType, payload);
-  const shouldSettle = result.status === 'completed' && result.requiresAction === 'update_balance';
+  const shouldSettleInbound = result.status === 'completed' && result.requiresAction === 'update_balance';
+  const shouldSettleOutbound =
+    result.requiresAction === 'mark_settlement_complete' ||
+    result.requiresAction === 'mark_settlement_failed';
   let settled = false;
 
-  if (shouldSettle) {
+  if (shouldSettleInbound) {
     try {
       await settleInboundPixFromWebhook({ dedupeKey, eventType, payload, result });
       settled = true;
     } catch (e) {
       console.error('[corpx webhook] inbound PIX settlement failed', e);
+    }
+  } else if (shouldSettleOutbound) {
+    try {
+      settled = await settleOutboundPixFromWebhook({ dedupeKey, eventType, payload, result });
+    } catch (e) {
+      console.error('[corpx webhook] outbound PIX settlement failed', e);
     }
   } else if (result.status === 'failed') {
     console.warn('[corpx webhook] event not settled', {

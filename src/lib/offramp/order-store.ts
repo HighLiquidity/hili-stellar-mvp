@@ -180,6 +180,46 @@ export async function findOfframpOrderByBrhIssueExternalId(externalId: string): 
   return (data as OfframpOrderRow | null) ?? null;
 }
 
+export async function findOfframpOrderByPayoutProviderTxId(providerTxId: string): Promise<OfframpOrderRow | null> {
+  const normalized = providerTxId.trim();
+  if (!normalized) return null;
+
+  const admin = createSupabaseAdmin();
+  if (!admin) return null;
+
+  const { data, error } = await admin
+    .from(OFFRAMP_ORDERS_TABLE)
+    .select('*')
+    .eq('payout_provider_tx_id', normalized)
+    .maybeSingle();
+  if (error) {
+    console.error('[offramp/store] find by payout provider tx id failed', error.message);
+    return null;
+  }
+
+  return (data as OfframpOrderRow | null) ?? null;
+}
+
+export async function findOfframpOrderByPayoutEndToEndId(endToEndId: string): Promise<OfframpOrderRow | null> {
+  const normalized = endToEndId.trim();
+  if (!normalized) return null;
+
+  const admin = createSupabaseAdmin();
+  if (!admin) return null;
+
+  const { data, error } = await admin
+    .from(OFFRAMP_ORDERS_TABLE)
+    .select('*')
+    .eq('payout_end_to_end_id', normalized)
+    .maybeSingle();
+  if (error) {
+    console.error('[offramp/store] find by payout end-to-end id failed', error.message);
+    return null;
+  }
+
+  return (data as OfframpOrderRow | null) ?? null;
+}
+
 export async function findOfframpOrderByBrhRedemptionExternalId(
   externalId: string,
 ): Promise<OfframpOrderRow | null> {

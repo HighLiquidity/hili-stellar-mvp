@@ -110,6 +110,27 @@ export async function insertRampOperationPending(input: {
   return { ok: true, row: data as RampOperationRow };
 }
 
+export async function deleteRampOperationByExternalId(
+  externalId: string,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const normalized = externalId.trim();
+  if (!normalized) {
+    return { ok: false, reason: 'externalId is required' };
+  }
+
+  const admin = createSupabaseAdmin();
+  if (!admin) {
+    return { ok: false, reason: 'SUPABASE_SERVICE_ROLE_KEY missing' };
+  }
+
+  const { error } = await admin.from(RAMP_OPERATIONS_TABLE).delete().eq('external_id', normalized);
+  if (error) {
+    return { ok: false, reason: error.message };
+  }
+
+  return { ok: true };
+}
+
 export async function updateRampOperationFailed(input: {
   externalId: string;
   status: string;

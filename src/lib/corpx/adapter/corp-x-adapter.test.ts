@@ -590,6 +590,30 @@ describe('CorpXAdapter', () => {
     });
   });
 
+  it('InitiatePIXCashOut_FallsBackToRequestAmountWhenResponseAmountMissing', async () => {
+    await withTestAdapter((_req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 202;
+      res.end(
+        JSON.stringify({
+          transactionId: 'txn-no-amount',
+          status: 'APPROVED',
+          endToEndId: 'E12345678202301011234abcdef',
+          currency: 'BRL',
+        }),
+      );
+    }, async ({ adapter }) => {
+      const resp = await adapter.pix.initiatePIXCashOut({
+        idempotencyKey: 'idemp-cashout-2',
+        pixKeyType: 'CPF',
+        pixKey: '12345678901',
+        amount: '250.50',
+      });
+      expect(resp.providerTxId).toBe('txn-no-amount');
+      expect(resp.amount).toBe('250.50');
+    });
+  });
+
   it('InitiatePIXCashOut_InsufficientFunds', async () => {
     await withTestAdapter((_req, res) => {
       res.statusCode = 409;

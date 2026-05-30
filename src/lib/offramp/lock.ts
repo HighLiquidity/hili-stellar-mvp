@@ -7,7 +7,6 @@ import { ensureOfframpUsdcDepositOperation } from '@/lib/ramp/offramp-usdc-depos
 import { OfframpOperationError } from './errors';
 import {
   OFFRAMP_FAILURE_CODES,
-  buildOfframpFailurePatch,
   clearOfframpFailurePatch,
 } from './failure-codes';
 import { findOfframpOrderById, lockQuotedOfframpOrderWithDeposit, updateOfframpOrder } from './order-store';

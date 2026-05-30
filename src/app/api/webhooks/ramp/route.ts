@@ -2,10 +2,25 @@ import { NextResponse } from 'next/server';
 
 import { getRampCallbackSecret } from '@/lib/ramp/config';
 import { applyBrhSaleRampCallback, applyUsdcDeliveryRampCallback } from '@/lib/onramp';
-import { applyOfframpBrhIssueRampCallback, applyOfframpBrhRedemptionRampCallback, applyOfframpUsdcDepositRampCallback } from '@/lib/offramp';
+import {
+  applyOfframpBrhIssueRampCallback,
+  applyOfframpBrhRedemptionRampCallback,
+  applyOfframpUsdcDepositRampCallback,
+} from '@/lib/offramp';
+import { isOfframpUsdcDepositExternalId } from '@/lib/offramp/references';
 import { applyRampCallbackUpdate, findRampOperationByRampOperationId } from '@/lib/ramp/operation-store';
 import type { RampCallbackPayload } from '@/lib/ramp/types';
 import { verifyRampCallbackSignature } from '@/lib/ramp/webhook-verify';
+
+const TERMINAL_OFFRAMP_CALLBACK_STATUSES = new Set([
+  'confirmed',
+  'completed',
+  'failed',
+  'expired',
+  'needs_review',
+  'insufficient_funds',
+  'callback_failed',
+]);
 
 /**
  * On/Off-Ramp API status callbacks (HMAC X-Signature on raw body).
@@ -54,6 +69,7 @@ export async function POST(request: Request) {
     (typeof data?.amount === 'string' && data.amount) ||
     (typeof data?.receivedAmount === 'string' && data.receivedAmount) ||
     null;
+  const callbackExternalId = typeof data?.externalId === 'string' ? data.externalId.trim() : '';
 
   const result = await applyRampCallbackUpdate({
     rampOperationId: operationId,
@@ -74,50 +90,58 @@ export async function POST(request: Request) {
     });
   }
 
-  if (result.applied) {
-    const operation = await findRampOperationByRampOperationId(operationId);
-    if (operation) {
-      try {
-        await applyBrhSaleRampCallback({
-          externalId: operation.external_id,
-          rampOperationId: operationId,
-          status,
-          failureReason,
-        });
-        await applyUsdcDeliveryRampCallback({
-          externalId: operation.external_id,
-          rampOperationId: operationId,
-          status,
-          txHash,
-          failureReason,
-        });
+  const operation = await findRampOperationByRampOperationId(operationId);
+  const externalId = callbackExternalId || operation?.external_id || '';
+
+  const shouldSyncOrderHandlers =
+    result.applied ||
+    (type === 'offramp' &&
+      TERMINAL_OFFRAMP_CALLBACK_STATUSES.has(status) &&
+      Boolean(externalId));
+
+  if (shouldSyncOrderHandlers && externalId) {
+    try {
+      await applyBrhSaleRampCallback({
+        externalId,
+        rampOperationId: operationId,
+        status,
+        failureReason,
+      });
+      await applyUsdcDeliveryRampCallback({
+        externalId,
+        rampOperationId: operationId,
+        status,
+        txHash,
+        failureReason,
+      });
+      if (type === 'offramp' && isOfframpUsdcDepositExternalId(externalId)) {
         await applyOfframpUsdcDepositRampCallback({
-          externalId: operation.external_id,
+          externalId,
           rampOperationId: operationId,
           status,
           txHash,
           amount,
           failureReason,
         });
-        await applyOfframpBrhIssueRampCallback({
-          externalId: operation.external_id,
-          rampOperationId: operationId,
-          status,
-          failureReason,
-        });
-        await applyOfframpBrhRedemptionRampCallback({
-          externalId: operation.external_id,
-          rampOperationId: operationId,
-          status,
-          failureReason,
-        });
-      } catch (error) {
-        console.error('[ramp webhook] failed to sync onramp order', {
-          operationId,
-          externalId: operation.external_id,
-          reason: error instanceof Error ? error.message : String(error),
-        });
       }
+      await applyOfframpBrhIssueRampCallback({
+        externalId,
+        rampOperationId: operationId,
+        status,
+        failureReason,
+      });
+      await applyOfframpBrhRedemptionRampCallback({
+        externalId,
+        rampOperationId: operationId,
+        status,
+        failureReason,
+      });
+    } catch (error) {
+      console.error('[ramp webhook] failed to sync order from callback', {
+        operationId,
+        externalId,
+        reason: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

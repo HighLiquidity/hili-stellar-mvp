@@ -12,7 +12,6 @@ import {
 } from '@/lib/ramp/operation-store';
 import { RAMP_ASSET_BRH, RAMP_CATEGORY_CLIENT } from '@/lib/ramp/requests';
 
-import { OFFRAMP_FAILURE_CODES } from './failure-codes';
 import type { OfframpOrderRow } from './order-store';
 import { buildOfframpBrhIssueExternalId, buildOfframpBrhRedemptionExternalId } from './references';
 
@@ -179,3 +178,16 @@ export async function startOfframpBrhRedemptionForOrder(order: OfframpOrderRow):
 
   return { externalId, ...submitted };
 }
+
+export async function resolveOfframpBrhIssueRampStatus(order: OfframpOrderRow): Promise<string | null> {
+  const externalId = order.brh_issue_external_id ?? buildOfframpBrhIssueExternalId(order.id);
+  const operation = await findRampOperationByExternalId(externalId);
+  return operation?.status?.trim() || null;
+}
+
+export async function resolveOfframpBrhRedemptionRampStatus(order: OfframpOrderRow): Promise<string | null> {
+  const externalId = order.brh_redemption_external_id ?? buildOfframpBrhRedemptionExternalId(order.id);
+  const operation = await findRampOperationByExternalId(externalId);
+  return operation?.status?.trim() || null;
+}
+

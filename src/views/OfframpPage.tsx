@@ -776,15 +776,11 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
                     <span>{t('pages.offramp.timeline.pixSentAt')}</span>
                     <strong>{formatDateTime(order.timeline.pixSentAt, localeCode)}</strong>
                   </div>
-                  <div className="onramp-summary-field">
-                    <span>{t('pages.offramp.timeline.brhRecordedAt')}</span>
-                    <strong>{formatDateTime(order.timeline.brhRecordedAt, localeCode)}</strong>
-                  </div>
                 </div>
 
                 {order.deposit?.txHash ||
-                order.references.brhRedemptionExternalId ||
-                order.references.binanceClientOrderId ||
+                order.payout.endToEndId ||
+                order.timeline.pixSentAt ||
                 order.failure?.reason ? (
                   <div className="onramp-reference-list">
                     {order.deposit?.txHash ? (
@@ -793,17 +789,23 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
                         <CryptoTxHashLink txHash={order.deposit.txHash} />
                       </p>
                     ) : null}
-                    {order.references.brhRedemptionExternalId ? (
-                      <p>
-                        <strong>{t('pages.offramp.references.brhRedemptionExternalId')}</strong>{' '}
-                        <code>{order.references.brhRedemptionExternalId}</code>
-                      </p>
-                    ) : null}
-                    {order.references.binanceClientOrderId ? (
-                      <p>
-                        <strong>{t('pages.offramp.references.binanceClientOrderId')}</strong>{' '}
-                        <code>{order.references.binanceClientOrderId}</code>
-                      </p>
+                    {order.payout.endToEndId || order.timeline.pixSentAt ? (
+                      <>
+                        <p>
+                          <strong>{t('pages.offramp.references.pixAmountSent')}</strong>{' '}
+                          {formatBrlAmount(order.quote.amountBrl, localeCode)}
+                        </p>
+                        <p>
+                          <strong>{t('pages.offramp.references.pixSentAt')}</strong>{' '}
+                          {formatDateTime(order.timeline.pixSentAt, localeCode)}
+                        </p>
+                        {order.payout.endToEndId ? (
+                          <p>
+                            <strong>{t('pages.offramp.references.pixEndToEndId')}</strong>{' '}
+                            <code>{order.payout.endToEndId}</code>
+                          </p>
+                        ) : null}
+                      </>
                     ) : null}
                     {order.failure?.reason ? (
                       <p>

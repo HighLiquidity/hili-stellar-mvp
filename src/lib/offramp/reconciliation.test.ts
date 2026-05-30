@@ -35,6 +35,18 @@ vi.mock('@/lib/server/binance', () => ({
 vi.mock('./brh-record', () => ({
   startOfframpBrhIssueForOrder: startOfframpBrhIssueForOrderMock,
   startOfframpBrhRedemptionForOrder: startOfframpBrhRedemptionForOrderMock,
+  resolveOfframpBrhIssueRampStatus: vi.fn(async (order: OfframpOrderRow) => {
+    const externalId = order.brh_issue_external_id ?? 'offramp-brh-issue:order-123';
+    return findRampOperationByExternalIdMock(externalId).then((op: { status?: string } | null) => op?.status ?? null);
+  }),
+  resolveOfframpBrhRedemptionRampStatus: vi.fn(async (order: OfframpOrderRow) => {
+    const externalId = order.brh_redemption_external_id ?? 'offramp-brh-redemption:order-123';
+    return findRampOperationByExternalIdMock(externalId).then((op: { status?: string } | null) => op?.status ?? null);
+  }),
+}));
+
+vi.mock('./pix-payout-sync', () => ({
+  syncOfframpPixPayoutFromCorpX: vi.fn(async (order: OfframpOrderRow) => order),
 }));
 
 vi.mock('@/lib/ramp/operation-store', () => ({
@@ -128,7 +140,12 @@ describe('offramp reconciliation orchestration', () => {
       rampOperationId: 'ramp-brh-1',
       status: 'pending',
     });
-    findRampOperationByExternalIdMock.mockResolvedValue({ status: 'pending', ramp_operation_id: 'ramp-brh-1' });
+    findRampOperationByExternalIdMock.mockImplementation(async (externalId: string) => {
+      if (externalId.includes('issue')) {
+        return { status: 'pending', ramp_operation_id: 'ramp-brh-issue-1' };
+      }
+      return { status: 'pending', ramp_operation_id: 'ramp-brh-1' };
+    });
     placeMarketOrderByQuoteAmountMock.mockResolvedValue({
       symbol: 'USDCBRL',
       side: 'SELL',
@@ -140,6 +157,26 @@ describe('offramp reconciliation orchestration', () => {
   });
 
   it('does not execute FX while BRH redemption is still pending confirmation', async () => {
+    findOfframpOrderByIdMock
+      .mockResolvedValueOnce(makeOrder({ status: 'pix_sent' }))
+      .mockResolvedValueOnce(makeOrder({ status: 'pix_sent' }))
+      .mockResolvedValueOnce(makeOrder({ status: 'pix_sent' }));
+
+    await retryOfframpReconciliation('order-123');
+
+    expect(startOfframpBrhIssueForOrderMock).toHaveBeenCalledTimes(1);
+    expect(startOfframpBrhRedemptionForOrderMock).not.toHaveBeenCalled();
+    expect(placeMarketOrderByQuoteAmountMock).not.toHaveBeenCalled();
+  });
+
+  it('submits BRH redemption only after issue is confirmed', async () => {
+    findRampOperationByExternalIdMock.mockImplementation(async (externalId: string) => {
+      if (externalId.includes('issue')) {
+        return { status: 'confirmed', ramp_operation_id: 'ramp-brh-issue-1' };
+      }
+      return { status: 'pending', ramp_operation_id: 'ramp-brh-1' };
+    });
+
     findOfframpOrderByIdMock
       .mockResolvedValueOnce(makeOrder({ status: 'pix_sent' }))
       .mockResolvedValueOnce(makeOrder({ status: 'pix_sent' }))

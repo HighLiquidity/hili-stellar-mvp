@@ -13,6 +13,8 @@ const EVENT_ALIASES: Record<string, string> = {
   'pix_in.received': 'pix_in_received',
   'pix.out.completed': 'pix_out_completed',
   'pix.out.failed': 'pix_out_failed',
+  pix_out_completed: 'pix_out_completed',
+  pix_out_failed: 'pix_out_failed',
 };
 
 export function normalizeCorpXWebhookEventType(raw: string): string {

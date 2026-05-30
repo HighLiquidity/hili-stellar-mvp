@@ -22,6 +22,16 @@ export function buildOfframpPixPayoutReference(orderId: string): string {
   return `${OFFRAMP_PIX_PAYOUT_REFERENCE_PREFIX}${orderId.trim()}`.slice(0, 60);
 }
 
+export function parseOfframpPixPayoutReference(reference: string): string | null {
+  const trimmed = reference.trim();
+  if (!trimmed.startsWith(OFFRAMP_PIX_PAYOUT_REFERENCE_PREFIX)) {
+    return null;
+  }
+
+  const orderId = trimmed.slice(OFFRAMP_PIX_PAYOUT_REFERENCE_PREFIX.length).trim();
+  return orderId || null;
+}
+
 /**
  * Stable external id used to reconcile the custodial BRH burn/record step for off-ramp.
  * (Does not need to match the legacy `corpx-offramp:*` ids; it's tracked per-order.)
@@ -36,6 +46,11 @@ export function isOfframpBrhIssueExternalId(externalId: string): boolean {
 
 export function buildOfframpBrhRedemptionExternalId(orderId: string): string {
   return `${OFFRAMP_BRH_REDEMPTION_PREFIX}${orderId.trim()}`.slice(0, 200);
+}
+
+/** Fresh external id when a prior BRH redemption attempt failed locally and must be re-submitted to Ramp. */
+export function buildOfframpBrhRedemptionRetryExternalId(orderId: string, attempt = Date.now()): string {
+  return `${OFFRAMP_BRH_REDEMPTION_PREFIX}${orderId.trim()}:r${attempt}`.slice(0, 200);
 }
 
 export function isOfframpBrhRedemptionExternalId(externalId: string): boolean {

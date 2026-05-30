@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { readOfframpOrder, retryOfframpReconciliation } from '@/lib/offramp';
+import { resetOfframpBrhRedemptionForRetry } from '@/lib/offramp/brh-redemption-retry';
+import { attachOfframpPixPayoutEndToEndId } from '@/lib/offramp/pix-payout-sync';
 import { handleOfframpRouteError, requireOfframpRouteOperator } from '../../../_utils';
 
 export const runtime = 'nodejs';
@@ -22,13 +24,48 @@ export async function POST(request: Request, context: RouteContext) {
   const { id } = await context.params;
 
   try {
-    await retryOfframpReconciliation(id);
+    let endToEndId: string | undefined;
+    let resetBrhRedemption = false;
+    const contentType = request.headers.get('content-type') ?? '';
+    if (contentType.includes('application/json')) {
+      const body = (await request.json().catch(() => null)) as {
+        endToEndId?: unknown;
+        resetBrhRedemption?: unknown;
+      } | null;
+      if (typeof body?.endToEndId === 'string' && body.endToEndId.trim()) {
+        endToEndId = body.endToEndId.trim();
+      }
+      resetBrhRedemption = body?.resetBrhRedemption === true;
+    }
+
+    if (endToEndId) {
+      await attachOfframpPixPayoutEndToEndId({ orderId: id, endToEndId });
+    }
+
+    let brhRedemptionRetry:
+      | {
+          previousRedemptionExternalId: string;
+          nextRedemptionExternalId: string;
+        }
+      | undefined;
+
+    if (resetBrhRedemption) {
+      const retry = await resetOfframpBrhRedemptionForRetry(id);
+      brhRedemptionRetry = {
+        previousRedemptionExternalId: retry.previousRedemptionExternalId,
+        nextRedemptionExternalId: retry.nextRedemptionExternalId,
+      };
+    } else {
+      await retryOfframpReconciliation(id);
+    }
+
     const order = await readOfframpOrder(id);
 
     return NextResponse.json(
       {
         ok: true,
         order,
+        brhRedemptionRetry,
       },
       { status: 200 },
     );
