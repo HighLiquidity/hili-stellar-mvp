@@ -25,7 +25,7 @@ export async function POST(request: Request, context: RouteContext) {
   const { id } = await context.params;
 
   try {
-    await startOnrampReconciliation(id);
+    await startOnrampReconciliation(id, { source: 'api/onramp/orders/reconcile' });
     const order = await getOnrampOrder(id);
 
     await logOnrampEvent({

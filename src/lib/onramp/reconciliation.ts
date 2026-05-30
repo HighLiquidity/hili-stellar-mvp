@@ -1,6 +1,7 @@
 import '@/lib/server/only';
 
 import { binance } from '@/lib/server/binance';
+import { BinanceRequestError } from '@/lib/server/binance/errors';
 
 import { OnrampConfigError, OnrampOperationError } from './errors';
 import {
@@ -30,6 +31,19 @@ import {
 import { normalizeBinanceUsdcAmount } from './binance-withdraw-min';
 
 const RECONCILIATION_START_STATUSES = ['usdc_delivered', 'needs_review', 'fx_settled', 'brh_redeemed'] as const;
+
+type OnrampReconciliationContext = {
+  /** Where reconciliation was triggered (webhook host vs manual retry). */
+  source?: string;
+};
+
+function formatBinanceWithdrawError(error: unknown): string {
+  if (error instanceof BinanceRequestError) {
+    return error.code != null ? `${error.message} (code ${error.code})` : error.message;
+  }
+
+  return error instanceof Error ? error.message : String(error);
+}
 
 type DistributorConfig = {
   coin: 'USDC';
@@ -441,7 +455,10 @@ async function syncExistingBinanceWithdraw(order: OnrampOrderRow): Promise<Onram
   }
 }
 
-async function requestBinanceWithdraw(order: OnrampOrderRow): Promise<OnrampOrderRow | null> {
+async function requestBinanceWithdraw(
+  order: OnrampOrderRow,
+  context: OnrampReconciliationContext = {},
+): Promise<OnrampOrderRow | null> {
   const synced = await syncExistingBinanceWithdraw(order);
   if (synced) {
     console.info('[onramp/reconcile] binance withdraw already recorded', {
@@ -527,20 +544,33 @@ async function requestBinanceWithdraw(order: OnrampOrderRow): Promise<OnrampOrde
       withdrawOrderId: prepared.binance_withdraw_order_id,
       amount: withdrawAmount,
       network: distributor.network,
+      source: context.source ?? 'unknown',
     });
 
     return completed;
   } catch (error) {
+    const reason = formatBinanceWithdrawError(error);
+    console.error('[onramp/reconcile] binance withdraw failed', {
+      orderId: prepared.id,
+      withdrawOrderId: prepared.binance_withdraw_order_id,
+      source: context.source ?? 'unknown',
+      reason,
+      binanceCode: error instanceof BinanceRequestError ? error.code : null,
+      binanceStatus: error instanceof BinanceRequestError ? error.status : null,
+    });
     await markReconciliationNeedsReview(
       prepared.id,
       ONRAMP_FAILURE_CODES.WITHDRAW_REQUEST_FAILED,
-      error instanceof Error ? error.message : String(error),
+      reason,
     );
     return null;
   }
 }
 
-export async function startOnrampReconciliation(orderId: string): Promise<void> {
+export async function startOnrampReconciliation(
+  orderId: string,
+  context: OnrampReconciliationContext = {},
+): Promise<void> {
   const normalizedOrderId = orderId.trim();
   if (!normalizedOrderId) {
     throw new OnrampOperationError('On-ramp order id is required.', 400);
@@ -550,6 +580,14 @@ export async function startOnrampReconciliation(orderId: string): Promise<void> 
   if (!order) {
     throw new OnrampOperationError('On-ramp order not found.', 404);
   }
+
+  console.info('[onramp/reconcile] starting', {
+    orderId: normalizedOrderId,
+    status: order.status,
+    source: context.source ?? 'unknown',
+    hasBinanceOrderId: Boolean(order.binance_order_id),
+    hasBinanceWithdrawId: Boolean(order.binance_withdraw_id),
+  });
 
   let activeOrder = order;
 
@@ -602,5 +640,5 @@ export async function startOnrampReconciliation(orderId: string): Promise<void> 
   const afterRedemption = await registerBrhRedemption(afterTrade);
   if (!afterRedemption) return;
 
-  await requestBinanceWithdraw(afterRedemption);
+  await requestBinanceWithdraw(afterRedemption, context);
 }

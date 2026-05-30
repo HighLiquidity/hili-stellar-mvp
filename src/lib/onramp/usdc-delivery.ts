@@ -342,7 +342,7 @@ export async function applyUsdcDeliveryRampCallback(input: {
     });
 
     try {
-      await startOnrampReconciliation(updated.row.id);
+      await startOnrampReconciliation(updated.row.id, { source: 'ramp-usdc-delivery-callback' });
     } catch (error) {
       console.error('[onramp/usdc-delivery] failed to start reconciliation after delivery', {
         orderId: updated.row.id,

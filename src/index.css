@@ -2168,7 +2168,7 @@ a.user-menu__item {
   .dashboard-summary-grid,
   .deposit-output-grid,
   .onramp-timeline-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .page-grid--single {

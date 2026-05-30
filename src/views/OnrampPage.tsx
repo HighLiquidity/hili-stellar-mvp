@@ -1057,36 +1057,25 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
                     <strong>{formatDateTime(order.timeline.pixReceivedAt, localeCode)}</strong>
                   </div>
                   <div className="onramp-summary-field">
-                    <span>{t('pages.onramp.timeline.brhSoldAt')}</span>
-                    <strong>{formatDateTime(order.timeline.brhSoldAt, localeCode)}</strong>
-                  </div>
-                  <div className="onramp-summary-field">
                     <span>{t('pages.onramp.timeline.usdcDeliveredAt')}</span>
                     <strong>{formatDateTime(order.timeline.usdcDeliveredAt, localeCode)}</strong>
                   </div>
                 </div>
 
                 {order.references.deliveryTxHash ||
-                order.references.binanceClientOrderId ||
-                order.references.binanceWithdrawOrderId ||
+                order.timeline.usdcDeliveredAt ||
                 order.failure?.reason ? (
                   <div className="onramp-reference-list">
+                    {order.timeline.usdcDeliveredAt && netUsdcReceiveAmount ? (
+                      <p>
+                        <strong>{t('pages.onramp.references.usdcDeliveredAmount')}</strong>{' '}
+                        {formatUsdcAmount(netUsdcReceiveAmount, localeCode)} USDC
+                      </p>
+                    ) : null}
                     {order.references.deliveryTxHash ? (
                       <p className="onramp-reference-list__hash">
                         <strong>{t('pages.onramp.references.deliveryTxHash')}</strong>{' '}
                         <CryptoTxHashLink txHash={order.references.deliveryTxHash} />
-                      </p>
-                    ) : null}
-                    {order.references.binanceClientOrderId ? (
-                      <p>
-                        <strong>{t('pages.onramp.references.binanceClientOrderId')}</strong>{' '}
-                        <code>{order.references.binanceClientOrderId}</code>
-                      </p>
-                    ) : null}
-                    {order.references.binanceWithdrawOrderId ? (
-                      <p>
-                        <strong>{t('pages.onramp.references.binanceWithdrawOrderId')}</strong>{' '}
-                        <code>{order.references.binanceWithdrawOrderId}</code>
                       </p>
                     ) : null}
                     {order.failure?.reason ? (

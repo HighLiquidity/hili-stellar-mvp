@@ -224,9 +224,8 @@ const dictionaries: Record<Locale, TranslationTree> = {
           usdcDeliveredAt: 'Entrega de USDC em',
         },
         references: {
-          deliveryTxHash: 'Hash de entrega:',
-          binanceClientOrderId: 'Ordem Binance:',
-          binanceWithdrawOrderId: 'Saque Binance:',
+          deliveryTxHash: 'Hash da entrega USDC:',
+          usdcDeliveredAmount: 'USDC entregue:',
           failureReason: 'Motivo:',
         },
         errors: {
@@ -842,9 +841,8 @@ const dictionaries: Record<Locale, TranslationTree> = {
           usdcDeliveredAt: 'USDC delivery at',
         },
         references: {
-          deliveryTxHash: 'Delivery hash:',
-          binanceClientOrderId: 'Binance order:',
-          binanceWithdrawOrderId: 'Binance withdraw:',
+          deliveryTxHash: 'USDC delivery hash:',
+          usdcDeliveredAmount: 'USDC delivered:',
           failureReason: 'Reason:',
         },
         errors: {
