@@ -13,6 +13,16 @@
   --overlay: rgba(17, 24, 39, 0.45);
   --shadow-lg: 0 24px 60px rgba(41, 65, 103, 0.14);
   --shadow-md: 0 18px 40px rgba(41, 65, 103, 0.1);
+  --sidebar-bg: #152238;
+  --sidebar-text: #eef4ff;
+  --sidebar-text-muted: #94a8c9;
+  --sidebar-border: #243452;
+  --sidebar-divider: rgba(255, 255, 255, 0.1);
+  --sidebar-accent-soft: rgba(127, 141, 255, 0.2);
+  --sidebar-accent-text: #c5cdff;
+  --sidebar-brand-bg: rgba(127, 141, 255, 0.18);
+  --sidebar-brand-text: #b8c4ff;
+  --sidebar-shadow: 0 18px 48px rgba(15, 23, 42, 0.28);
   --radius-xl: 28px;
   --radius-lg: 22px;
   --radius-md: 16px;
@@ -34,6 +44,16 @@
   --overlay: rgba(2, 6, 23, 0.7);
   --shadow-lg: 0 24px 60px rgba(2, 6, 23, 0.35);
   --shadow-md: 0 18px 40px rgba(2, 6, 23, 0.28);
+  --sidebar-bg: var(--surface);
+  --sidebar-text: var(--text);
+  --sidebar-text-muted: var(--text-muted);
+  --sidebar-border: var(--border);
+  --sidebar-divider: var(--border);
+  --sidebar-accent-soft: var(--accent-soft);
+  --sidebar-accent-text: var(--accent-strong);
+  --sidebar-brand-bg: var(--accent-soft);
+  --sidebar-brand-text: var(--accent-strong);
+  --sidebar-shadow: var(--shadow-lg);
 }
 
 * {
@@ -638,11 +658,12 @@ button:disabled {
   gap: 0;
   padding: 20px;
   box-sizing: border-box;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
-  box-shadow: var(--shadow-lg);
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  border-right: 1px solid var(--sidebar-border);
+  box-shadow: var(--sidebar-shadow);
   transform: translateX(-102%);
-  transition: transform 220ms ease, width 220ms ease, padding 220ms ease, background-color 220ms ease;
+  transition: transform 220ms ease, width 220ms ease, padding 220ms ease, background-color 220ms ease, color 220ms ease, border-color 220ms ease;
   overflow-x: hidden;
   overflow-y: hidden;
   overscroll-behavior: contain;
@@ -674,10 +695,15 @@ button:disabled {
   height: 44px;
   flex: 0 0 auto;
   border-radius: 16px;
-  background: var(--accent-soft);
-  color: var(--accent-strong);
+  background: var(--sidebar-brand-bg);
+  color: var(--sidebar-brand-text);
   font-weight: 800;
   font-size: 1.2rem;
+}
+
+.sidebar .brand-mark {
+  background: var(--sidebar-brand-bg);
+  color: var(--sidebar-brand-text);
 }
 
 .brand-mark--toggle {
@@ -690,8 +716,13 @@ button:disabled {
 }
 
 .brand-mark--toggle:hover {
-  background: color-mix(in srgb, var(--accent-soft) 65%, var(--accent) 35%);
-  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--sidebar-accent-soft) 70%, var(--sidebar-brand-text) 30%);
+  color: var(--sidebar-accent-text);
+}
+
+.sidebar .brand-mark--toggle:hover {
+  background: color-mix(in srgb, var(--sidebar-accent-soft) 70%, var(--sidebar-brand-text) 30%);
+  color: var(--sidebar-accent-text);
 }
 
 .brand-mark--toggle:focus-visible {
@@ -706,11 +737,28 @@ button:disabled {
 
 .brand-copy strong {
   font-size: 1rem;
+  color: var(--sidebar-text);
 }
 
-.brand-copy span {
-  color: var(--text-muted);
+.brand-copy__mark {
+  color: #d946ef;
+  -webkit-text-fill-color: #d946ef;
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.brand-copy > span {
+  color: var(--sidebar-text-muted);
   font-size: 0.92rem;
+}
+
+.sidebar .brand-copy strong {
+  color: var(--sidebar-text);
+}
+
+.sidebar .brand-copy > span {
+  color: var(--sidebar-text-muted);
 }
 
 .sidebar__nav {
@@ -731,15 +779,25 @@ button:disabled {
   min-height: 50px;
   padding: 0 14px;
   border-radius: 16px;
-  color: var(--text-muted);
+  color: var(--sidebar-text-muted);
   font-weight: 600;
   transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
 }
 
+.sidebar .nav-link {
+  color: var(--sidebar-text-muted);
+}
+
 .nav-link:hover,
 .nav-link.is-active {
-  background: var(--accent-soft);
-  color: var(--accent-strong);
+  background: var(--sidebar-accent-soft);
+  color: var(--sidebar-accent-text);
+}
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.is-active {
+  background: var(--sidebar-accent-soft);
+  color: var(--sidebar-accent-text);
 }
 
 .nav-link__icon {
@@ -1281,7 +1339,7 @@ a.user-menu__item {
 .sidebar__nav-divider {
   height: 1px;
   margin: 6px 8px;
-  background: var(--border);
+  background: var(--sidebar-divider);
 }
 
 .page-content {

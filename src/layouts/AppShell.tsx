@@ -266,7 +266,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               )}
             </button>
             <div className="brand-copy">
-              <strong>Hi-Li :: Stellar MVP</strong>
+              <strong>
+                <span className="brand-copy__mark">Hi-Li ::</span> Stellar MVP
+              </strong>
               <span>{t('app.demoBadge')}</span>
             </div>
           </div>

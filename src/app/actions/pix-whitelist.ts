@@ -11,13 +11,8 @@ import { listActivePixWhitelist, listActivePixWhitelistForUser } from '@/lib/pix
 import type { PixWhitelistRow } from '@/lib/pix-whitelist/types';
 
 const PIX_WHITELIST_TABLE = 'user_pix_whitelist';
-const PANEL_ACCESS_TABLE = 'panel_access_list';
 const PIX_WHITELIST_COLUMNS =
   'id, user_id, pix_key, beneficiary_name, label, is_active, created_at, updated_at, created_by_email';
-
-type UserOption = {
-  email: string;
-};
 
 type PixWhitelistRowWithEmail = PixWhitelistRow & {
   user_email: string | null;
