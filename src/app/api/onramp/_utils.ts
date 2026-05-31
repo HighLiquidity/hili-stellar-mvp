@@ -13,7 +13,7 @@ import {
   OnrampValidationError,
 } from '@/lib/onramp/errors';
 import {
-  requireAdminFromAccessToken,
+  requireOperatorOrAdminFromAccessToken,
   type PanelAccessContext,
 } from '@/lib/users/require-panel-role';
 
@@ -33,7 +33,7 @@ function getBearerToken(request: Request): string | null {
   return match?.[1]?.trim() || null;
 }
 
-/** Internal on-ramp routes are currently restricted to admin users. */
+/** Internal on-ramp routes are restricted to admin and operator panel users. */
 export async function requireOnrampRouteOperator(request: Request): Promise<RouteAuthResult> {
   const accessToken = getBearerToken(request);
   if (!accessToken) {
@@ -44,7 +44,7 @@ export async function requireOnrampRouteOperator(request: Request): Promise<Rout
   }
 
   try {
-    const ctx = await requireAdminFromAccessToken(accessToken);
+    const ctx = await requireOperatorOrAdminFromAccessToken(accessToken);
     return { ok: true, ctx };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unauthorized';

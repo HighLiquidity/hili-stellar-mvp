@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { useI18n } from '@/lib/i18n';
+import { isOperatorOrAdminRole } from '@/lib/users/panel-access';
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -107,7 +108,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         label: t('nav.dashboard'),
         icon: <DashboardIcon width={18} height={18} />,
       },
-      ...(profile?.role === 'admin'
+      ...(isOperatorOrAdminRole(profile?.role)
         ? [
             {
               to: '/app/onramp',

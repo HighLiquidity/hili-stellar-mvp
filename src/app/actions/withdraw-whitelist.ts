@@ -136,9 +136,25 @@ export async function listOnrampWithdrawWhitelistAction(
   accessToken: string,
 ): Promise<ActionResult<WithdrawWhitelistRow[]>> {
   try {
-    await requireAdminFromAccessToken(accessToken);
-    const rows = await listActiveWithdrawWhitelistOnNetwork(getOnrampWithdrawNetwork());
-    return { ok: true, data: rows };
+    const { admin, userId, role } = await requireOperatorOrAdminFromAccessToken(accessToken);
+    const network = getOnrampWithdrawNetwork();
+
+    if (role === 'admin') {
+      const rows = await listActiveWithdrawWhitelistOnNetwork(network);
+      return { ok: true, data: rows };
+    }
+
+    const { data, error } = await admin
+      .from(WHITELIST_TABLE)
+      .select(WHITELIST_COLUMNS)
+      .eq('user_id', userId)
+      .eq('network', network)
+      .eq('is_active', true)
+      .order('label', { ascending: true })
+      .order('address', { ascending: true });
+
+    if (error) return { ok: false, message: error.message };
+    return { ok: true, data: (data ?? []) as WithdrawWhitelistRow[] };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }

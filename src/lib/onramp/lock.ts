@@ -14,9 +14,12 @@ import { formatDepositPixErrorMessage } from '@/lib/deposit/format-pix-error';
 
 
 
-import { OnrampOperationError } from './errors';
+import { isOnrampQuotePlaceholderDestination } from '@/lib/ramp/quote-placeholders';
+import type { PanelUserRole } from '@/lib/users/types';
 
+import { OnrampOperationError } from './errors';
 import { ONRAMP_FAILURE_CODES, buildOnrampFailurePatch } from './failure-codes';
+import { resolveWhitelistedOnrampDestination } from './whitelist-lock';
 
 import {
 
@@ -25,6 +28,8 @@ import {
   lockQuotedOnrampOrderWithPix,
 
   markOnrampOrderStatus,
+
+  updateOnrampOrder,
 
   type OnrampOrderRow,
 
@@ -187,9 +192,17 @@ async function buildOnrampLockResponse(row: OnrampOrderRow): Promise<OnrampLockR
 
 
 
-export async function lockOnrampOrderWithPix(orderId: string): Promise<OnrampLockResponse> {
+export type LockOnrampOrderInput = {
+  orderId: string;
+  actor: {
+    userId: string;
+    role: PanelUserRole;
+  };
+  destinationAddress?: string;
+};
 
-  const normalizedOrderId = orderId.trim();
+export async function lockOnrampOrderWithPix(input: LockOnrampOrderInput): Promise<OnrampLockResponse> {
+  const normalizedOrderId = input.orderId.trim();
 
   if (!normalizedOrderId) {
 
@@ -273,13 +286,41 @@ export async function lockOnrampOrderWithPix(orderId: string): Promise<OnrampLoc
 
   }
 
+  const requestedDestination = input.destinationAddress?.trim() || existing.destination_address;
+  const whitelistedDestination = await resolveWhitelistedOnrampDestination({
+    role: input.actor.role,
+    userId: input.actor.userId,
+    destinationAddress: requestedDestination,
+  });
 
+  let orderForLock = existing;
+  const destinationChanged =
+    orderForLock.destination_address !== whitelistedDestination.address ||
+    orderForLock.destination_memo !== whitelistedDestination.memo ||
+    isOnrampQuotePlaceholderDestination(orderForLock.destination_address);
 
-  const correlationId = buildOnrampPixCorrelationId(existing.id);
+  if (destinationChanged) {
+    const updated = await updateOnrampOrder({
+      orderId: existing.id,
+      expectedStatus: 'quoted',
+      patch: {
+        destination_address: whitelistedDestination.address,
+        destination_memo: whitelistedDestination.memo,
+      },
+    });
 
-  const idempotencyKey = buildOnrampPixIdempotencyKey(existing.id);
+    if (!updated.ok) {
+      throw new OnrampOperationError(`Failed to update on-ramp destination before lock: ${updated.reason}`, 409);
+    }
 
-  const pixExpiresAt = resolveOnrampPixExpiresAt(existing.quote_expires_at);
+    orderForLock = updated.row;
+  }
+
+  const correlationId = buildOnrampPixCorrelationId(orderForLock.id);
+
+  const idempotencyKey = buildOnrampPixIdempotencyKey(orderForLock.id);
+
+  const pixExpiresAt = resolveOnrampPixExpiresAt(orderForLock.quote_expires_at);
 
 
 
@@ -295,11 +336,11 @@ export async function lockOnrampOrderWithPix(orderId: string): Promise<OnrampLoc
 
       correlationId,
 
-      amount: existing.amount_brl,
+      amount: orderForLock.amount_brl,
 
       expiresAt: pixExpiresAt,
 
-      description: `On-ramp order ${existing.id}`,
+      description: `On-ramp order ${orderForLock.id}`,
 
     });
 
@@ -315,9 +356,9 @@ export async function lockOnrampOrderWithPix(orderId: string): Promise<OnrampLoc
 
     corpxTxid: pix.providerTxId,
 
-    amountBrl: existing.amount_brl,
+    amountBrl: orderForLock.amount_brl,
 
-    taxId: existing.tax_id,
+    taxId: orderForLock.tax_id,
 
     identifier: correlationId,
 
@@ -327,7 +368,7 @@ export async function lockOnrampOrderWithPix(orderId: string): Promise<OnrampLoc
 
   const locked = await lockQuotedOnrampOrderWithPix({
 
-    orderId: existing.id,
+    orderId: orderForLock.id,
 
     corpxTxid: pix.providerTxId,
 

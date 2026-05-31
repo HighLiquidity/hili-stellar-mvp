@@ -4,6 +4,7 @@ import { isDepositAboveMax, loadMaxDepositBrl, parseMaxDepositBrl } from '@/lib/
 import { brlStringToJsonNumber } from '@/lib/corpx/pix/brl';
 import { binance } from '@/lib/server/binance';
 import { assertBinanceMarketQuoteNotionalForSymbol } from '@/lib/server/binance/exchange-info';
+import { ONRAMP_QUOTE_PLACEHOLDER_DESTINATION } from '@/lib/ramp/quote-placeholders';
 import { truncateUtf8Bytes } from '@/lib/ramp/memo';
 
 import { OnrampConfigError, OnrampOperationError, OnrampValidationError } from './errors';
@@ -46,7 +47,7 @@ export type CreateOnrampQuoteInput = {
   taxId: string;
   amountBrl?: string;
   amountUsdc?: string;
-  destinationAddress: string;
+  destinationAddress?: string;
   destinationMemo?: string | null;
   actorEmail?: string | null;
   actorUserId?: string | null;
@@ -346,8 +347,13 @@ function assertWithinConfiguredDepositLimit(amountBrl: string, maxDepositBrl: st
 export async function createOnrampQuote(input: CreateOnrampQuoteInput): Promise<OnrampQuoteResponse> {
   const resolved = resolveQuoteAmountInput(input);
   const taxId = normalizeOnrampTaxId(input.taxId);
-  const destinationAddress = normalizeOnrampDestinationAddress(input.destinationAddress);
-  const destinationMemo = normalizeOnrampDestinationMemo(input.destinationMemo);
+  const hasDestination = Boolean(input.destinationAddress?.trim());
+  const destinationAddress = hasDestination
+    ? normalizeOnrampDestinationAddress(input.destinationAddress!)
+    : ONRAMP_QUOTE_PLACEHOLDER_DESTINATION;
+  const destinationMemo = hasDestination
+    ? normalizeOnrampDestinationMemo(input.destinationMemo)
+    : null;
 
   const maxDepositResult = await loadMaxDepositBrl();
   if (!maxDepositResult.ok) {

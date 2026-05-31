@@ -15,7 +15,10 @@ import { InputField } from '@/components/ui/InputField';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useI18n } from '@/lib/i18n';
+import { UserPixWhitelistPanel } from '@/views/UserPixWhitelistPanel';
 import type { WithdrawWhitelistNetwork, WithdrawWhitelistRow } from '@/lib/withdraw-whitelist/types';
+
+type AdminWhitelistTab = 'wallets' | 'pix';
 
 type FormMode = 'create' | 'edit' | null;
 
@@ -51,6 +54,7 @@ export function UserWithdrawWhitelistPage() {
   const [network, setNetwork] = useState<WithdrawWhitelistNetwork>('STELLAR_TESTNET');
   const [label, setLabel] = useState('');
   const [memo, setMemo] = useState('');
+  const [activeTab, setActiveTab] = useState<AdminWhitelistTab>('wallets');
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
@@ -253,12 +257,38 @@ export function UserWithdrawWhitelistPage() {
         <div className="user-management-card__header">
           <div>
             <p className="eyebrow">{t('pages.withdrawWhitelist.eyebrow')}</p>
+            <div className="onramp-inline-actions" role="tablist" aria-label={t('pages.withdrawWhitelist.tabsLabel')}>
+              <Button
+                type="button"
+                role="tab"
+                variant={activeTab === 'wallets' ? 'primary' : 'secondary'}
+                aria-selected={activeTab === 'wallets'}
+                onClick={() => setActiveTab('wallets')}
+              >
+                {t('pages.withdrawWhitelist.tabs.wallets')}
+              </Button>
+              <Button
+                type="button"
+                role="tab"
+                variant={activeTab === 'pix' ? 'primary' : 'secondary'}
+                aria-selected={activeTab === 'pix'}
+                onClick={() => setActiveTab('pix')}
+              >
+                {t('pages.withdrawWhitelist.tabs.pix')}
+              </Button>
+            </div>
           </div>
-          <Button type="button" variant="secondary" onClick={openCreate} disabled={isSaving}>
-            {t('pages.withdrawWhitelist.addWallet')}
-          </Button>
+          {activeTab === 'wallets' ? (
+            <Button type="button" variant="secondary" onClick={openCreate} disabled={isSaving}>
+              {t('pages.withdrawWhitelist.addWallet')}
+            </Button>
+          ) : null}
         </div>
 
+        {activeTab === 'pix' ? <UserPixWhitelistPanel isActive /> : null}
+
+        {activeTab === 'wallets' ? (
+          <>
         {loadError ? (
           <p className="auth-inline-error" role="alert">
             {loadError}
@@ -398,6 +428,8 @@ export function UserWithdrawWhitelistPage() {
               </div>
             </form>
           </section>
+        ) : null}
+          </>
         ) : null}
       </article>
     </section>

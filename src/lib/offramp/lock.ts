@@ -1,9 +1,11 @@
 import '@/lib/server/only';
 
 import { logOfframpEvent } from '@/lib/fiat-operations/log-offramp';
+import { isOfframpQuotePlaceholderPixKey } from '@/lib/ramp/quote-placeholders';
 import { RampApiError } from '@/lib/ramp/client';
 import { getRampCallbackUrl, isRampConfigured } from '@/lib/ramp/config';
 import { ensureOfframpUsdcDepositOperation } from '@/lib/ramp/offramp-usdc-deposit';
+import type { PanelUserRole } from '@/lib/users/types';
 import { OfframpOperationError } from './errors';
 import {
   OFFRAMP_FAILURE_CODES,
@@ -11,6 +13,7 @@ import {
 } from './failure-codes';
 import { findOfframpOrderById, lockQuotedOfframpOrderWithDeposit, updateOfframpOrder } from './order-store';
 import { buildOfframpUsdcDepositExternalId } from './references';
+import { resolveWhitelistedOfframpPayout } from './whitelist-lock';
 import type { OfframpLockResponse } from './contracts';
 import type { OfframpOrderRow } from './order-store';
 
@@ -39,7 +42,17 @@ function buildLockResponse(row: OfframpOrderRow): OfframpLockResponse {
   };
 }
 
-export async function lockOfframpQuote(input: { orderId: string }): Promise<OfframpLockResponse> {
+export type LockOfframpQuoteInput = {
+  orderId: string;
+  actor: {
+    userId: string;
+    role: PanelUserRole;
+  };
+  payoutPixKey?: string;
+  payoutBeneficiaryName?: string | null;
+};
+
+export async function lockOfframpQuote(input: LockOfframpQuoteInput): Promise<OfframpLockResponse> {
   const order = await findOfframpOrderById(input.orderId);
   if (!order) throw new OfframpOperationError('Order not found', 404);
 
@@ -54,7 +67,38 @@ export async function lockOfframpQuote(input: { orderId: string }): Promise<Offr
     throw new OfframpOperationError('Order is not in quoted state', 409);
   }
 
-  const externalId = buildOfframpUsdcDepositExternalId(order.id);
+  const requestedPixKey = input.payoutPixKey?.trim() || order.payout_pix_key;
+  const whitelistedPayout = await resolveWhitelistedOfframpPayout({
+    role: input.actor.role,
+    userId: input.actor.userId,
+    payoutPixKey: requestedPixKey,
+    payoutBeneficiaryName: input.payoutBeneficiaryName ?? order.payout_beneficiary_name,
+  });
+
+  let orderForLock = order;
+  const payoutChanged =
+    orderForLock.payout_pix_key !== whitelistedPayout.pixKey ||
+    orderForLock.payout_beneficiary_name !== whitelistedPayout.beneficiaryName ||
+    isOfframpQuotePlaceholderPixKey(orderForLock.payout_pix_key);
+
+  if (payoutChanged) {
+    const updated = await updateOfframpOrder({
+      orderId: order.id,
+      expectedStatus: 'quoted',
+      patch: {
+        payout_pix_key: whitelistedPayout.pixKey,
+        payout_beneficiary_name: whitelistedPayout.beneficiaryName,
+      },
+    });
+
+    if (!updated.ok) {
+      throw new OfframpOperationError(`Failed to update off-ramp payout before lock: ${updated.reason}`, 409);
+    }
+
+    orderForLock = updated.row;
+  }
+
+  const externalId = buildOfframpUsdcDepositExternalId(orderForLock.id);
   const callbackUrl = getRampCallbackUrl();
 
   if (!isRampConfigured()) {
@@ -69,11 +113,11 @@ export async function lockOfframpQuote(input: { orderId: string }): Promise<Offr
     const depositOperation = await ensureOfframpUsdcDepositOperation({
       externalId,
       callbackUrl,
-      amountUsdc: order.amount_usdc,
+      amountUsdc: orderForLock.amount_usdc,
     });
 
     const locked = await lockQuotedOfframpOrderWithDeposit({
-      orderId: order.id,
+      orderId: orderForLock.id,
       usdcDepositExternalId: externalId,
       usdcDepositAddress: depositOperation.depositAddress,
       usdcDepositMemo: depositOperation.memo,
@@ -86,7 +130,7 @@ export async function lockOfframpQuote(input: { orderId: string }): Promise<Offr
     }
 
     await updateOfframpOrder({
-      orderId: order.id,
+      orderId: orderForLock.id,
       expectedStatus: 'awaiting_deposit',
       patch: clearOfframpFailurePatch(),
     });
@@ -112,8 +156,8 @@ export async function lockOfframpQuote(input: { orderId: string }): Promise<Offr
     await logOfframpEvent({
       phase: 'usdc_deposit_submit',
       status: 'error',
-      amountBrl: order.amount_brl,
-      correlationId: order.id,
+      amountBrl: orderForLock.amount_brl,
+      correlationId: orderForLock.id,
       errorCode: OFFRAMP_FAILURE_CODES.USDC_DEPOSIT_SUBMIT_FAILED,
       errorMessage: reason,
       metadata: { source: 'offramp/lock', external_id: externalId },

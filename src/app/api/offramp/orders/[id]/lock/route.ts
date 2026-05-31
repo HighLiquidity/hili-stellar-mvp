@@ -22,8 +22,28 @@ export async function POST(request: Request, context: RouteContext) {
 
   const { id } = await context.params;
 
+  let body: { payoutPixKey?: unknown; payoutBeneficiaryName?: unknown } = {};
   try {
-    const locked = await lockOfframpQuote({ orderId: id });
+    const rawBody = await request.text();
+    if (rawBody.trim()) {
+      body = JSON.parse(rawBody) as { payoutPixKey?: unknown; payoutBeneficiaryName?: unknown };
+    }
+  } catch {
+    return handleOfframpRouteError(new SyntaxError('Invalid JSON'));
+  }
+
+  const payoutPixKey =
+    typeof body.payoutPixKey === 'string' && body.payoutPixKey.trim() ? body.payoutPixKey.trim() : undefined;
+  const payoutBeneficiaryName =
+    typeof body.payoutBeneficiaryName === 'string' ? body.payoutBeneficiaryName : undefined;
+
+  try {
+    const locked = await lockOfframpQuote({
+      orderId: id,
+      actor: { userId: auth.ctx.userId, role: auth.ctx.role },
+      payoutPixKey,
+      payoutBeneficiaryName,
+    });
     return NextResponse.json(locked, { status: 200 });
   } catch (error) {
     return handleOfframpRouteError(error);

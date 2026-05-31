@@ -2,6 +2,8 @@ import '@/lib/server/only';
 
 import { binance } from '@/lib/server/binance';
 import { assertBinanceMarketQuoteNotionalForSymbol } from '@/lib/server/binance/exchange-info';
+import { normalizePixWhitelistKey, PixWhitelistValidationError } from '@/lib/pix-whitelist/normalize';
+import { OFFRAMP_QUOTE_PLACEHOLDER_PIX_KEY } from '@/lib/ramp/quote-placeholders';
 
 import type { OfframpQuoteResponse } from './contracts';
 import { OfframpConfigError, OfframpOperationError, OfframpValidationError } from './errors';
@@ -26,7 +28,7 @@ const TEN_THOUSAND = BigInt(10_000);
 
 export type CreateOfframpQuoteInput = {
   amountUsdc: string;
-  payoutPixKey: string;
+  payoutPixKey?: string;
   payoutBeneficiaryName?: string | null;
   actorEmail?: string | null;
   actorUserId?: string | null;
@@ -175,11 +177,14 @@ export function normalizeOfframpAmountUsdc(amountUsdc: string): string {
 }
 
 export function normalizeOfframpPayoutPixKey(payoutPixKey: string): string {
-  const normalized = payoutPixKey.trim();
-  if (!normalized) {
-    throw new OfframpValidationError('payoutPixKey is required.');
+  try {
+    return normalizePixWhitelistKey(payoutPixKey);
+  } catch (error) {
+    if (error instanceof PixWhitelistValidationError) {
+      throw new OfframpValidationError('payoutPixKey is required.');
+    }
+    throw error;
   }
-  return normalized;
 }
 
 /** Reduces BRL-per-USDC rate for sell quotes (spread works against the seller). */
@@ -222,7 +227,9 @@ export function calculateQuotedBrlAmount(amountUsdc: string, effectiveRateBrlPer
 
 export async function createOfframpQuote(input: CreateOfframpQuoteInput): Promise<OfframpQuoteResponse> {
   const amountUsdc = normalizeOfframpAmountUsdc(input.amountUsdc);
-  const payoutPixKey = normalizeOfframpPayoutPixKey(input.payoutPixKey);
+  const payoutPixKey = input.payoutPixKey?.trim()
+    ? normalizeOfframpPayoutPixKey(input.payoutPixKey)
+    : OFFRAMP_QUOTE_PLACEHOLDER_PIX_KEY;
 
   const symbol = getOfframpQuoteSymbol();
   const spreadBps = getOfframpQuoteSpreadBps();

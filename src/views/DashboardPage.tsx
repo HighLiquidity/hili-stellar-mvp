@@ -44,30 +44,21 @@ export function DashboardPage() {
 
   return (
     <section className="dashboard-layout">
-      <article className="surface surface--hero dashboard-hero">
-        <div>
-          <p className="eyebrow">{t('pages.dashboard.eyebrow')}</p>
-        </div>
-
-        <div className="dashboard-hero__balance">
-          <span className="dashboard-hero__label">{t('pages.dashboard.brhBalance')}</span>
-          <strong className="dashboard-hero__brh-amount">
-            {isBrhBalanceLoading
-              ? '…'
-              : formatBrhAmount(balanceNumber, localeCode)}
-            <span className="dashboard-hero__brh-ticker">BRH</span>
-          </strong>
-          <p className="dashboard-hero__brh-equiv">
-            ≈{' '}
-            {isBrhBalanceLoading ? '…' : formatBrlApprox(balanceNumber, localeCode)}
-          </p>
-          <p className="dashboard-hero__hint">{t('pages.dashboard.brhBalanceHint')}</p>
-        </div>
-      </article>
-
       <div className="dashboard-overview">
         <p className="eyebrow dashboard-overview__eyebrow">{t('pages.dashboard.overviewEyebrow')}</p>
         <div className="dashboard-summary-grid">
+          <article className="surface dashboard-summary-card dashboard-summary-card--brh">
+            <span className="dashboard-summary-card__label">{t('pages.dashboard.brhBalance')}</span>
+            <strong className="dashboard-summary-card__brh">
+              {isBrhBalanceLoading ? '…' : formatBrhAmount(balanceNumber, localeCode)}
+              <span className="dashboard-summary-card__brh-ticker">BRH</span>
+            </strong>
+            <span className="dashboard-summary-card__brh-equiv">
+              ≈ {isBrhBalanceLoading ? '…' : formatBrlApprox(balanceNumber, localeCode)}
+            </span>
+            <span className="dashboard-summary-card__brh-equiv">{t('pages.dashboard.brhBalanceHint')}</span>
+          </article>
+
           <article className="surface dashboard-summary-card">
             <span className="dashboard-summary-card__label">{t('pages.dashboard.incomingVolume')}</span>
             <strong>

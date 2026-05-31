@@ -14,6 +14,7 @@ import {
   type StatementPageSize,
 } from '@/lib/ledger/filters';
 import { useI18n } from '@/lib/i18n';
+import { isOperatorOrAdminRole } from '@/lib/users/panel-access';
 import type { RampOrderFlow, RampOrderListItem, RampOrdersListResponse } from '@/lib/ramp/list-contracts';
 import { rampOrderDetailHref } from '@/lib/ramp/order-links';
 
@@ -98,6 +99,7 @@ export function RampOrdersPage() {
   const { session, profile, isLoading: authLoading, isAuthorized } = useAuth();
   const localeCode = locale === 'pt' ? 'pt-BR' : 'en-US';
   const accessToken = session?.access_token ?? null;
+  const canAccessRamp = isOperatorOrAdminRole(profile?.role);
 
   const initialFlow = searchParams.get('flow') === 'offramp' ? 'offramp' : 'onramp';
 
@@ -114,10 +116,10 @@ export function RampOrdersPage() {
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
-    if (profile?.role !== 'admin') {
+    if (!canAccessRamp) {
       router.replace('/app/dashboard');
     }
-  }, [authLoading, isAuthorized, profile?.role, router]);
+  }, [authLoading, canAccessRamp, isAuthorized, router]);
 
   const statusOptions = useMemo(() => {
     const values = flow === 'onramp' ? ONRAMP_STATUSES : OFFRAMP_STATUSES;
@@ -168,7 +170,7 @@ export function RampOrdersPage() {
     setPage(1);
   }
 
-  if (authLoading || profile?.role !== 'admin') {
+  if (authLoading || !canAccessRamp) {
     return (
       <section className="dashboard-layout">
         <article className="surface">

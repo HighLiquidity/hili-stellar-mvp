@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { useAuth } from '@/hooks/useAuth';
 import { useI18n } from '@/lib/i18n';
+import { isOperatorOrAdminRole } from '@/lib/users/panel-access';
+import { isOnrampQuotePlaceholderDestination } from '@/lib/ramp/quote-placeholders';
 import type {
   OnrampLockResponse,
   OnrampOrderResponse,
@@ -293,6 +295,8 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
   const { session, profile, isLoading: authLoading, isAuthorized } = useAuth();
   const localeCode = locale === 'pt' ? 'pt-BR' : 'en-US';
   const accessToken = session?.access_token ?? null;
+  const canAccessRamp = isOperatorOrAdminRole(profile?.role);
+  const openedFromOrderLink = Boolean(initialOrderId?.trim());
 
   const [taxId, setTaxId] = useState('');
   const [amountBrl, setAmountBrl] = useState('');
@@ -310,12 +314,15 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [isPixCodeCopied, setIsPixCodeCopied] = useState(false);
+  const [formPanelOpen, setFormPanelOpen] = useState(() => !openedFromOrderLink);
+  const [trackingPanelOpen, setTrackingPanelOpen] = useState(true);
   const [summaryPanelOpen, setSummaryPanelOpen] = useState(true);
-  const [pixPanelOpen, setPixPanelOpen] = useState(true);
+  const [pixPanelOpen, setPixPanelOpen] = useState(() => !openedFromOrderLink);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const hadPixRef = useRef(false);
   const quoteExpirySyncedRef = useRef(false);
   const loadedInitialOrderRef = useRef<string | null>(null);
+  const viewOrderLayoutAppliedRef = useRef(false);
 
   const orderId = order?.orderId ?? null;
   const orderStatus = order?.status ?? null;
@@ -337,6 +344,10 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
   const hasWhitelistedWallets = whitelistedWallets.length > 0;
   const selectedWalletAllowed =
     !destinationAddress.trim() || whitelistedWallets.some((wallet) => wallet.address === destinationAddress);
+  const canLockQuote =
+    hasWhitelistedWallets &&
+    Boolean(destinationAddress.trim()) &&
+    selectedWalletAllowed;
   const canRetryReconciliation =
     Boolean(order?.timeline.usdcDeliveredAt) &&
     order?.status !== 'complete' &&
@@ -458,13 +469,13 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
-    if (profile?.role !== 'admin') {
+    if (!canAccessRamp) {
       router.replace('/app/dashboard');
     }
-  }, [authLoading, isAuthorized, profile?.role, router]);
+  }, [authLoading, canAccessRamp, isAuthorized, router]);
 
   useEffect(() => {
-    if (!accessToken || authLoading || profile?.role !== 'admin') return;
+    if (!accessToken || authLoading || !canAccessRamp) return;
     const token = accessToken;
 
     let cancelled = false;
@@ -488,7 +499,7 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, authLoading, profile?.role]);
+  }, [accessToken, authLoading, canAccessRamp]);
 
   useEffect(() => {
     if (!hasWhitelistedWallets) {
@@ -548,6 +559,7 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
 
   useEffect(() => {
     const hasPix = Boolean(pix);
+    if (openedFromOrderLink) return;
     if (hasPix && !hadPixRef.current) {
       setSummaryPanelOpen(false);
       setPixPanelOpen(true);
@@ -556,7 +568,17 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
       setSummaryPanelOpen(true);
     }
     hadPixRef.current = hasPix;
-  }, [pix]);
+  }, [pix, openedFromOrderLink]);
+
+  useEffect(() => {
+    if (!openedFromOrderLink || !order || viewOrderLayoutAppliedRef.current) return;
+
+    viewOrderLayoutAppliedRef.current = true;
+    setFormPanelOpen(false);
+    setTrackingPanelOpen(true);
+    setSummaryPanelOpen(true);
+    setPixPanelOpen(false);
+  }, [openedFromOrderLink, order]);
 
   useEffect(() => {
     if (!order || order.status !== 'quoted') {
@@ -657,12 +679,12 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
           ? {
               taxId,
               amountUsdc: amountUsdc.trim(),
-              destinationAddress,
+              ...(destinationAddress.trim() ? { destinationAddress } : {}),
             }
           : {
               taxId,
               amountBrl: amountBrl.trim(),
-              destinationAddress,
+              ...(destinationAddress.trim() ? { destinationAddress } : {}),
             };
 
       const quoted = await fetchOnrampJson<OnrampQuoteResponse>(accessToken, '/api/onramp/orders/quote', {
@@ -691,6 +713,10 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
       setErrorMessage(t('pages.onramp.errors.quoteExpired'));
       return;
     }
+    if (!canLockQuote) {
+      setErrorMessage(t('pages.onramp.whitelistedWalletEmpty'));
+      return;
+    }
 
     setErrorMessage(null);
     setInfoMessage(null);
@@ -702,6 +728,7 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
         `/api/onramp/orders/${encodeURIComponent(orderId)}/lock`,
         {
           method: 'POST',
+          body: JSON.stringify({ destinationAddress }),
         },
       );
 
@@ -795,7 +822,11 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
         </div>
         <div className="onramp-summary-field onramp-summary-field--full">
           <span>{t('pages.onramp.summary.destination')}</span>
-          <strong>{order.destination.address}</strong>
+          <strong>
+            {isOnrampQuotePlaceholderDestination(order.destination.address)
+              ? t('pages.onramp.whitelistedWalletPlaceholder')
+              : order.destination.address}
+          </strong>
         </div>
         {order.destination.memo ? (
           <div className="onramp-summary-field onramp-summary-field--full">
@@ -836,7 +867,12 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
 
       {isQuoteReady ? (
         <div className="onramp-summary-actions">
-          <Button type="button" fullWidth onClick={handleLockQuote} disabled={isLocking}>
+          {!canLockQuote ? (
+            <p className="onramp-alert" role="status">
+              {t('pages.onramp.whitelistedWalletEmpty')}
+            </p>
+          ) : null}
+          <Button type="button" fullWidth onClick={handleLockQuote} disabled={isLocking || !canLockQuote}>
             {isLocking ? t('pages.onramp.lockLoading') : t('pages.onramp.lockAction')}
           </Button>
         </div>
@@ -849,42 +885,47 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
   const summaryPanelBadge = useMemo(() => {
     if (!order) return null;
 
-    if (!summaryPanelOpen) {
-      const timerExpiresAt = order.pix?.expiresAt ?? order.quote.expiresAt;
-      const timerExpired =
-        order.status === 'expired' || isQuoteExpiredAt(timerExpiresAt, nowMs);
-      const timerDisplay =
-        order.pix && order.status !== 'quoted' ? paymentCountdown : quoteCountdown;
+    const statusBadge = (
+      <span className={`onramp-status-badge onramp-status-badge--${getStatusTone(order.status)}`}>
+        {statusLabel}
+      </span>
+    );
 
-      if (timerExpired) {
-        return (
-          <span className="onramp-status-badge onramp-status-badge--warning">
-            {t('pages.onramp.status.expired')}
-          </span>
-        );
-      }
+    const showQuoteCountdown =
+      !summaryPanelOpen && (order.status === 'quoted' || order.status === 'awaiting_pix');
 
+    if (!showQuoteCountdown) {
+      return statusBadge;
+    }
+
+    const timerExpiresAt = order.pix?.expiresAt ?? order.quote.expiresAt;
+    const timerExpired =
+      order.status === 'expired' || isQuoteExpiredAt(timerExpiresAt, nowMs);
+    const timerDisplay =
+      order.pix && order.status !== 'quoted' ? paymentCountdown : quoteCountdown;
+
+    if (timerExpired) {
       return (
-        <span className="onramp-quote-timer-badge" aria-live="polite">
-          <span className="onramp-quote-timer-badge__icon" aria-hidden="true">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 7v5l3 2" />
-            </svg>
-          </span>
-          <span>{timerDisplay ?? '—'}</span>
+        <span className="onramp-status-badge onramp-status-badge--warning">
+          {t('pages.onramp.status.expired')}
         </span>
       );
     }
 
     return (
-      <span className={`onramp-status-badge onramp-status-badge--${getStatusTone(order.status)}`}>
-        {statusLabel}
+      <span className="onramp-quote-timer-badge" aria-live="polite">
+        <span className="onramp-quote-timer-badge__icon" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+          </svg>
+        </span>
+        <span>{timerDisplay ?? '—'}</span>
       </span>
     );
   }, [order, summaryPanelOpen, nowMs, paymentCountdown, quoteCountdown, statusLabel, t]);
 
-  if (authLoading || profile?.role !== 'admin') {
+  if (authLoading || !canAccessRamp) {
     return (
       <section className="dashboard-layout">
         <article className="surface">
@@ -903,6 +944,8 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
             eyebrow={t('pages.onramp.eyebrow')}
             title={t('pages.onramp.title')}
             subtitle={t('pages.onramp.description')}
+            open={formPanelOpen}
+            onOpenChange={setFormPanelOpen}
           >
             {errorMessage ? (
               <p className="auth-inline-error onramp-alert" role="alert">
@@ -957,8 +1000,7 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
                     className="field__input field__select"
                     value={destinationAddress}
                     onChange={(event) => setDestinationAddress(event.target.value)}
-                    disabled={formFieldsLocked || isLoadingWhitelistedWallets || !hasWhitelistedWallets}
-                    required
+                    disabled={formFieldsLocked || isLoadingWhitelistedWallets}
                   >
                     <option value="">
                       {isLoadingWhitelistedWallets
@@ -994,9 +1036,6 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
                     disabled={
                       !taxId.trim() ||
                       !hasQuoteAmount ||
-                      !destinationAddress.trim() ||
-                      !hasWhitelistedWallets ||
-                      isLoadingWhitelistedWallets ||
                       isQuoting ||
                       isLocking
                     }
@@ -1019,6 +1058,8 @@ export function OnrampPage({ initialOrderId }: OnrampPageProps = {}) {
             eyebrow={t('pages.onramp.statusCardEyebrow')}
             title={t('pages.onramp.statusCardTitle')}
             titleAs="h3"
+            open={trackingPanelOpen}
+            onOpenChange={setTrackingPanelOpen}
             headerActions={
               <div className="onramp-inline-actions">
                 {orderId ? (

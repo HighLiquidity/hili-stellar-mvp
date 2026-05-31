@@ -24,8 +24,27 @@ export async function POST(request: Request, context: RouteContext) {
 
   const { id } = await context.params;
 
+  let body: { destinationAddress?: unknown } = {};
   try {
-    const locked = await lockOnrampOrderWithPix(id);
+    const rawBody = await request.text();
+    if (rawBody.trim()) {
+      body = JSON.parse(rawBody) as { destinationAddress?: unknown };
+    }
+  } catch {
+    return handleOnrampRouteError(new SyntaxError('Invalid JSON'));
+  }
+
+  const destinationAddress =
+    typeof body.destinationAddress === 'string' && body.destinationAddress.trim()
+      ? body.destinationAddress.trim()
+      : undefined;
+
+  try {
+    const locked = await lockOnrampOrderWithPix({
+      orderId: id,
+      actor: { userId: auth.ctx.userId, role: auth.ctx.role },
+      destinationAddress,
+    });
 
     await logOnrampEvent({
       phase: 'lock',

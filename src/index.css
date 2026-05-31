@@ -1745,22 +1745,6 @@ a.user-menu__item {
   align-self: end;
 }
 
-.dashboard-hero {
-  gap: 16px;
-  min-height: auto;
-  padding-block: 18px;
-}
-
-.dashboard-hero__balance {
-  display: grid;
-  gap: 6px;
-  padding: 16px 18px;
-  border-radius: var(--radius-lg);
-  background: var(--accent-soft);
-  color: var(--text);
-}
-
-.dashboard-hero__balance strong,
 .dashboard-summary-card strong,
 .transaction-item__amount {
   font-size: clamp(1.3rem, 3vw, 2rem);
@@ -1768,13 +1752,6 @@ a.user-menu__item {
   letter-spacing: -0.03em;
 }
 
-.dashboard-hero__brh-amount {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.dashboard-hero__brh-ticker,
 .dashboard-summary-card__brh-ticker {
   font-size: 0.72rem;
   font-weight: 800;
@@ -1785,7 +1762,6 @@ a.user-menu__item {
   align-self: center;
 }
 
-.dashboard-hero__brh-equiv,
 .dashboard-summary-card__brh-equiv {
   margin: 0;
   font-size: 0.82rem;
@@ -1793,11 +1769,6 @@ a.user-menu__item {
   letter-spacing: 0;
 }
 
-.dashboard-hero__hint {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
 
 .dashboard-summary-card__brh {
   display: flex;
@@ -1821,7 +1792,6 @@ a.user-menu__item {
   align-self: center;
 }
 
-.dashboard-hero__label,
 .dashboard-summary-card__label,
 .transaction-item__meta span,
 .transaction-item__main p {
@@ -1846,6 +1816,10 @@ a.user-menu__item {
   gap: 10px;
   align-content: start;
   min-height: 132px;
+}
+
+.dashboard-summary-card--brh {
+  background: var(--accent-soft);
 }
 
 .dashboard-transactions {
@@ -2175,13 +2149,11 @@ a.user-menu__item {
     grid-template-columns: 1fr;
   }
 
-  .dashboard-hero,
   .transaction-item,
   .deposit-form-card__header {
     grid-template-columns: minmax(0, 1.3fr) minmax(240px, 0.7fr);
   }
 
-  .dashboard-hero,
   .deposit-form-card__header {
     align-items: start;
   }
@@ -2262,7 +2234,7 @@ a.user-menu__item {
   }
 
   .dashboard-summary-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .onramp-grid--with-side {

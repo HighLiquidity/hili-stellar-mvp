@@ -10,18 +10,22 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { listOfframpPixWhitelistAction } from '@/app/actions/pix-whitelist';
 import { CryptoTxHashLink } from '@/components/ledger/CryptoTxHashLink';
 import { RampCollapsiblePanel } from '@/components/RampCollapsiblePanel';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { useAuth } from '@/hooks/useAuth';
 import { useI18n } from '@/lib/i18n';
+import { isOperatorOrAdminRole } from '@/lib/users/panel-access';
+import { isOfframpQuotePlaceholderPixKey } from '@/lib/ramp/quote-placeholders';
 import type {
   OfframpLockResponse,
   OfframpOrderResponse,
   OfframpOrderStatus,
   OfframpQuoteResponse,
 } from '@/lib/offramp/contracts';
+import type { PixWhitelistRow } from '@/lib/pix-whitelist/types';
 
 const CLOCK_TICK_INTERVAL_MS = 1_000;
 
@@ -280,10 +284,14 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
   const { session, profile, isLoading: authLoading, isAuthorized } = useAuth();
   const localeCode = locale === 'pt' ? 'pt-BR' : 'en-US';
   const accessToken = session?.access_token ?? null;
+  const canAccessRamp = isOperatorOrAdminRole(profile?.role);
+  const openedFromOrderLink = Boolean(initialOrderId?.trim());
 
   const [amountUsdc, setAmountUsdc] = useState('');
   const [payoutPixKey, setPayoutPixKey] = useState('');
   const [payoutBeneficiaryName, setPayoutBeneficiaryName] = useState('');
+  const [whitelistedPixKeys, setWhitelistedPixKeys] = useState<PixWhitelistRow[]>([]);
+  const [isLoadingWhitelistedPixKeys, setIsLoadingWhitelistedPixKeys] = useState(true);
 
   const [order, setOrder] = useState<OfframpOrderResponse | null>(null);
   const [isQuoting, setIsQuoting] = useState(false);
@@ -293,11 +301,14 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<'address' | 'memo' | null>(null);
+  const [formPanelOpen, setFormPanelOpen] = useState(() => !openedFromOrderLink);
+  const [trackingPanelOpen, setTrackingPanelOpen] = useState(true);
   const [summaryPanelOpen, setSummaryPanelOpen] = useState(true);
-  const [depositPanelOpen, setDepositPanelOpen] = useState(true);
+  const [depositPanelOpen, setDepositPanelOpen] = useState(() => !openedFromOrderLink);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const hadDepositRef = useRef(false);
   const loadedInitialOrderRef = useRef<string | null>(null);
+  const viewOrderLayoutAppliedRef = useRef(false);
 
   const orderId = order?.orderId ?? null;
   const orderStatus = order?.status ?? null;
@@ -320,6 +331,16 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
       order.status !== 'refunded' &&
       order.status !== 'quoted' &&
       order.status !== 'awaiting_deposit',
+  );
+  const hasWhitelistedPixKeys = whitelistedPixKeys.length > 0;
+  const selectedPixKeyAllowed =
+    !payoutPixKey.trim() || whitelistedPixKeys.some((entry) => entry.pix_key === payoutPixKey);
+  const canLockQuote =
+    hasWhitelistedPixKeys && Boolean(payoutPixKey.trim()) && selectedPixKeyAllowed;
+
+  const selectedPixKey = useMemo(
+    () => whitelistedPixKeys.find((entry) => entry.pix_key === payoutPixKey) ?? null,
+    [payoutPixKey, whitelistedPixKeys],
   );
 
   const quoteCountdown = order ? formatRemainingMs(order.quote.expiresAt, nowMs) : null;
@@ -407,10 +428,10 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
-    if (profile?.role !== 'admin') {
+    if (!canAccessRamp) {
       router.replace('/app/dashboard');
     }
-  }, [authLoading, isAuthorized, profile?.role, router]);
+  }, [authLoading, canAccessRamp, isAuthorized, router]);
 
   const loadOrder = useCallback(
     async (id: string) => {
@@ -438,6 +459,53 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
   }, [accessToken, initialOrderId, loadOrder]);
 
   useEffect(() => {
+    if (!accessToken || authLoading || !canAccessRamp) return;
+    const token = accessToken;
+
+    let cancelled = false;
+    async function loadWhitelistedPixKeys() {
+      setIsLoadingWhitelistedPixKeys(true);
+      try {
+        const result = await listOfframpPixWhitelistAction(token);
+        if (cancelled) return;
+        if (!result.ok) {
+          setWhitelistedPixKeys([]);
+          setErrorMessage((current) => current ?? result.message);
+          return;
+        }
+        setWhitelistedPixKeys(result.data);
+      } finally {
+        if (!cancelled) setIsLoadingWhitelistedPixKeys(false);
+      }
+    }
+
+    void loadWhitelistedPixKeys();
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, authLoading, canAccessRamp]);
+
+  useEffect(() => {
+    if (!hasWhitelistedPixKeys) {
+      if (!payoutPixKey) return;
+      setPayoutPixKey('');
+      setPayoutBeneficiaryName('');
+      return;
+    }
+    if (!payoutPixKey || selectedPixKeyAllowed) return;
+    const first = whitelistedPixKeys[0];
+    setPayoutPixKey(first?.pix_key ?? '');
+    setPayoutBeneficiaryName(first?.beneficiary_name ?? '');
+  }, [hasWhitelistedPixKeys, payoutPixKey, selectedPixKeyAllowed, whitelistedPixKeys]);
+
+  useEffect(() => {
+    if (!selectedPixKey) return;
+    if (selectedPixKey.beneficiary_name) {
+      setPayoutBeneficiaryName(selectedPixKey.beneficiary_name);
+    }
+  }, [selectedPixKey]);
+
+  useEffect(() => {
     if (!order?.quote.expiresAt) return;
     const timer = window.setInterval(() => setNowMs(Date.now()), CLOCK_TICK_INTERVAL_MS);
     return () => window.clearInterval(timer);
@@ -445,13 +513,24 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
 
   useEffect(() => {
     const hasDepositPanel = Boolean(deposit);
+    if (openedFromOrderLink) return;
     if (hasDepositPanel && !hadDepositRef.current) {
       setSummaryPanelOpen(false);
       setDepositPanelOpen(true);
     }
     if (!hasDepositPanel) setSummaryPanelOpen(true);
     hadDepositRef.current = hasDepositPanel;
-  }, [deposit]);
+  }, [deposit, openedFromOrderLink]);
+
+  useEffect(() => {
+    if (!openedFromOrderLink || !order || viewOrderLayoutAppliedRef.current) return;
+
+    viewOrderLayoutAppliedRef.current = true;
+    setFormPanelOpen(false);
+    setTrackingPanelOpen(true);
+    setSummaryPanelOpen(true);
+    setDepositPanelOpen(false);
+  }, [openedFromOrderLink, order]);
 
   useEffect(() => {
     if (!orderId || !accessToken || pollIntervalMs == null) return;
@@ -503,8 +582,8 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
         method: 'POST',
         body: JSON.stringify({
           amountUsdc,
-          payoutPixKey,
-          payoutBeneficiaryName: payoutBeneficiaryName.trim() || null,
+          ...(payoutPixKey.trim() ? { payoutPixKey } : {}),
+          ...(payoutBeneficiaryName.trim() ? { payoutBeneficiaryName: payoutBeneficiaryName.trim() } : {}),
         }),
       });
 
@@ -528,6 +607,10 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
       setErrorMessage(t('pages.offramp.errors.quoteExpired'));
       return;
     }
+    if (!canLockQuote) {
+      setErrorMessage(t('pages.offramp.whitelistedPixKeyEmpty'));
+      return;
+    }
 
     setErrorMessage(null);
     setInfoMessage(null);
@@ -537,7 +620,13 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
       const locked = await fetchOfframpJson<OfframpLockResponse>(
         accessToken,
         `/api/offramp/orders/${encodeURIComponent(orderId)}/lock`,
-        { method: 'POST' },
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            payoutPixKey,
+            payoutBeneficiaryName: payoutBeneficiaryName.trim() || null,
+          }),
+        },
       );
       setOrder((current) => mergeLockIntoOrder(current, locked));
     } catch (error) {
@@ -609,7 +698,11 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
         </div>
         <div className="onramp-summary-field">
           <span>{t('pages.offramp.summary.payoutKey')}</span>
-          <strong>{order.payout.key}</strong>
+          <strong>
+            {isOfframpQuotePlaceholderPixKey(order.payout.key)
+              ? t('pages.offramp.whitelistedPixKeyPlaceholder')
+              : order.payout.key}
+          </strong>
         </div>
         <div className="onramp-summary-field">
           <span>{t('pages.offramp.summary.quoteExpiresAt')}</span>
@@ -631,7 +724,12 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
 
       {isQuoteReady ? (
         <div className="onramp-summary-actions">
-          <Button type="button" fullWidth onClick={handleLockQuote} disabled={isLocking}>
+          {!canLockQuote ? (
+            <p className="onramp-alert" role="status">
+              {t('pages.offramp.whitelistedPixKeyEmpty')}
+            </p>
+          ) : null}
+          <Button type="button" fullWidth onClick={handleLockQuote} disabled={isLocking || !canLockQuote}>
             {isLocking ? t('pages.offramp.lockLoading') : t('pages.offramp.lockAction')}
           </Button>
         </div>
@@ -645,7 +743,7 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
     </span>
   ) : null;
 
-  if (authLoading || profile?.role !== 'admin') {
+  if (authLoading || !canAccessRamp) {
     return (
       <section className="dashboard-layout">
         <article className="surface">
@@ -664,6 +762,8 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
             eyebrow={t('pages.offramp.eyebrow')}
             title={t('pages.offramp.title')}
             subtitle={t('pages.offramp.description')}
+            open={formPanelOpen}
+            onOpenChange={setFormPanelOpen}
           >
             {errorMessage ? (
               <p className="auth-inline-error onramp-alert" role="alert">
@@ -690,16 +790,31 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
                   required
                   disabled={formFieldsLocked}
                 />
-                <InputField
-                  id="offramp-pix-key"
-                  label={t('pages.offramp.payoutPixKey')}
-                  type="text"
-                  value={payoutPixKey}
-                  onChange={(event) => setPayoutPixKey(event.target.value)}
-                  placeholder={t('pages.offramp.payoutPixKeyPlaceholder')}
-                  required
-                  disabled={formFieldsLocked}
-                />
+                <label className="field">
+                  <span className="field__label">{t('pages.offramp.whitelistedPixKey')}</span>
+                  <select
+                    className="field__input field__select"
+                    value={payoutPixKey}
+                    onChange={(event) => setPayoutPixKey(event.target.value)}
+                    disabled={formFieldsLocked || isLoadingWhitelistedPixKeys}
+                  >
+                    <option value="">
+                      {isLoadingWhitelistedPixKeys
+                        ? t('pages.offramp.whitelistedPixKeyLoading')
+                        : t('pages.offramp.whitelistedPixKeyPlaceholder')}
+                    </option>
+                    {whitelistedPixKeys.map((entry) => (
+                      <option key={entry.id} value={entry.pix_key}>
+                        {entry.label?.trim() ? `${entry.label} - ${entry.pix_key}` : entry.pix_key}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {!isLoadingWhitelistedPixKeys && !hasWhitelistedPixKeys ? (
+                  <p className="onramp-alert" role="status">
+                    {t('pages.offramp.whitelistedPixKeyEmpty')}
+                  </p>
+                ) : null}
                 <InputField
                   id="offramp-beneficiary"
                   label={t('pages.offramp.payoutBeneficiaryName')}
@@ -707,7 +822,7 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
                   value={payoutBeneficiaryName}
                   onChange={(event) => setPayoutBeneficiaryName(event.target.value)}
                   placeholder={t('pages.offramp.payoutBeneficiaryNamePlaceholder')}
-                  disabled={formFieldsLocked}
+                  disabled={formFieldsLocked || Boolean(selectedPixKey?.beneficiary_name)}
                 />
               </div>
 
@@ -715,7 +830,7 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
                 <div className="onramp-inline-actions">
                   <Button
                     type="submit"
-                    disabled={!amountUsdc.trim() || !payoutPixKey.trim() || isQuoting || isLocking}
+                    disabled={!amountUsdc.trim() || isQuoting || isLocking}
                   >
                     {isQuoting
                       ? hasActiveQuote
@@ -735,6 +850,8 @@ export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
             eyebrow={t('pages.offramp.statusCardEyebrow')}
             title={t('pages.offramp.statusCardTitle')}
             titleAs="h3"
+            open={trackingPanelOpen}
+            onOpenChange={setTrackingPanelOpen}
             headerActions={
               <div className="onramp-inline-actions">
                 {orderId ? (

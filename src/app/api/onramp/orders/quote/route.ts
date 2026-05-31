@@ -4,8 +4,6 @@ import { logOnrampEvent } from '@/lib/fiat-operations/log-onramp';
 import { createOnrampQuote } from '@/lib/onramp';
 
 import { badRequest, handleOnrampRouteError, requireOnrampRouteOperator } from '../../_utils';
-import { getOnrampWithdrawNetwork } from '@/lib/withdraw-whitelist/onramp-network';
-import { findActiveWithdrawWhitelistEntry } from '@/lib/withdraw-whitelist/store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,9 +28,19 @@ function readOptionalAmountString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function readOptionalString(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 /**
  * Internal quote endpoint for the new on-ramp flow.
  * Creates a `quoted` order and locks the commercial parameters for a short TTL.
+ * Whitelist validation happens at lock time, not quote time.
  */
 export async function POST(request: Request) {
   const auth = await requireOnrampRouteOperator(request);
@@ -45,20 +53,21 @@ export async function POST(request: Request) {
     return handleOnrampRouteError(error);
   }
 
-  if (typeof body.taxId !== 'string' || typeof body.destinationAddress !== 'string') {
+  if (typeof body.taxId !== 'string') {
     await logOnrampEvent({
       phase: 'quote',
       status: 'error',
       actor: { email: auth.ctx.email, userId: auth.ctx.userId },
       errorCode: 'ONRAMP_BAD_REQUEST',
-      errorMessage: 'taxId and destinationAddress must be provided as strings',
+      errorMessage: 'taxId must be provided as a string',
       metadata: { source: 'api/onramp/orders/quote' },
     });
-    return badRequest('taxId and destinationAddress must be provided as strings');
+    return badRequest('taxId must be provided as a string');
   }
 
   const amountBrl = readOptionalAmountString(body.amountBrl);
   const amountUsdc = readOptionalAmountString(body.amountUsdc);
+  const destinationAddress = readOptionalString(body.destinationAddress);
 
   if (amountBrl && amountUsdc) {
     await logOnrampEvent({
@@ -84,40 +93,12 @@ export async function POST(request: Request) {
     return badRequest('amountBrl or amountUsdc must be provided as a non-empty string');
   }
 
-  const network = getOnrampWithdrawNetwork();
-
-  const whitelistEntry = await findActiveWithdrawWhitelistEntry({
-    address: body.destinationAddress,
-    network,
-  });
-
-  if (!whitelistEntry) {
-    await logOnrampEvent({
-      phase: 'quote',
-      status: 'error',
-      actor: { email: auth.ctx.email, userId: auth.ctx.userId },
-      taxId: body.taxId,
-      amountBrl,
-      errorCode: 'ONRAMP_WALLET_NOT_WHITELISTED',
-      errorMessage: `Destination address is not whitelisted for on-ramp network ${network}.`,
-      metadata: {
-        source: 'api/onramp/orders/quote',
-        destination_address: body.destinationAddress,
-        network,
-        amount_usdc: amountUsdc,
-      },
-    });
-
-    return badRequest(`Destination address is not whitelisted for on-ramp network ${network}.`);
-  }
-
   try {
     const quote = await createOnrampQuote({
       taxId: body.taxId,
       amountBrl: amountBrl ?? undefined,
       amountUsdc: amountUsdc ?? undefined,
-      destinationAddress: body.destinationAddress,
-      destinationMemo: whitelistEntry.memo,
+      destinationAddress,
       actorEmail: auth.ctx.email,
       actorUserId: auth.ctx.userId,
     });
@@ -131,7 +112,7 @@ export async function POST(request: Request) {
       correlationId: quote.orderId,
       metadata: {
         source: 'api/onramp/orders/quote',
-        destination_address: body.destinationAddress,
+        destination_address: quote.destination.address,
         amount_usdc: quote.quote.amountUsdc,
       },
     });
