@@ -10,7 +10,7 @@ import { truncateUtf8Bytes } from '@/lib/ramp/memo';
 import { OnrampConfigError, OnrampOperationError, OnrampValidationError } from './errors';
 import { assertUsdcMeetsBinanceMinWithdraw } from './binance-withdraw-min';
 import { assertGrossUsdcCoversDeliveryFee } from './usdc-delivery-fee';
-import { assertAmountBrlWithinLimit } from '@/lib/api-keys/commercial';
+import { assertAmountBrlWithinLimit } from '@/lib/commercial/limits';
 
 import {
   createQuotedOnrampOrder,

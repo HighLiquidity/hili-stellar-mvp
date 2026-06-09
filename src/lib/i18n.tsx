@@ -553,6 +553,12 @@ const dictionaries: Record<Locale, TranslationTree> = {
         errors: {
           session: 'Sessão inválida. Faça login novamente.',
         },
+        commercialHint:
+          'Spread e limite máximo aplicam-se ao painel e à API v1 deste operador. Vazio usa o padrão do servidor.',
+        spreadOverride: 'Spread (bps)',
+        spreadOverridePlaceholder: 'ex.: 25 (opcional — padrão do servidor)',
+        maxAmountBrl: 'Limite máximo (BRL)',
+        maxAmountBrlPlaceholder: 'ex.: 50000.00 (opcional)',
       },
         withdrawWhitelist: {
           eyebrow: 'Admin',
@@ -752,6 +758,8 @@ const dictionaries: Record<Locale, TranslationTree> = {
           operator: 'Operador vinculado',
           noOperators: 'Nenhum operador ativo encontrado',
           scopesLegend: 'Escopos',
+          commercialTermsHint: 'Spread e limite vêm do perfil comercial do operador em',
+          commercialTermsLink: 'Usuários',
           spreadOverride: 'Spread (bps) — override',
           spreadOverridePlaceholder: 'ex.: 25 (opcional)',
           maxAmountBrl: 'Limite máximo (BRL)',
@@ -1490,6 +1498,12 @@ const dictionaries: Record<Locale, TranslationTree> = {
         errors: {
           session: 'Invalid session. Please sign in again.',
         },
+        commercialHint:
+          'Spread and max amount apply to this operator’s panel and API v1 quotes. Empty uses the server default.',
+        spreadOverride: 'Spread (bps)',
+        spreadOverridePlaceholder: 'e.g. 25 (optional — server default)',
+        maxAmountBrl: 'Maximum amount (BRL)',
+        maxAmountBrlPlaceholder: 'e.g. 50000.00 (optional)',
       },
         withdrawWhitelist: {
           eyebrow: 'Admin',
@@ -1689,6 +1703,8 @@ const dictionaries: Record<Locale, TranslationTree> = {
           operator: 'Linked operator',
           noOperators: 'No active operators found',
           scopesLegend: 'Scopes',
+          commercialTermsHint: 'Spread and limits come from the operator commercial profile in',
+          commercialTermsLink: 'Users',
           spreadOverride: 'Spread (bps) — override',
           spreadOverridePlaceholder: 'e.g. 25 (optional)',
           maxAmountBrl: 'Maximum amount (BRL)',

@@ -1,10 +1,11 @@
 'use server';
 
+import { parseMaxAmountBrl, parseSpreadBpsOverride } from '@/lib/commercial/parse';
 import type { PanelUserInput, PanelUserRole, PanelUserRow } from '@/lib/users/types';
 import { requireAdminFromAccessToken } from '@/lib/users/require-admin';
 
 const PANEL_ACCESS_TABLE = 'panel_access_list';
-const PANEL_USER_COLUMNS = 'email, full_name, role, is_active';
+const PANEL_USER_COLUMNS = 'email, full_name, role, is_active, spread_bps_override, max_amount_brl';
 const ROLES: PanelUserRole[] = ['admin', 'operator', 'viewer'];
 
 function normalizeEmail(email: string): string {
@@ -13,6 +14,20 @@ function normalizeEmail(email: string): string {
 
 function validateRole(role: string): role is PanelUserRole {
   return ROLES.includes(role as PanelUserRole);
+}
+
+function resolveOperatorCommercialFields(input: Pick<PanelUserInput, 'role' | 'spreadBpsOverride' | 'maxAmountBrl'>): {
+  spread_bps_override: number | null;
+  max_amount_brl: string | null;
+} {
+  if (input.role !== 'operator') {
+    return { spread_bps_override: null, max_amount_brl: null };
+  }
+
+  return {
+    spread_bps_override: parseSpreadBpsOverride(input.spreadBpsOverride),
+    max_amount_brl: parseMaxAmountBrl(input.maxAmountBrl),
+  };
 }
 
 async function findAuthUserIdByEmail(
@@ -103,11 +118,13 @@ export async function createPanelUserAction(
       return { ok: false, message: authError.message };
     }
 
+    const commercial = resolveOperatorCommercialFields(input);
     const row = {
       email,
       full_name: fullName,
       role: input.role,
       is_active: input.isActive ?? true,
+      ...commercial,
     };
 
     const { data, error } = await admin
@@ -193,12 +210,14 @@ export async function updatePanelUserAction(
       }
     }
 
+    const commercial = resolveOperatorCommercialFields(input);
     const { data, error } = await admin
       .from(PANEL_ACCESS_TABLE)
       .update({
         full_name: fullName,
         role: input.role,
         is_active: isActive,
+        ...commercial,
       })
       .eq('email', email)
       .select(PANEL_USER_COLUMNS)

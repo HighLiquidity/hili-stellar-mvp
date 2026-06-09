@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { resolveApiKeyQuoteSpreadBps } from '@/lib/api-keys/commercial';
+import { resolveApiKeyCommercialTerms } from '@/lib/api-keys/commercial';
 import { readOptionalIntegratorExternalId } from '@/lib/api-keys/external-id';
 import { getOnrampQuoteSpreadBps } from '@/lib/onramp/quote';
 import { createOnrampQuote } from '@/lib/onramp';
@@ -77,14 +77,15 @@ export async function POST(request: Request) {
       }
 
       const actor = apiKeyActor(ctx);
+      const commercial = await resolveApiKeyCommercialTerms(ctx, getOnrampQuoteSpreadBps());
       const quote = await createOnrampQuote({
         taxId: body.taxId,
         amountBrl: amountBrl ?? undefined,
         amountUsdc: amountUsdc ?? undefined,
         destinationAddress,
         integratorExternalId: externalId ?? null,
-        quoteSpreadBps: resolveApiKeyQuoteSpreadBps(getOnrampQuoteSpreadBps(), ctx),
-        apiKeyMaxAmountBrl: ctx.maxAmountBrl,
+        quoteSpreadBps: commercial.spreadBps,
+        apiKeyMaxAmountBrl: commercial.maxAmountBrl,
         actorEmail: actor.email ?? undefined,
         actorUserId: actor.userId,
       });

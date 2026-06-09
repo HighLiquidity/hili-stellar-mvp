@@ -1,6 +1,5 @@
 'use server';
 
-import { parseApiKeyMaxAmountBrl, parseApiKeySpreadBpsOverride } from '@/lib/api-keys/commercial';
 import { listApiKeyRequestLogs, listApiKeyRequestLogsForLinkedUser } from '@/lib/api-keys/request-log';
 import {
   assertApiKeyOwnedByUser,
@@ -37,8 +36,6 @@ export async function createApiKeyAction(
     label: string;
     linkedUserEmail?: string;
     scopes: ApiKeyScope[];
-    spreadBpsOverride?: string;
-    maxAmountBrl?: string;
   },
 ): Promise<ApiKeysActionResult<ApiKeyCreateResult>> {
   try {
@@ -64,8 +61,6 @@ export async function createApiKeyAction(
       linkedUserEmail,
       scopes: normalizeScopes(input.scopes),
       createdByEmail: ctx.email,
-      spreadBpsOverride: parseApiKeySpreadBpsOverride(input.spreadBpsOverride),
-      maxAmountBrl: parseApiKeyMaxAmountBrl(input.maxAmountBrl),
     });
     return { ok: true, data: result };
   } catch (error) {

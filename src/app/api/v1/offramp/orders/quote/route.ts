@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { resolveApiKeyQuoteSpreadBps } from '@/lib/api-keys/commercial';
+import { resolveApiKeyCommercialTerms } from '@/lib/api-keys/commercial';
 import { readOptionalIntegratorExternalId } from '@/lib/api-keys/external-id';
 import { createOfframpQuote, getOfframpQuoteSpreadBps } from '@/lib/offramp/quote';
 
@@ -62,14 +62,15 @@ export async function POST(request: Request) {
       const payoutPixKey = readOptionalString(body.payoutPixKey);
       const payoutBeneficiaryName = readOptionalString(body.payoutBeneficiaryName);
       const actor = apiKeyActor(ctx);
+      const commercial = await resolveApiKeyCommercialTerms(ctx, getOfframpQuoteSpreadBps());
 
       const quote = await createOfframpQuote({
         amountUsdc: body.amountUsdc,
         payoutPixKey,
         payoutBeneficiaryName: payoutBeneficiaryName ?? null,
         integratorExternalId: externalId ?? null,
-        quoteSpreadBps: resolveApiKeyQuoteSpreadBps(getOfframpQuoteSpreadBps(), ctx),
-        apiKeyMaxAmountBrl: ctx.maxAmountBrl,
+        quoteSpreadBps: commercial.spreadBps,
+        apiKeyMaxAmountBrl: commercial.maxAmountBrl,
         actorEmail: actor.email ?? undefined,
         actorUserId: actor.userId,
       });

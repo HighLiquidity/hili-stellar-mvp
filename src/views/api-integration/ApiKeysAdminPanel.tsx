@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import Link from 'next/link';
 
 import {
   createApiKeyAction,
@@ -74,8 +75,6 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
 
   const [label, setLabel] = useState('');
   const [linkedUserEmail, setLinkedUserEmail] = useState('');
-  const [spreadBpsOverride, setSpreadBpsOverride] = useState('');
-  const [maxAmountBrl, setMaxAmountBrl] = useState('');
   const [scopes, setScopes] = useState<ApiKeyScope[]>(['onramp', 'offramp', 'orders:read']);
 
   const operatorOptions = useMemo(
@@ -160,8 +159,6 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
   const resetForm = () => {
     setFormMode(null);
     setLabel('');
-    setSpreadBpsOverride('');
-    setMaxAmountBrl('');
     setScopes(['onramp', 'offramp', 'orders:read']);
     setFormError(null);
     if (isAdmin && operatorOptions[0]) {
@@ -174,8 +171,6 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
     setFormError(null);
     setSuccessMessage(null);
     setLabel('');
-    setSpreadBpsOverride('');
-    setMaxAmountBrl('');
     setScopes(['onramp', 'offramp', 'orders:read']);
     if (isAdmin) {
       setLinkedUserEmail(operatorOptions[0] ?? '');
@@ -223,8 +218,6 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
         label: trimmedLabel,
         linkedUserEmail: isAdmin ? linkedUserEmail.trim().toLowerCase() : undefined,
         scopes,
-        spreadBpsOverride: isAdmin ? spreadBpsOverride.trim() || undefined : undefined,
-        maxAmountBrl: isAdmin ? maxAmountBrl.trim() || undefined : undefined,
       });
 
       if (!result.ok) {
@@ -443,25 +436,10 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
             </fieldset>
 
             {isAdmin ? (
-              <div className="api-key-form__two-col-row">
-                <InputField
-                  id="api-key-spread"
-                  label={t('pages.apiIntegration.keys.spreadOverride')}
-                  value={spreadBpsOverride}
-                  onChange={(event) => setSpreadBpsOverride(event.target.value)}
-                  placeholder={t('pages.apiIntegration.keys.spreadOverridePlaceholder')}
-                  disabled={isSaving}
-                />
-
-                <InputField
-                  id="api-key-limit"
-                  label={t('pages.apiIntegration.keys.maxAmountBrl')}
-                  value={maxAmountBrl}
-                  onChange={(event) => setMaxAmountBrl(event.target.value)}
-                  placeholder={t('pages.apiIntegration.keys.maxAmountBrlPlaceholder')}
-                  disabled={isSaving}
-                />
-              </div>
+              <p className="surface__lead api-cross-link">
+                {t('pages.apiIntegration.keys.commercialTermsHint')}{' '}
+                <Link href="/app/users">{t('pages.apiIntegration.keys.commercialTermsLink')}</Link>
+              </p>
             ) : null}
 
             <div className="user-management-form__actions api-key-form__actions">

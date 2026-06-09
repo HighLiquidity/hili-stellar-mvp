@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 
+import { resolvePanelQuoteCommercialTerms } from '@/lib/commercial/panel';
 import { logOnrampEvent } from '@/lib/fiat-operations/log-onramp';
-import { createOnrampQuote } from '@/lib/onramp';
+import { createOnrampQuote, getOnrampQuoteSpreadBps } from '@/lib/onramp';
 
 import { badRequest, handleOnrampRouteError, requireOnrampRouteOperator } from '../../_utils';
 
@@ -94,11 +95,14 @@ export async function POST(request: Request) {
   }
 
   try {
+    const commercial = await resolvePanelQuoteCommercialTerms(auth.ctx, getOnrampQuoteSpreadBps());
     const quote = await createOnrampQuote({
       taxId: body.taxId,
       amountBrl: amountBrl ?? undefined,
       amountUsdc: amountUsdc ?? undefined,
       destinationAddress,
+      quoteSpreadBps: commercial.spreadBps,
+      apiKeyMaxAmountBrl: commercial.maxAmountBrl,
       actorEmail: auth.ctx.email,
       actorUserId: auth.ctx.userId,
     });

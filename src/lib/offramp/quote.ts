@@ -7,7 +7,7 @@ import { OFFRAMP_QUOTE_PLACEHOLDER_PIX_KEY } from '@/lib/ramp/quote-placeholders
 
 import type { OfframpQuoteResponse } from './contracts';
 import { OfframpConfigError, OfframpOperationError, OfframpValidationError } from './errors';
-import { assertAmountBrlWithinLimit } from '@/lib/api-keys/commercial';
+import { assertAmountBrlWithinLimit } from '@/lib/commercial/limits';
 
 import { createQuotedOfframpOrder, findOfframpOrderByIntegratorExternalId } from './order-store';
 
