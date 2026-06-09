@@ -5,7 +5,8 @@ export function normalizeWithdrawWhitelistAddress(address: string): string {
   return address.trim().toUpperCase();
 }
 
-/** Network used for on-ramp USDC delivery whitelist checks and wallet listing. */
+/** Network used on-ramp USDC delivery whitelist checks and wallet listing. */
 export function getOnrampWithdrawNetwork(): WithdrawWhitelistNetwork {
-  return process.env.ONRAMP_WITHDRAW_NETWORK === 'STELLAR_PUBLIC' ? 'STELLAR_PUBLIC' : 'STELLAR_TESTNET';
+  const configured = process.env.ONRAMP_WITHDRAW_NETWORK?.trim().toUpperCase();
+  return configured === 'STELLAR_PUBLIC' ? 'STELLAR_PUBLIC' : 'STELLAR_TESTNET';
 }

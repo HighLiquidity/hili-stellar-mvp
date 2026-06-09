@@ -56,6 +56,8 @@ export type OnrampLockResponse = {
 
   orderId: string;
 
+  externalId: string | null;
+
   status: 'awaiting_pix';
 
   quote: {
@@ -147,6 +149,8 @@ async function buildOnrampLockResponse(row: OnrampOrderRow): Promise<OnrampLockR
   return {
 
     orderId: row.id,
+
+    externalId: row.integrator_external_id,
 
     status: 'awaiting_pix',
 

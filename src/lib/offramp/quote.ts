@@ -7,7 +7,9 @@ import { OFFRAMP_QUOTE_PLACEHOLDER_PIX_KEY } from '@/lib/ramp/quote-placeholders
 
 import type { OfframpQuoteResponse } from './contracts';
 import { OfframpConfigError, OfframpOperationError, OfframpValidationError } from './errors';
-import { createQuotedOfframpOrder } from './order-store';
+import { assertAmountBrlWithinLimit } from '@/lib/api-keys/commercial';
+
+import { createQuotedOfframpOrder, findOfframpOrderByIntegratorExternalId } from './order-store';
 
 export const DEFAULT_OFFRAMP_QUOTE_SYMBOL = 'USDCBRL';
 export const DEFAULT_OFFRAMP_QUOTE_TTL_SECONDS = 5 * 60;
@@ -30,6 +32,9 @@ export type CreateOfframpQuoteInput = {
   amountUsdc: string;
   payoutPixKey?: string;
   payoutBeneficiaryName?: string | null;
+  integratorExternalId?: string | null;
+  quoteSpreadBps?: number;
+  apiKeyMaxAmountBrl?: string | null;
   actorEmail?: string | null;
   actorUserId?: string | null;
 };
@@ -139,7 +144,7 @@ function getOfframpQuoteSymbol(): string {
   );
 }
 
-function getOfframpQuoteSpreadBps(): number {
+export function getOfframpQuoteSpreadBps(): number {
   if (process.env.OFFRAMP_QUOTE_SPREAD_BPS?.trim()) {
     return readNonNegativeIntegerEnv('OFFRAMP_QUOTE_SPREAD_BPS', DEFAULT_OFFRAMP_QUOTE_SPREAD_BPS);
   }
@@ -231,12 +236,26 @@ export async function createOfframpQuote(input: CreateOfframpQuoteInput): Promis
     ? normalizeOfframpPayoutPixKey(input.payoutPixKey)
     : OFFRAMP_QUOTE_PLACEHOLDER_PIX_KEY;
 
+  const integratorExternalId = input.integratorExternalId?.trim() || null;
+  if (integratorExternalId && input.actorUserId) {
+    const duplicate = await findOfframpOrderByIntegratorExternalId({
+      userId: input.actorUserId,
+      externalId: integratorExternalId,
+    });
+    if (duplicate) {
+      throw new OfframpOperationError(`externalId "${integratorExternalId}" is already in use.`, 409);
+    }
+  }
+
   const symbol = getOfframpQuoteSymbol();
-  const spreadBps = getOfframpQuoteSpreadBps();
+  const spreadBps = input.quoteSpreadBps ?? getOfframpQuoteSpreadBps();
   const ttlSeconds = getOfframpQuoteTtlSeconds();
   const ticker = await binance.market.getTickerPrice(symbol);
   const effectiveRate = applyOfframpQuoteSpread(ticker.price, spreadBps);
   const amountBrl = calculateQuotedBrlAmount(amountUsdc, effectiveRate);
+
+  assertAmountBrlWithinLimit(amountBrl, input.apiKeyMaxAmountBrl, 'offramp');
+
   try {
     await assertBinanceMarketQuoteNotionalForSymbol(symbol, amountBrl);
   } catch (error) {
@@ -258,6 +277,7 @@ export async function createOfframpQuote(input: CreateOfframpQuoteInput): Promis
     quoteSpreadBps: spreadBps,
     createdByEmail: input.actorEmail ?? null,
     createdByUserId: input.actorUserId ?? null,
+    integratorExternalId,
     metadata: {
       quote: {
         tickerSymbol: ticker.symbol,
@@ -282,6 +302,7 @@ export async function createOfframpQuote(input: CreateOfframpQuoteInput): Promis
 
   return {
     orderId: created.row.id,
+    externalId: created.row.integrator_external_id,
     status: 'quoted',
     quote: {
       symbol: created.row.quote_symbol,

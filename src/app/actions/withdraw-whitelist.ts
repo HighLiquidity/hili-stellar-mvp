@@ -154,7 +154,34 @@ export async function listOnrampWithdrawWhitelistAction(
       .order('address', { ascending: true });
 
     if (error) return { ok: false, message: error.message };
-    return { ok: true, data: (data ?? []) as WithdrawWhitelistRow[] };
+
+    const rows = (data ?? []) as WithdrawWhitelistRow[];
+    if (rows.length > 0) {
+      return { ok: true, data: rows };
+    }
+
+    const { data: otherNetworkRows, error: otherNetworkError } = await admin
+      .from(WHITELIST_TABLE)
+      .select('network')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .neq('network', network)
+      .limit(5);
+
+    if (otherNetworkError) return { ok: false, message: otherNetworkError.message };
+
+    const otherNetworks = Array.from(
+      new Set((otherNetworkRows ?? []).map((row) => row.network).filter(Boolean)),
+    );
+
+    if (otherNetworks.length > 0) {
+      return {
+        ok: false,
+        message: `Wallet cadastrada em ${otherNetworks.join(', ')}, mas o on-ramp está configurado para ${network}. Edite a wallet no admin (coluna rede) ou ajuste ONRAMP_WITHDRAW_NETWORK no Vercel e faça redeploy.`,
+      };
+    }
+
+    return { ok: true, data: rows };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
@@ -218,10 +245,12 @@ export async function upsertWithdrawWhitelistAction(
       return { ok: false, message: 'User not found in panel access list.' };
     }
 
+    const network = getOnrampWithdrawNetwork();
+
     const payload = {
       user_id: authUserId,
       address,
-      network: input.network,
+      network,
       label: input.label?.trim() || null,
       memo,
       is_active: input.isActive,

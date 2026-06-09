@@ -35,6 +35,7 @@ export type OfframpDepositInstructionsView = {
 
 export type OfframpQuoteResponse = {
   orderId: string;
+  externalId: string | null;
   status: 'quoted';
   quote: OfframpQuoteView;
   payout: OfframpPixView;
@@ -42,6 +43,7 @@ export type OfframpQuoteResponse = {
 
 export type OfframpLockResponse = {
   orderId: string;
+  externalId: string | null;
   status: 'awaiting_deposit';
   quote: OfframpQuoteView;
   payout: OfframpPixView;

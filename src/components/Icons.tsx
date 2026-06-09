@@ -204,6 +204,36 @@ export function KeyIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function CopyIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <rect x="8" y="8" width="12" height="12" rx="2" />
+      <path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </IconBase>
+  );
+}
+
+export function CheckIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <path d="m5 12 4 4 10-10" />
+    </IconBase>
+  );
+}
+
+export function ApiIntegrationIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <path d="M8 6h8" />
+      <path d="M8 10h8" />
+      <path d="M8 14h5" />
+      <path d="M16 3v18" />
+      <path d="M19 7l2 2-2 2" />
+      <path d="M5 7l-2 2 2 2" />
+    </IconBase>
+  );
+}
+
 export function SettingsIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <IconBase {...props}>

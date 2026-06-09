@@ -46,6 +46,7 @@ export type OfframpOrderRow = {
   needs_review_reason: string | null;
   created_by_user_id: string | null;
   created_by_email: string | null;
+  integrator_external_id: string | null;
   quoted_at: string;
   usdc_received_at: string | null;
   pix_sent_at: string | null;
@@ -239,6 +240,28 @@ export async function findOfframpOrderByBrhRedemptionExternalId(
   return (data as OfframpOrderRow | null) ?? null;
 }
 
+export async function findOfframpOrderByIntegratorExternalId(input: {
+  userId: string;
+  externalId: string;
+}): Promise<OfframpOrderRow | null> {
+  const admin = createSupabaseAdmin();
+  if (!admin) return null;
+
+  const { data, error } = await admin
+    .from(OFFRAMP_ORDERS_TABLE)
+    .select('*')
+    .eq('created_by_user_id', input.userId.trim())
+    .eq('integrator_external_id', input.externalId.trim())
+    .maybeSingle();
+
+  if (error) {
+    console.error('[offramp/store] find by integrator external id failed', error.message);
+    return null;
+  }
+
+  return (data as OfframpOrderRow | null) ?? null;
+}
+
 export async function createQuotedOfframpOrder(input: {
   amountUsdc: string;
   amountBrl: string;
@@ -252,6 +275,7 @@ export async function createQuotedOfframpOrder(input: {
   quoteSpreadBps?: number | null;
   createdByUserId?: string | null;
   createdByEmail?: string | null;
+  integratorExternalId?: string | null;
   metadata?: Record<string, unknown> | null;
 }): Promise<{ ok: true; row: OfframpOrderRow } | { ok: false; reason: string }> {
   const admin = createSupabaseAdmin();
@@ -274,6 +298,7 @@ export async function createQuotedOfframpOrder(input: {
       quote_spread_bps: input.quoteSpreadBps ?? null,
       created_by_user_id: normalizeOptionalString(input.createdByUserId),
       created_by_email: normalizeOptionalString(input.createdByEmail)?.toLowerCase() ?? null,
+      integrator_external_id: normalizeOptionalString(input.integratorExternalId),
       metadata: input.metadata ?? {},
       quoted_at: now,
       updated_at: now,

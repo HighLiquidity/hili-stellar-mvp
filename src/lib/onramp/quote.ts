@@ -10,7 +10,14 @@ import { truncateUtf8Bytes } from '@/lib/ramp/memo';
 import { OnrampConfigError, OnrampOperationError, OnrampValidationError } from './errors';
 import { assertUsdcMeetsBinanceMinWithdraw } from './binance-withdraw-min';
 import { assertGrossUsdcCoversDeliveryFee } from './usdc-delivery-fee';
-import { createQuotedOnrampOrder, type OnrampOrderRow, updateOnrampOrder } from './order-store';
+import { assertAmountBrlWithinLimit } from '@/lib/api-keys/commercial';
+
+import {
+  createQuotedOnrampOrder,
+  findOnrampOrderByIntegratorExternalId,
+  type OnrampOrderRow,
+  updateOnrampOrder,
+} from './order-store';
 import {
   buildOnrampBinanceClientOrderId,
   buildOnrampBinanceWithdrawOrderId,
@@ -49,6 +56,9 @@ export type CreateOnrampQuoteInput = {
   amountUsdc?: string;
   destinationAddress?: string;
   destinationMemo?: string | null;
+  integratorExternalId?: string | null;
+  quoteSpreadBps?: number;
+  apiKeyMaxAmountBrl?: string | null;
   actorEmail?: string | null;
   actorUserId?: string | null;
 };
@@ -64,6 +74,7 @@ export type OnrampQuoteView = {
 
 export type OnrampQuoteResponse = {
   orderId: string;
+  externalId: string | null;
   status: 'quoted';
   quote: OnrampQuoteView;
   destination: {
@@ -163,7 +174,7 @@ function getOnrampQuoteSymbol(): string {
   return process.env.ONRAMP_QUOTE_SYMBOL?.trim().toUpperCase() || DEFAULT_ONRAMP_QUOTE_SYMBOL;
 }
 
-function getOnrampQuoteSpreadBps(): number {
+export function getOnrampQuoteSpreadBps(): number {
   return readNonNegativeIntegerEnv('ONRAMP_QUOTE_SPREAD_BPS', DEFAULT_ONRAMP_QUOTE_SPREAD_BPS);
 }
 
@@ -316,6 +327,7 @@ export function calculateQuotedBrlAmount(amountUsdc: string, effectiveRateBrlPer
 export function buildOnrampQuoteResponse(row: OnrampOrderRow): OnrampQuoteResponse {
   return {
     orderId: row.id,
+    externalId: row.integrator_external_id,
     status: 'quoted',
     quote: {
       symbol: row.quote_symbol,
@@ -360,8 +372,19 @@ export async function createOnrampQuote(input: CreateOnrampQuoteInput): Promise<
     throw new OnrampConfigError(maxDepositResult.reason);
   }
 
+  const integratorExternalId = input.integratorExternalId?.trim() || null;
+  if (integratorExternalId && input.actorUserId) {
+    const duplicate = await findOnrampOrderByIntegratorExternalId({
+      userId: input.actorUserId,
+      externalId: integratorExternalId,
+    });
+    if (duplicate) {
+      throw new OnrampOperationError(`externalId "${integratorExternalId}" is already in use.`, 409);
+    }
+  }
+
   const symbol = getOnrampQuoteSymbol();
-  const spreadBps = getOnrampQuoteSpreadBps();
+  const spreadBps = input.quoteSpreadBps ?? getOnrampQuoteSpreadBps();
   const ttlSeconds = getOnrampQuoteTtlSeconds();
   const ticker = await binance.market.getTickerPrice(symbol);
   const effectiveRate = applyOnrampQuoteSpread(ticker.price, spreadBps);
@@ -377,6 +400,8 @@ export async function createOnrampQuote(input: CreateOnrampQuoteInput): Promise<
   }
 
   assertWithinConfiguredDepositLimit(amountBrl, maxDepositResult.maxDepositBrl);
+
+  assertAmountBrlWithinLimit(amountBrl, input.apiKeyMaxAmountBrl, 'onramp');
 
   try {
     assertGrossUsdcCoversDeliveryFee(amountUsdc);
@@ -409,6 +434,7 @@ export async function createOnrampQuote(input: CreateOnrampQuoteInput): Promise<
     quoteSpreadBps: spreadBps,
     createdByEmail: input.actorEmail ?? null,
     createdByUserId: input.actorUserId ?? null,
+    integratorExternalId,
     metadata: {
       quote: {
         tickerSymbol: ticker.symbol,

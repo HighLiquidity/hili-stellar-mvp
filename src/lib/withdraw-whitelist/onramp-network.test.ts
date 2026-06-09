@@ -22,4 +22,9 @@ describe('withdraw whitelist on-ramp network helpers', () => {
     vi.stubEnv('ONRAMP_WITHDRAW_NETWORK', 'STELLAR_PUBLIC');
     expect(getOnrampWithdrawNetwork()).toBe('STELLAR_PUBLIC');
   });
+
+  it('trims and uppercases ONRAMP_WITHDRAW_NETWORK', () => {
+    vi.stubEnv('ONRAMP_WITHDRAW_NETWORK', '  stellar_public  ');
+    expect(getOnrampWithdrawNetwork()).toBe('STELLAR_PUBLIC');
+  });
 });

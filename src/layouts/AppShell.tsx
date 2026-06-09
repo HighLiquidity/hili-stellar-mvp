@@ -14,6 +14,7 @@ import {
   DepositIcon,
   EventLogIcon,
   UsersIcon,
+  ApiIntegrationIcon,
   KeyIcon,
   LogoutIcon,
   MenuIcon,
@@ -161,6 +162,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               icon: <KeyIcon width={18} height={18} />,
             },
             {
+              to: '/app/api-integration',
+              label: t('nav.apiIntegration'),
+              icon: <ApiIntegrationIcon width={18} height={18} />,
+            },
+            {
               to: '/app/event-logs',
               label: t('nav.eventLogs'),
               icon: <EventLogIcon width={18} height={18} />,
@@ -184,6 +190,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
     if (pathname.startsWith('/app/users')) {
       return t('pages.userManagement.title');
+    }
+    if (pathname.startsWith('/app/api-integration')) {
+      return t('pages.apiIntegration.title');
     }
     if (pathname.startsWith('/app/event-logs')) {
       return t('pages.eventLogs.title');

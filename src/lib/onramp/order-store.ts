@@ -65,6 +65,7 @@ export type OnrampOrderRow = {
   needs_review_reason: string | null;
   created_by_user_id: string | null;
   created_by_email: string | null;
+  integrator_external_id: string | null;
   quoted_at: string;
   pix_received_at: string | null;
   brh_sold_at: string | null;
@@ -229,6 +230,28 @@ export async function findOnrampOrderByBrhSaleExternalId(
   return (data as OnrampOrderRow | null) ?? null;
 }
 
+export async function findOnrampOrderByIntegratorExternalId(input: {
+  userId: string;
+  externalId: string;
+}): Promise<OnrampOrderRow | null> {
+  const admin = createSupabaseAdmin();
+  if (!admin) return null;
+
+  const { data, error } = await admin
+    .from(ONRAMP_ORDERS_TABLE)
+    .select('*')
+    .eq('created_by_user_id', input.userId.trim())
+    .eq('integrator_external_id', input.externalId.trim())
+    .maybeSingle();
+
+  if (error) {
+    console.error('[onramp/store] find by integrator external id failed', error.message);
+    return null;
+  }
+
+  return (data as OnrampOrderRow | null) ?? null;
+}
+
 export async function findOnrampOrderByUsdcDeliveryExternalId(
   usdcDeliveryExternalId: string,
 ): Promise<OnrampOrderRow | null> {
@@ -262,6 +285,7 @@ export async function createQuotedOnrampOrder(input: {
   quoteSpreadBps?: number | null;
   createdByUserId?: string | null;
   createdByEmail?: string | null;
+  integratorExternalId?: string | null;
   metadata?: Record<string, unknown> | null;
 }): Promise<{ ok: true; row: OnrampOrderRow } | { ok: false; reason: string }> {
   const admin = createSupabaseAdmin();
@@ -287,6 +311,7 @@ export async function createQuotedOnrampOrder(input: {
       quote_spread_bps: input.quoteSpreadBps ?? null,
       created_by_user_id: normalizeOptionalString(input.createdByUserId),
       created_by_email: normalizeOptionalString(input.createdByEmail)?.toLowerCase() ?? null,
+      integrator_external_id: normalizeOptionalString(input.integratorExternalId),
       metadata: input.metadata ?? {},
       quoted_at: now,
       updated_at: now,

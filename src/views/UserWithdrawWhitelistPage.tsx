@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import {
@@ -31,7 +32,6 @@ async function getAccessToken(): Promise<string | null> {
   return data.session?.access_token ?? null;
 }
 
-const NETWORK_OPTIONS: WithdrawWhitelistNetwork[] = ['STELLAR_TESTNET', 'STELLAR_PUBLIC'];
 
 export function UserWithdrawWhitelistPage() {
   const { t } = useI18n();
@@ -285,6 +285,11 @@ export function UserWithdrawWhitelistPage() {
           ) : null}
         </div>
 
+        <p className="surface__lead api-cross-link">
+          {t('pages.apiIntegration.crossLinks.whitelist')}{' '}
+          <Link href="/app/api-integration">{t('pages.apiIntegration.crossLinks.whitelistLink')}</Link>
+        </p>
+
         {activeTab === 'pix' ? <UserPixWhitelistPanel isActive /> : null}
 
         {activeTab === 'wallets' ? (
@@ -391,14 +396,12 @@ export function UserWithdrawWhitelistPage() {
                   <select
                     className="field__input field__select"
                     value={network}
-                    onChange={(e) => setNetwork(e.target.value as WithdrawWhitelistNetwork)}
+                    disabled
+                    aria-readonly="true"
                   >
-                    {NETWORK_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
+                    <option value={network}>{network}</option>
                   </select>
+                  <span className="field__hint">{t('pages.withdrawWhitelist.networkOnrampHint')}</span>
                 </label>
               </div>
               <InputField

@@ -96,6 +96,7 @@ function makeOrder(overrides: Partial<OfframpOrderRow> = {}): OfframpOrderRow {
     needs_review_reason: null,
     created_by_user_id: null,
     created_by_email: null,
+    integrator_external_id: null,
     quoted_at: new Date().toISOString(),
     usdc_received_at: new Date().toISOString(),
     pix_sent_at: new Date().toISOString(),

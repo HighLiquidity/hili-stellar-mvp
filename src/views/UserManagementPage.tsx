@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import {
@@ -216,6 +217,11 @@ export function UserManagementPage() {
             {t('pages.userManagement.addUser')}
           </Button>
         </div>
+
+        <p className="surface__lead api-cross-link">
+          {t('pages.apiIntegration.crossLinks.users')}{' '}
+          <Link href="/app/api-integration">{t('pages.apiIntegration.crossLinks.usersLink')}</Link>
+        </p>
 
         {loadError ? (
           <p className="auth-inline-error" role="alert">

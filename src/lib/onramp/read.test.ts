@@ -50,6 +50,7 @@ const baseRow: OnrampOrderRow = {
   needs_review_reason: null,
   created_by_user_id: 'user-123',
   created_by_email: 'operator@example.com',
+  integrator_external_id: 'erp-order-12345',
   quoted_at: '2026-05-26T14:58:00.000Z',
   pix_received_at: null,
   brh_sold_at: null,

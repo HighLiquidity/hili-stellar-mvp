@@ -20,6 +20,7 @@ import type { OfframpOrderRow } from './order-store';
 function buildLockResponse(row: OfframpOrderRow): OfframpLockResponse {
   return {
     orderId: row.id,
+    externalId: row.integrator_external_id,
     status: 'awaiting_deposit',
     quote: {
       symbol: row.quote_symbol,
