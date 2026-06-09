@@ -13,7 +13,7 @@ import type { WithdrawWhitelistNetwork, WithdrawWhitelistRow } from '@/lib/withd
 const WHITELIST_TABLE = 'user_withdraw_whitelist';
 const PANEL_ACCESS_TABLE = 'panel_access_list';
 const WHITELIST_COLUMNS =
-  'id, user_id, address, network, label, memo, is_active, created_at, updated_at, created_by_email';
+  'id, user_id, address, network, label, memo, is_active, approval_status, reviewed_at, reviewed_by_email, rejection_reason, created_at, updated_at, created_by_email';
 
 type UserOption = {
   email: string;
@@ -104,7 +104,12 @@ export async function listWithdrawWhitelistAction(
     const { admin } = await requireAdminFromAccessToken(accessToken);
 
     const [{ data, error }, userIdEmailMap] = await Promise.all([
-      admin.from(WHITELIST_TABLE).select(WHITELIST_COLUMNS).order('created_at', { ascending: false }).limit(200),
+      admin
+        .from(WHITELIST_TABLE)
+        .select(WHITELIST_COLUMNS)
+        .eq('approval_status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(200),
       listAuthUsersByEmail(admin),
     ]);
 
@@ -125,7 +130,7 @@ export async function getOnrampWithdrawNetworkAction(
   accessToken: string,
 ): Promise<ActionResult<{ network: WithdrawWhitelistNetwork }>> {
   try {
-    await requireAdminFromAccessToken(accessToken);
+    await requireOperatorOrAdminFromAccessToken(accessToken);
     return { ok: true, data: { network: getOnrampWithdrawNetwork() } };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
@@ -213,7 +218,6 @@ export async function upsertWithdrawWhitelistAction(
     id?: string;
     userEmail: string;
     address: string;
-    network: WithdrawWhitelistNetwork;
     label?: string | null;
     memo?: string | null;
     isActive: boolean;
@@ -247,6 +251,7 @@ export async function upsertWithdrawWhitelistAction(
 
     const network = getOnrampWithdrawNetwork();
 
+    const now = new Date().toISOString();
     const payload = {
       user_id: authUserId,
       address,
@@ -254,7 +259,11 @@ export async function upsertWithdrawWhitelistAction(
       label: input.label?.trim() || null,
       memo,
       is_active: input.isActive,
-      updated_at: new Date().toISOString(),
+      approval_status: 'approved' as const,
+      reviewed_at: now,
+      reviewed_by_email: actorEmail,
+      rejection_reason: null,
+      updated_at: now,
     };
 
     if (input.id) {
@@ -294,6 +303,257 @@ export async function deleteWithdrawWhitelistAction(
     }
 
     const { error } = await admin.from(WHITELIST_TABLE).delete().eq('id', targetId);
+    if (error) return { ok: false, message: error.message };
+    return { ok: true, data: { id: targetId } };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function listMyWithdrawWhitelistAction(
+  accessToken: string,
+): Promise<ActionResult<WithdrawWhitelistRow[]>> {
+  try {
+    const { admin, userId } = await requireOperatorOrAdminFromAccessToken(accessToken);
+    const { data, error } = await admin
+      .from(WHITELIST_TABLE)
+      .select(WHITELIST_COLUMNS)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) return { ok: false, message: error.message };
+    return { ok: true, data: (data ?? []) as WithdrawWhitelistRow[] };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function listPendingWithdrawWhitelistAction(
+  accessToken: string,
+): Promise<ActionResult<WithdrawWhitelistRowWithEmail[]>> {
+  try {
+    const { admin } = await requireAdminFromAccessToken(accessToken);
+
+    const [{ data, error }, userIdEmailMap] = await Promise.all([
+      admin
+        .from(WHITELIST_TABLE)
+        .select(WHITELIST_COLUMNS)
+        .eq('approval_status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(200),
+      listAuthUsersByEmail(admin),
+    ]);
+
+    if (error) return { ok: false, message: error.message };
+
+    const rows = ((data ?? []) as WithdrawWhitelistRow[]).map((row) => ({
+      ...row,
+      user_email: userIdEmailMap.get(row.user_id) ?? null,
+    }));
+
+    return { ok: true, data: rows };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function submitWithdrawWhitelistRequestAction(
+  accessToken: string,
+  input: {
+    address: string;
+    label?: string | null;
+    memo?: string | null;
+  },
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const { admin, userId, email: actorEmail, role } = await requireOperatorOrAdminFromAccessToken(accessToken);
+    if (role !== 'operator') {
+      return { ok: false, message: 'Only operators can submit whitelist requests.' };
+    }
+
+    const address = normalizeWithdrawWhitelistAddress(input.address);
+    let memo: string | null;
+    try {
+      memo = normalizeWithdrawWhitelistMemo(input.memo);
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : 'Memo inválido.',
+      };
+    }
+
+    if (!address) {
+      return { ok: false, message: 'Endereço é obrigatório.' };
+    }
+
+    const network = getOnrampWithdrawNetwork();
+    const now = new Date().toISOString();
+
+    const { data: existing, error: existingError } = await admin
+      .from(WHITELIST_TABLE)
+      .select('id, approval_status, is_active')
+      .eq('user_id', userId)
+      .eq('address', address)
+      .eq('network', network)
+      .maybeSingle();
+
+    if (existingError) return { ok: false, message: existingError.message };
+
+    if (existing?.approval_status === 'approved' && existing.is_active) {
+      return { ok: false, message: 'Wallet already whitelisted.' };
+    }
+    if (existing?.approval_status === 'pending') {
+      return { ok: false, message: 'Wallet request already pending approval.' };
+    }
+
+    const payload = {
+      user_id: userId,
+      address,
+      network,
+      label: input.label?.trim() || null,
+      memo,
+      is_active: false,
+      approval_status: 'pending' as const,
+      reviewed_at: null,
+      reviewed_by_email: null,
+      rejection_reason: null,
+      updated_at: now,
+      created_by_email: actorEmail,
+    };
+
+    if (existing?.id) {
+      const { error } = await admin.from(WHITELIST_TABLE).update(payload).eq('id', existing.id);
+      if (error) return { ok: false, message: error.message };
+      return { ok: true, data: { id: existing.id } };
+    }
+
+    const { data, error } = await admin
+      .from(WHITELIST_TABLE)
+      .insert(payload)
+      .select('id')
+      .maybeSingle();
+
+    if (error) return { ok: false, message: error.message };
+    if (!data?.id) return { ok: false, message: 'Failed to create whitelist request.' };
+    return { ok: true, data: { id: data.id } };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function cancelWithdrawWhitelistRequestAction(
+  accessToken: string,
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const { admin, userId } = await requireOperatorOrAdminFromAccessToken(accessToken);
+    const targetId = id.trim();
+    if (!targetId) {
+      return { ok: false, message: 'ID inválido.' };
+    }
+
+    const { data: row, error: fetchError } = await admin
+      .from(WHITELIST_TABLE)
+      .select('id, user_id, approval_status')
+      .eq('id', targetId)
+      .maybeSingle();
+
+    if (fetchError) return { ok: false, message: fetchError.message };
+    if (!row || row.user_id !== userId) {
+      return { ok: false, message: 'Request not found.' };
+    }
+    if (row.approval_status !== 'pending') {
+      return { ok: false, message: 'Only pending requests can be cancelled.' };
+    }
+
+    const { error } = await admin.from(WHITELIST_TABLE).delete().eq('id', targetId);
+    if (error) return { ok: false, message: error.message };
+    return { ok: true, data: { id: targetId } };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function approveWithdrawWhitelistRequestAction(
+  accessToken: string,
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const { admin, email: actorEmail } = await requireAdminFromAccessToken(accessToken);
+    const targetId = id.trim();
+    if (!targetId) {
+      return { ok: false, message: 'ID inválido.' };
+    }
+
+    const { data: row, error: fetchError } = await admin
+      .from(WHITELIST_TABLE)
+      .select('id, approval_status')
+      .eq('id', targetId)
+      .maybeSingle();
+
+    if (fetchError) return { ok: false, message: fetchError.message };
+    if (!row) return { ok: false, message: 'Request not found.' };
+    if (row.approval_status !== 'pending') {
+      return { ok: false, message: 'Request is not pending.' };
+    }
+
+    const now = new Date().toISOString();
+    const { error } = await admin
+      .from(WHITELIST_TABLE)
+      .update({
+        is_active: true,
+        approval_status: 'approved',
+        reviewed_at: now,
+        reviewed_by_email: actorEmail,
+        rejection_reason: null,
+        updated_at: now,
+      })
+      .eq('id', targetId);
+
+    if (error) return { ok: false, message: error.message };
+    return { ok: true, data: { id: targetId } };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function rejectWithdrawWhitelistRequestAction(
+  accessToken: string,
+  input: { id: string; reason?: string | null },
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const { admin, email: actorEmail } = await requireAdminFromAccessToken(accessToken);
+    const targetId = input.id.trim();
+    if (!targetId) {
+      return { ok: false, message: 'ID inválido.' };
+    }
+
+    const { data: row, error: fetchError } = await admin
+      .from(WHITELIST_TABLE)
+      .select('id, approval_status')
+      .eq('id', targetId)
+      .maybeSingle();
+
+    if (fetchError) return { ok: false, message: fetchError.message };
+    if (!row) return { ok: false, message: 'Request not found.' };
+    if (row.approval_status !== 'pending') {
+      return { ok: false, message: 'Request is not pending.' };
+    }
+
+    const now = new Date().toISOString();
+    const { error } = await admin
+      .from(WHITELIST_TABLE)
+      .update({
+        is_active: false,
+        approval_status: 'rejected',
+        reviewed_at: now,
+        reviewed_by_email: actorEmail,
+        rejection_reason: input.reason?.trim() || null,
+        updated_at: now,
+      })
+      .eq('id', targetId);
+
     if (error) return { ok: false, message: error.message };
     return { ok: true, data: { id: targetId } };
   } catch (e) {

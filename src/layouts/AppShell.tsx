@@ -147,39 +147,57 @@ export function AppShell({ children }: { children: ReactNode }) {
     [profile?.role, t],
   );
 
-  const adminNavItems = useMemo<NavItem[]>(
-    () =>
-      profile?.role === 'admin'
-        ? [
-            {
-              to: '/app/users',
-              label: t('nav.users'),
-              icon: <UsersIcon width={18} height={18} />,
-            },
-            {
-              to: '/app/withdraw-whitelist',
-              label: t('nav.withdrawWhitelist'),
-              icon: <KeyIcon width={18} height={18} />,
-            },
-            {
-              to: '/app/api-integration',
-              label: t('nav.apiIntegration'),
-              icon: <ApiIntegrationIcon width={18} height={18} />,
-            },
-            {
-              to: '/app/event-logs',
-              label: t('nav.eventLogs'),
-              icon: <EventLogIcon width={18} height={18} />,
-            },
-            {
-              to: '/app/settings',
-              label: t('nav.settings'),
-              icon: <SettingsIcon width={18} height={18} />,
-            },
-          ]
-        : [],
-    [profile?.role, t],
-  );
+  const managementNavItems = useMemo<NavItem[]>(() => {
+    const items: NavItem[] = [];
+
+    if (profile?.role === 'admin') {
+      items.push(
+        {
+          to: '/app/users',
+          label: t('nav.users'),
+          icon: <UsersIcon width={18} height={18} />,
+        },
+        {
+          to: '/app/withdraw-whitelist',
+          label: t('nav.withdrawWhitelist'),
+          icon: <KeyIcon width={18} height={18} />,
+        },
+      );
+    }
+
+    if (profile?.role === 'operator') {
+      items.push({
+        to: '/app/withdraw-whitelist',
+        label: t('nav.myWhitelist'),
+        icon: <KeyIcon width={18} height={18} />,
+      });
+    }
+
+    if (isOperatorOrAdminRole(profile?.role)) {
+      items.push({
+        to: '/app/api-integration',
+        label: t('nav.apiIntegration'),
+        icon: <ApiIntegrationIcon width={18} height={18} />,
+      });
+    }
+
+    if (profile?.role === 'admin') {
+      items.push(
+        {
+          to: '/app/event-logs',
+          label: t('nav.eventLogs'),
+          icon: <EventLogIcon width={18} height={18} />,
+        },
+        {
+          to: '/app/settings',
+          label: t('nav.settings'),
+          icon: <SettingsIcon width={18} height={18} />,
+        },
+      );
+    }
+
+    return items;
+  }, [profile?.role, t]);
 
   const pageTitle = useMemo(() => {
     if (pathname.startsWith('/app/change-password')) {
@@ -198,9 +216,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       return t('pages.eventLogs.title');
     }
 
-    const currentItem = [...navItems, ...adminNavItems].find((item) => pathname.startsWith(item.to));
+    const currentItem = [...navItems, ...managementNavItems].find((item) => pathname.startsWith(item.to));
     return currentItem?.label ?? t('app.name');
-  }, [adminNavItems, navItems, pathname, t]);
+  }, [managementNavItems, navItems, pathname, t]);
 
   const userDisplayName = profile?.full_name?.trim() || user?.email || t('shell.userFallback');
   const userInitials = getInitials(profile?.full_name ?? '', user?.email);
@@ -296,10 +314,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             ))}
 
-            {adminNavItems.length > 0 ? (
+            {managementNavItems.length > 0 ? (
               <>
                 <div className="sidebar__nav-divider" aria-hidden="true" />
-                {adminNavItems.map((item) => (
+                {managementNavItems.map((item) => (
                   <Link
                     key={item.to}
                     href={item.to}

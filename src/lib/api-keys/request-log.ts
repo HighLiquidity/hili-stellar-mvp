@@ -62,6 +62,49 @@ export async function logApiKeyRequest(input: {
   }
 }
 
+export async function listApiKeyRequestLogsForLinkedUser(
+  linkedUserId: string,
+  limit = DEFAULT_LIST_LIMIT,
+): Promise<ApiActivityRow[]> {
+  const admin = createSupabaseAdmin();
+  if (!admin) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY missing');
+  }
+
+  const normalizedUserId = linkedUserId.trim();
+  if (!normalizedUserId) {
+    return [];
+  }
+
+  const { data: keys, error: keysError } = await admin
+    .from('api_keys')
+    .select('id')
+    .eq('linked_user_id', normalizedUserId);
+
+  if (keysError) {
+    throw new Error(keysError.message);
+  }
+
+  const keyIds = (keys ?? []).map((row) => row.id as string).filter(Boolean);
+  if (keyIds.length === 0) {
+    return [];
+  }
+
+  const safeLimit = Math.min(Math.max(limit, 1), 500);
+  const { data, error } = await admin
+    .from(REQUEST_LOGS_TABLE)
+    .select('id, created_at, api_key_id, key_prefix, method, route, status_code, duration_ms, idempotency_key')
+    .in('api_key_id', keyIds)
+    .order('created_at', { ascending: false })
+    .limit(safeLimit);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as RequestLogDbRow[]).map(mapActivityRow);
+}
+
 export async function listApiKeyRequestLogs(limit = DEFAULT_LIST_LIMIT): Promise<ApiActivityRow[]> {
   const admin = createSupabaseAdmin();
   if (!admin) {

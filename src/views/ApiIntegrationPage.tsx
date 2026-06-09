@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
+import { isOperatorOrAdminRole } from '@/lib/users/panel-access';
 import { useI18n } from '@/lib/i18n';
 import { ApiActivityPanel } from '@/views/api-integration/ApiActivityPanel';
 import { ApiDocsPanel } from '@/views/api-integration/ApiDocsPanel';
@@ -17,16 +18,29 @@ export function ApiIntegrationPage() {
   const { t } = useI18n();
   const router = useRouter();
   const { profile, isLoading: authLoading, isAuthorized } = useAuth();
-  const [activeTab, setActiveTab] = useState<ApiIntegrationTab>('overview');
+  const isAdmin = profile?.role === 'admin';
+  const canAccess = isOperatorOrAdminRole(profile?.role);
+  const [activeTab, setActiveTab] = useState<ApiIntegrationTab>('keys');
+
+  const visibleTabs = useMemo<ApiIntegrationTab[]>(() => {
+    if (isAdmin) return ['overview', 'keys', 'docs', 'activity'];
+    return ['keys', 'docs', 'overview'];
+  }, [isAdmin]);
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
-    if (profile?.role !== 'admin') {
+    if (!canAccess) {
       router.replace('/app/dashboard');
     }
-  }, [authLoading, isAuthorized, profile?.role, router]);
+  }, [authLoading, canAccess, isAuthorized, router]);
 
-  if (authLoading || profile?.role !== 'admin') {
+  useEffect(() => {
+    if (!visibleTabs.includes(activeTab)) {
+      setActiveTab(visibleTabs[0] ?? 'keys');
+    }
+  }, [activeTab, visibleTabs]);
+
+  if (authLoading || !canAccess) {
     return (
       <section className="dashboard-layout">
         <article className="surface">
@@ -44,15 +58,17 @@ export function ApiIntegrationPage() {
             <p className="eyebrow">{t('pages.apiIntegration.eyebrow')}</p>
             <h2 className="user-management-card__title">{t('pages.apiIntegration.title')}</h2>
             <div className="onramp-inline-actions" role="tablist" aria-label={t('pages.apiIntegration.tabsLabel')}>
-              <Button
-                type="button"
-                role="tab"
-                variant={activeTab === 'overview' ? 'primary' : 'secondary'}
-                aria-selected={activeTab === 'overview'}
-                onClick={() => setActiveTab('overview')}
-              >
-                {t('pages.apiIntegration.tabs.overview')}
-              </Button>
+              {visibleTabs.includes('overview') ? (
+                <Button
+                  type="button"
+                  role="tab"
+                  variant={activeTab === 'overview' ? 'primary' : 'secondary'}
+                  aria-selected={activeTab === 'overview'}
+                  onClick={() => setActiveTab('overview')}
+                >
+                  {t('pages.apiIntegration.tabs.overview')}
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 role="tab"
@@ -71,21 +87,23 @@ export function ApiIntegrationPage() {
               >
                 {t('pages.apiIntegration.tabs.docs')}
               </Button>
-              <Button
-                type="button"
-                role="tab"
-                variant={activeTab === 'activity' ? 'primary' : 'secondary'}
-                aria-selected={activeTab === 'activity'}
-                onClick={() => setActiveTab('activity')}
-              >
-                {t('pages.apiIntegration.tabs.activity')}
-              </Button>
+              {visibleTabs.includes('activity') ? (
+                <Button
+                  type="button"
+                  role="tab"
+                  variant={activeTab === 'activity' ? 'primary' : 'secondary'}
+                  aria-selected={activeTab === 'activity'}
+                  onClick={() => setActiveTab('activity')}
+                >
+                  {t('pages.apiIntegration.tabs.activity')}
+                </Button>
+              ) : null}
             </div>
           </div>
         </div>
 
         {activeTab === 'overview' ? <ApiIntegrationOverviewPanel /> : null}
-        {activeTab === 'keys' ? <ApiKeysAdminPanel /> : null}
+        {activeTab === 'keys' ? <ApiKeysAdminPanel isAdmin={isAdmin} /> : null}
         {activeTab === 'docs' ? <ApiDocsPanel /> : null}
         {activeTab === 'activity' ? <ApiActivityPanel /> : null}
       </article>

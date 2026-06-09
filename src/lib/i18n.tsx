@@ -86,6 +86,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
       eventLogs: 'Logs de eventos',
       users: 'Usuários',
       withdrawWhitelist: 'Whitelist de wallets',
+      myWhitelist: 'Meus destinos',
       apiIntegration: 'Integração API',
       settings: 'Configurações',
       logout: 'Logout',
@@ -591,6 +592,45 @@ const dictionaries: Record<Locale, TranslationTree> = {
             userNotFound: 'Usuário não encontrado na lista de acesso do painel.',
           },
         },
+        whitelistApproval: {
+          operatorEyebrow: 'Operador',
+          operatorWalletHint:
+            'Solicite o cadastro de wallets USDC. Cada pedido precisa ser aprovado por um administrador antes de poder ser usada no on-ramp.',
+          operatorPixHint:
+            'Solicite o cadastro de chaves PIX. Cada pedido precisa ser aprovado por um administrador antes de poder ser usada no off-ramp.',
+          requestWallet: 'Solicitar wallet',
+          requestPixKey: 'Solicitar chave PIX',
+          submitRequest: 'Enviar solicitação',
+          requestSubmitted: 'Solicitação enviada. Aguarde aprovação de um administrador.',
+          requestAgain: 'Solicitar novamente',
+          cancelRequest: 'Cancelar solicitação',
+          cancelConfirm: 'Cancelar esta solicitação pendente?',
+          cancelSuccess: 'Solicitação cancelada.',
+          tabs: {
+            pending: 'Pendências',
+          },
+          columns: {
+            status: 'Status',
+            requestedAt: 'Solicitado em',
+          },
+          status: {
+            pending: 'Pendente',
+            approved: 'Aprovado',
+            rejected: 'Rejeitado',
+          },
+          empty: 'Nenhuma solicitação pendente.',
+          walletsSection: 'Wallets USDC pendentes',
+          pixSection: 'Chaves PIX pendentes',
+          approve: 'Aprovar',
+          reject: 'Rejeitar',
+          approveSuccess: 'Solicitação aprovada.',
+          rejectSuccess: 'Solicitação rejeitada.',
+          rejectReasonPrompt: 'Motivo da rejeição (opcional):',
+          errors: {
+            alreadyWhitelisted: 'Este destino já está na whitelist.',
+            alreadyPending: 'Já existe uma solicitação pendente para este destino.',
+          },
+        },
         pixWhitelist: {
           addKey: 'Nova chave PIX',
           empty: 'Nenhuma chave PIX cadastrada.',
@@ -728,7 +768,13 @@ const dictionaries: Record<Locale, TranslationTree> = {
             title: 'Chaves API persistidas',
             badge: 'Beta',
             body:
-              'Chaves são salvas no Supabase e autenticam as rotas /api/v1. Aplique a migration api_keys em produção antes de usar.',
+              'Como admin, você supervisiona todas as chaves e pode criá-las para qualquer operador. Spread e limite por chave são opcionais.',
+          },
+          devNoticeOperator: {
+            title: 'Suas chaves API',
+            badge: 'Self-service',
+            body:
+              'Crie e revogue chaves vinculadas à sua conta. Elas autenticam as rotas /api/v1 com escopo às suas whitelists.',
           },
           revokeConfirm: 'Revogar a chave {{label}}?',
           secretTitle: 'Copie o secret agora',
@@ -762,6 +808,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
             noOperatorsAvailable:
               'Nenhum operador ou admin ativo disponível. Cadastre um usuário operador em Usuários.',
             scopeRequired: 'Selecione ao menos um escopo.',
+            notFound: 'Chave API não encontrada ou fora do seu escopo.',
           },
         },
         docs: {
@@ -978,6 +1025,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
       eventLogs: 'Event logs',
       users: 'Users',
       withdrawWhitelist: 'Withdraw whitelist',
+      myWhitelist: 'My destinations',
       apiIntegration: 'API integration',
       settings: 'Settings',
       logout: 'Logout',
@@ -1481,6 +1529,45 @@ const dictionaries: Record<Locale, TranslationTree> = {
             userNotFound: 'User not found in panel access list.',
           },
         },
+        whitelistApproval: {
+          operatorEyebrow: 'Operator',
+          operatorWalletHint:
+            'Request USDC wallet registration. Each request must be approved by an administrator before it can be used for on-ramp.',
+          operatorPixHint:
+            'Request PIX key registration. Each request must be approved by an administrator before it can be used for off-ramp.',
+          requestWallet: 'Request wallet',
+          requestPixKey: 'Request PIX key',
+          submitRequest: 'Submit request',
+          requestSubmitted: 'Request submitted. Awaiting administrator approval.',
+          requestAgain: 'Request again',
+          cancelRequest: 'Cancel request',
+          cancelConfirm: 'Cancel this pending request?',
+          cancelSuccess: 'Request cancelled.',
+          tabs: {
+            pending: 'Pending',
+          },
+          columns: {
+            status: 'Status',
+            requestedAt: 'Requested at',
+          },
+          status: {
+            pending: 'Pending',
+            approved: 'Approved',
+            rejected: 'Rejected',
+          },
+          empty: 'No pending requests.',
+          walletsSection: 'Pending USDC wallets',
+          pixSection: 'Pending PIX keys',
+          approve: 'Approve',
+          reject: 'Reject',
+          approveSuccess: 'Request approved.',
+          rejectSuccess: 'Request rejected.',
+          rejectReasonPrompt: 'Rejection reason (optional):',
+          errors: {
+            alreadyWhitelisted: 'This destination is already whitelisted.',
+            alreadyPending: 'A pending request already exists for this destination.',
+          },
+        },
         pixWhitelist: {
           addKey: 'New PIX key',
           empty: 'No PIX keys registered.',
@@ -1618,7 +1705,13 @@ const dictionaries: Record<Locale, TranslationTree> = {
             title: 'Persisted API keys',
             badge: 'Beta',
             body:
-              'Keys are stored in Supabase and authenticate /api/v1 routes. Apply the api_keys migration in production before use.',
+              'As admin, you supervise all keys and can create them for any operator. Per-key spread and limits are optional.',
+          },
+          devNoticeOperator: {
+            title: 'Your API keys',
+            badge: 'Self-service',
+            body:
+              'Create and revoke keys linked to your account. They authenticate /api/v1 routes scoped to your whitelists.',
           },
           revokeConfirm: 'Revoke key {{label}}?',
           secretTitle: 'Copy the secret now',
@@ -1652,6 +1745,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
             noOperatorsAvailable:
               'No active operator or admin available. Register an operator user under Users.',
             scopeRequired: 'Select at least one scope.',
+            notFound: 'API key not found or outside your scope.',
           },
         },
         docs: {

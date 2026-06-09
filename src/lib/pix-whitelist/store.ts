@@ -8,7 +8,7 @@ import type { PixWhitelistInsert, PixWhitelistRow } from './types';
 const TABLE = 'user_pix_whitelist';
 
 export const PIX_WHITELIST_SELECT =
-  'id, user_id, pix_key, beneficiary_name, label, is_active, created_at, updated_at, created_by_email';
+  'id, user_id, pix_key, beneficiary_name, label, is_active, approval_status, reviewed_at, reviewed_by_email, rejection_reason, created_at, updated_at, created_by_email';
 
 export async function upsertPixWhitelistEntry(input: PixWhitelistInsert): Promise<void> {
   const admin = createSupabaseAdmin();
@@ -55,6 +55,7 @@ export async function findActivePixWhitelistEntry(params: {
     .select(PIX_WHITELIST_SELECT)
     .eq('pix_key', normalizedKey)
     .eq('is_active', true)
+    .eq('approval_status', 'approved')
     .limit(1)
     .maybeSingle();
 
@@ -84,6 +85,7 @@ export async function findActivePixWhitelistEntryForUser(params: {
     .eq('user_id', params.userId)
     .eq('pix_key', normalizedKey)
     .eq('is_active', true)
+    .eq('approval_status', 'approved')
     .limit(1)
     .maybeSingle();
 
@@ -108,6 +110,7 @@ export async function listActivePixWhitelistForUser(userId: string): Promise<Pix
     .select(PIX_WHITELIST_SELECT)
     .eq('user_id', userId)
     .eq('is_active', true)
+    .eq('approval_status', 'approved')
     .order('label', { ascending: true })
     .order('pix_key', { ascending: true });
 
@@ -130,6 +133,7 @@ export async function listActivePixWhitelist(): Promise<PixWhitelistRow[]> {
     .from(TABLE)
     .select(PIX_WHITELIST_SELECT)
     .eq('is_active', true)
+    .eq('approval_status', 'approved')
     .order('label', { ascending: true })
     .order('pix_key', { ascending: true });
 

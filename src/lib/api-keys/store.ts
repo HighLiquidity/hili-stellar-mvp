@@ -136,27 +136,102 @@ async function assertLinkedPanelOperator(
   }
 }
 
+async function mapApiKeyRows(rows: ApiKeyDbRow[]): Promise<ApiKeyRow[]> {
+  const admin = createSupabaseAdmin();
+  if (!admin) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY missing');
+  }
+
+  const emailByUserId = await listAuthEmailsByUserId(admin);
+  return rows.map((row) => mapRow(row, emailByUserId.get(row.linked_user_id) ?? null));
+}
+
+export async function assertApiKeyOwnedByUser(apiKeyId: string, userId: string): Promise<void> {
+  const admin = createSupabaseAdmin();
+  if (!admin) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY missing');
+  }
+
+  const { data, error } = await admin
+    .from(API_KEYS_TABLE)
+    .select('linked_user_id')
+    .eq('id', apiKeyId.trim())
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data || data.linked_user_id !== userId) {
+    throw new Error('API key not found.');
+  }
+}
+
+export async function findApiKeyById(apiKeyId: string): Promise<ApiKeyRow | null> {
+  const admin = createSupabaseAdmin();
+  if (!admin) return null;
+
+  const { data, error } = await admin
+    .from(API_KEYS_TABLE)
+    .select(API_KEY_COLUMNS)
+    .eq('id', apiKeyId.trim())
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) return null;
+  const rows = await mapApiKeyRows([data as ApiKeyDbRow]);
+  return rows[0] ?? null;
+}
+
 export async function listApiKeys(): Promise<ApiKeyRow[]> {
   const admin = createSupabaseAdmin();
   if (!admin) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY missing');
   }
 
-  const [{ data, error }, emailByUserId] = await Promise.all([
-    admin.from(API_KEYS_TABLE).select(API_KEY_COLUMNS).order('created_at', { ascending: false }),
-    listAuthEmailsByUserId(admin),
-  ]);
+  const { data, error } = await admin
+    .from(API_KEYS_TABLE)
+    .select(API_KEY_COLUMNS)
+    .order('created_at', { ascending: false });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as ApiKeyDbRow[]).map((row) => mapRow(row, emailByUserId.get(row.linked_user_id) ?? null));
+  return mapApiKeyRows((data ?? []) as ApiKeyDbRow[]);
+}
+
+export async function listApiKeysForLinkedUser(linkedUserId: string): Promise<ApiKeyRow[]> {
+  const admin = createSupabaseAdmin();
+  if (!admin) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY missing');
+  }
+
+  const normalizedUserId = linkedUserId.trim();
+  if (!normalizedUserId) {
+    throw new Error('Linked user id is required.');
+  }
+
+  const { data, error } = await admin
+    .from(API_KEYS_TABLE)
+    .select(API_KEY_COLUMNS)
+    .eq('linked_user_id', normalizedUserId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapApiKeyRows((data ?? []) as ApiKeyDbRow[]);
 }
 
 export async function createApiKey(input: {
   label: string;
-  linkedUserEmail: string;
+  linkedUserId?: string;
+  linkedUserEmail?: string;
   scopes: ApiKeyScope[];
   createdByEmail: string;
   spreadBpsOverride?: number | null;
@@ -177,7 +252,9 @@ export async function createApiKey(input: {
     throw new Error('At least one scope is required.');
   }
 
-  const linkedUserId = await findAuthUserIdByEmail(admin, input.linkedUserEmail);
+  const linkedUserId =
+    input.linkedUserId?.trim() ||
+    (input.linkedUserEmail ? await findAuthUserIdByEmail(admin, input.linkedUserEmail) : null);
   if (!linkedUserId) {
     throw new Error('Linked operator user was not found in Auth.');
   }
@@ -209,9 +286,9 @@ export async function createApiKey(input: {
     throw new Error(error.message);
   }
 
-  const emails = await listAuthEmailsByUserId(admin);
+  const rows = await mapApiKeyRows([data as ApiKeyDbRow]);
   return {
-    row: mapRow(data as ApiKeyDbRow, emails.get(linkedUserId) ?? input.linkedUserEmail.trim().toLowerCase()),
+    row: rows[0]!,
     secret: credentials.secret,
   };
 }
@@ -238,9 +315,8 @@ export async function revokeApiKey(apiKeyId: string): Promise<ApiKeyRow> {
     throw new Error(error.message);
   }
 
-  const emails = await listAuthEmailsByUserId(admin);
-  const row = data as ApiKeyDbRow;
-  return mapRow(row, emails.get(row.linked_user_id) ?? null);
+  const rows = await mapApiKeyRows([data as ApiKeyDbRow]);
+  return rows[0]!;
 }
 
 export async function authenticateApiKeySecret(secret: string): Promise<ApiKeyAuthContext | null> {

@@ -27,6 +27,10 @@ type RevealState = {
   secret: string;
 } | null;
 
+type ApiKeysAdminPanelProps = {
+  isAdmin: boolean;
+};
+
 async function getAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;
@@ -39,6 +43,9 @@ function translateApiKeyError(message: string, t: (key: string) => string): stri
   if (/api_keys|relation.*does not exist/i.test(message)) {
     return t('pages.apiIntegration.keys.errors.tableMissing');
   }
+  if (/api key not found/i.test(message)) {
+    return t('pages.apiIntegration.keys.errors.notFound');
+  }
   return message;
 }
 
@@ -50,7 +57,7 @@ function formatDateTime(value: string | null, locale: string): string {
   }).format(new Date(value));
 }
 
-export function ApiKeysAdminPanel() {
+export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
   const { t, locale } = useI18n();
   const { profile } = useAuth();
 
@@ -60,7 +67,7 @@ export function ApiKeysAdminPanel() {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingOperators, setIsLoadingOperators] = useState(true);
+  const [isLoadingOperators, setIsLoadingOperators] = useState(isAdmin);
   const [isSaving, setIsSaving] = useState(false);
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [reveal, setReveal] = useState<RevealState>(null);
@@ -79,6 +86,8 @@ export function ApiKeysAdminPanel() {
     [operators],
   );
 
+  const canCreateKey = isAdmin ? operatorOptions.length > 0 : Boolean(profile?.email);
+
   const loadKeys = useCallback(async () => {
     setLoadError(null);
     setIsLoading(true);
@@ -93,7 +102,7 @@ export function ApiKeysAdminPanel() {
 
       const result = await listApiKeysAction(token);
       if (!result.ok) {
-        setLoadError(result.message);
+        setLoadError(translateApiKeyError(result.message, t));
         setRows([]);
         return;
       }
@@ -105,6 +114,11 @@ export function ApiKeysAdminPanel() {
   }, [t]);
 
   const loadOperators = useCallback(async () => {
+    if (!isAdmin) {
+      setIsLoadingOperators(false);
+      return;
+    }
+
     setIsLoadingOperators(true);
 
     try {
@@ -124,16 +138,15 @@ export function ApiKeysAdminPanel() {
     } finally {
       setIsLoadingOperators(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
-    if (profile?.role !== 'admin') return;
     void loadKeys();
     void loadOperators();
-  }, [loadKeys, loadOperators, profile?.role]);
+  }, [loadKeys, loadOperators]);
 
   useEffect(() => {
-    if (formMode !== 'create' || operatorOptions.length === 0) return;
+    if (!isAdmin || formMode !== 'create' || operatorOptions.length === 0) return;
 
     setLinkedUserEmail((current) => {
       const normalized = current.trim().toLowerCase();
@@ -142,7 +155,7 @@ export function ApiKeysAdminPanel() {
         operatorOptions.some((email) => email.trim().toLowerCase() === normalized);
       return isValid ? current : operatorOptions[0];
     });
-  }, [formMode, operatorOptions]);
+  }, [formMode, isAdmin, operatorOptions]);
 
   const resetForm = () => {
     setFormMode(null);
@@ -151,7 +164,7 @@ export function ApiKeysAdminPanel() {
     setMaxAmountBrl('');
     setScopes(['onramp', 'offramp', 'orders:read']);
     setFormError(null);
-    if (operatorOptions[0]) {
+    if (isAdmin && operatorOptions[0]) {
       setLinkedUserEmail(operatorOptions[0]);
     }
   };
@@ -164,7 +177,9 @@ export function ApiKeysAdminPanel() {
     setSpreadBpsOverride('');
     setMaxAmountBrl('');
     setScopes(['onramp', 'offramp', 'orders:read']);
-    setLinkedUserEmail(operatorOptions[0] ?? '');
+    if (isAdmin) {
+      setLinkedUserEmail(operatorOptions[0] ?? '');
+    }
   };
 
   const toggleScope = (scope: ApiKeyScope) => {
@@ -179,14 +194,13 @@ export function ApiKeysAdminPanel() {
     setSuccessMessage(null);
 
     const trimmedLabel = label.trim();
-    const trimmedEmail = linkedUserEmail.trim().toLowerCase();
 
     if (!trimmedLabel) {
       setFormError(t('pages.apiIntegration.keys.errors.labelRequired'));
       return;
     }
 
-    if (!trimmedEmail) {
+    if (isAdmin && !linkedUserEmail.trim()) {
       setFormError(t('pages.apiIntegration.keys.errors.operatorRequired'));
       return;
     }
@@ -207,10 +221,10 @@ export function ApiKeysAdminPanel() {
 
       const result = await createApiKeyAction(token, {
         label: trimmedLabel,
-        linkedUserEmail: trimmedEmail,
+        linkedUserEmail: isAdmin ? linkedUserEmail.trim().toLowerCase() : undefined,
         scopes,
-        spreadBpsOverride: spreadBpsOverride.trim() || undefined,
-        maxAmountBrl: maxAmountBrl.trim() || undefined,
+        spreadBpsOverride: isAdmin ? spreadBpsOverride.trim() || undefined : undefined,
+        maxAmountBrl: isAdmin ? maxAmountBrl.trim() || undefined : undefined,
       });
 
       if (!result.ok) {
@@ -249,7 +263,7 @@ export function ApiKeysAdminPanel() {
 
       const result = await revokeApiKeyAction(token, row.id);
       if (!result.ok) {
-        setFormError(result.message);
+        setFormError(translateApiKeyError(result.message, t));
         return;
       }
 
@@ -260,14 +274,22 @@ export function ApiKeysAdminPanel() {
     }
   };
 
+  const devNotice = isAdmin
+    ? {
+        title: t('pages.apiIntegration.keys.devNoticePersisted.title'),
+        badge: t('pages.apiIntegration.keys.devNoticePersisted.badge'),
+        body: t('pages.apiIntegration.keys.devNoticePersisted.body'),
+      }
+    : {
+        title: t('pages.apiIntegration.keys.devNoticeOperator.title'),
+        badge: t('pages.apiIntegration.keys.devNoticeOperator.badge'),
+        body: t('pages.apiIntegration.keys.devNoticeOperator.body'),
+      };
+
   return (
     <div className="api-integration-panel">
-      <DevNotice
-        title={t('pages.apiIntegration.keys.devNoticePersisted.title')}
-        badge={t('pages.apiIntegration.keys.devNoticePersisted.badge')}
-        variant="info"
-      >
-        <p>{t('pages.apiIntegration.keys.devNoticePersisted.body')}</p>
+      <DevNotice title={devNotice.title} badge={devNotice.badge} variant="info">
+        <p>{devNotice.body}</p>
       </DevNotice>
 
       <div className="api-integration-panel__toolbar">
@@ -275,13 +297,13 @@ export function ApiKeysAdminPanel() {
           type="button"
           variant="secondary"
           onClick={openCreate}
-          disabled={isSaving || isLoadingOperators || operatorOptions.length === 0}
+          disabled={isSaving || isLoadingOperators || !canCreateKey}
         >
           {t('pages.apiIntegration.keys.addKey')}
         </Button>
       </div>
 
-      {!isLoadingOperators && operatorOptions.length === 0 ? (
+      {isAdmin && !isLoadingOperators && operatorOptions.length === 0 ? (
         <p className="surface__lead">{t('pages.apiIntegration.keys.errors.noOperatorsAvailable')}</p>
       ) : null}
 
@@ -322,7 +344,9 @@ export function ApiKeysAdminPanel() {
               <tr>
                 <th scope="col">{t('pages.apiIntegration.keys.columns.label')}</th>
                 <th scope="col">{t('pages.apiIntegration.keys.columns.prefix')}</th>
-                <th scope="col">{t('pages.apiIntegration.keys.columns.operator')}</th>
+                {isAdmin ? (
+                  <th scope="col">{t('pages.apiIntegration.keys.columns.operator')}</th>
+                ) : null}
                 <th scope="col">{t('pages.apiIntegration.keys.columns.scopes')}</th>
                 <th scope="col">{t('pages.apiIntegration.keys.columns.status')}</th>
                 <th scope="col">{t('pages.apiIntegration.keys.columns.lastUsed')}</th>
@@ -336,7 +360,7 @@ export function ApiKeysAdminPanel() {
                   <td>
                     <code>{row.keyPrefix}</code>
                   </td>
-                  <td>{row.linkedUserEmail}</td>
+                  {isAdmin ? <td>{row.linkedUserEmail}</td> : null}
                   <td>{row.scopes.map((scope) => t(`pages.apiIntegration.keys.scopes.${scope}`)).join(', ')}</td>
                   <td>
                     {row.isActive
@@ -369,7 +393,7 @@ export function ApiKeysAdminPanel() {
         <section className="user-management-form api-key-create-form">
           <h2 className="user-management-form__title">{t('pages.apiIntegration.keys.formCreateTitle')}</h2>
           <form className="api-key-create-form__form" onSubmit={(event) => void handleSubmit(event)}>
-            <div className="api-key-form__two-col-row">
+            <div className={isAdmin ? 'api-key-form__two-col-row' : undefined}>
               <InputField
                 id="api-key-label"
                 label={t('pages.apiIntegration.keys.label')}
@@ -379,26 +403,28 @@ export function ApiKeysAdminPanel() {
                 disabled={isSaving}
               />
 
-              <label className="field" htmlFor="api-key-operator">
-                <span className="field__label">{t('pages.apiIntegration.keys.operator')}</span>
-                <select
-                  id="api-key-operator"
-                  className="field__input field__select"
-                  value={linkedUserEmail}
-                  onChange={(event) => setLinkedUserEmail(event.target.value)}
-                  disabled={isSaving || isLoadingOperators}
-                >
-                  {operatorOptions.length === 0 ? (
-                    <option value="">{t('pages.apiIntegration.keys.noOperators')}</option>
-                  ) : (
-                    operatorOptions.map((email) => (
-                      <option key={email} value={email}>
-                        {email}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </label>
+              {isAdmin ? (
+                <label className="field" htmlFor="api-key-operator">
+                  <span className="field__label">{t('pages.apiIntegration.keys.operator')}</span>
+                  <select
+                    id="api-key-operator"
+                    className="field__input field__select"
+                    value={linkedUserEmail}
+                    onChange={(event) => setLinkedUserEmail(event.target.value)}
+                    disabled={isSaving || isLoadingOperators}
+                  >
+                    {operatorOptions.length === 0 ? (
+                      <option value="">{t('pages.apiIntegration.keys.noOperators')}</option>
+                    ) : (
+                      operatorOptions.map((email) => (
+                        <option key={email} value={email}>
+                          {email}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </label>
+              ) : null}
             </div>
 
             <fieldset className="api-key-scopes-fieldset">
@@ -416,31 +442,36 @@ export function ApiKeysAdminPanel() {
               ))}
             </fieldset>
 
-            <div className="api-key-form__two-col-row">
-              <InputField
-                id="api-key-spread"
-                label={t('pages.apiIntegration.keys.spreadOverride')}
-                value={spreadBpsOverride}
-                onChange={(event) => setSpreadBpsOverride(event.target.value)}
-                placeholder={t('pages.apiIntegration.keys.spreadOverridePlaceholder')}
-                disabled={isSaving}
-              />
+            {isAdmin ? (
+              <div className="api-key-form__two-col-row">
+                <InputField
+                  id="api-key-spread"
+                  label={t('pages.apiIntegration.keys.spreadOverride')}
+                  value={spreadBpsOverride}
+                  onChange={(event) => setSpreadBpsOverride(event.target.value)}
+                  placeholder={t('pages.apiIntegration.keys.spreadOverridePlaceholder')}
+                  disabled={isSaving}
+                />
 
-              <InputField
-                id="api-key-limit"
-                label={t('pages.apiIntegration.keys.maxAmountBrl')}
-                value={maxAmountBrl}
-                onChange={(event) => setMaxAmountBrl(event.target.value)}
-                placeholder={t('pages.apiIntegration.keys.maxAmountBrlPlaceholder')}
-                disabled={isSaving}
-              />
-            </div>
+                <InputField
+                  id="api-key-limit"
+                  label={t('pages.apiIntegration.keys.maxAmountBrl')}
+                  value={maxAmountBrl}
+                  onChange={(event) => setMaxAmountBrl(event.target.value)}
+                  placeholder={t('pages.apiIntegration.keys.maxAmountBrlPlaceholder')}
+                  disabled={isSaving}
+                />
+              </div>
+            ) : null}
 
             <div className="user-management-form__actions api-key-form__actions">
               <Button
                 type="submit"
                 variant="primary"
-                disabled={isSaving || isLoadingOperators || operatorOptions.length === 0 || !linkedUserEmail.trim()}
+                disabled={
+                  isSaving ||
+                  (isAdmin && (isLoadingOperators || operatorOptions.length === 0 || !linkedUserEmail.trim()))
+                }
               >
                 {isSaving ? t('pages.apiIntegration.keys.saving') : t('pages.apiIntegration.keys.create')}
               </Button>

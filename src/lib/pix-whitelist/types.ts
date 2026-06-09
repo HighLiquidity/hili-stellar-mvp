@@ -1,3 +1,5 @@
+import type { WhitelistApprovalStatus } from '@/lib/whitelist/approval';
+
 export type PixWhitelistRow = {
   id: string;
   user_id: string;
@@ -5,6 +7,10 @@ export type PixWhitelistRow = {
   beneficiary_name: string | null;
   label: string | null;
   is_active: boolean;
+  approval_status: WhitelistApprovalStatus;
+  reviewed_at: string | null;
+  reviewed_by_email: string | null;
+  rejection_reason: string | null;
   created_at: string;
   updated_at: string;
   created_by_email: string | null;

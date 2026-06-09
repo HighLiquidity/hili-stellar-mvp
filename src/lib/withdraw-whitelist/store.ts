@@ -10,7 +10,7 @@ import type { WithdrawWhitelistInsert, WithdrawWhitelistNetwork, WithdrawWhiteli
 const TABLE = 'user_withdraw_whitelist';
 
 export const WITHDRAW_WHITELIST_SELECT =
-  'id, user_id, address, network, label, memo, is_active, created_at, updated_at, created_by_email';
+  'id, user_id, address, network, label, memo, is_active, approval_status, reviewed_at, reviewed_by_email, rejection_reason, created_at, updated_at, created_by_email';
 
 export async function listUserWithdrawWhitelist(userId: string): Promise<WithdrawWhitelistRow[]> {
   const admin = createSupabaseAdmin();
@@ -113,6 +113,7 @@ export async function findActiveWithdrawWhitelistEntryForUser(params: {
     .eq('address', normalizedAddress)
     .eq('network', network)
     .eq('is_active', true)
+    .eq('approval_status', 'approved')
     .limit(1)
     .maybeSingle();
 
@@ -153,6 +154,7 @@ export async function findActiveWithdrawWhitelistEntry(params: {
     .eq('address', normalizedAddress)
     .eq('network', params.network)
     .eq('is_active', true)
+    .eq('approval_status', 'approved')
     .limit(1)
     .maybeSingle();
 
@@ -178,6 +180,7 @@ export async function listActiveWithdrawWhitelistOnNetwork(
     .from(TABLE)
     .select(WITHDRAW_WHITELIST_SELECT)
     .eq('is_active', true)
+    .eq('approval_status', 'approved')
     .eq('network', network)
     .order('label', { ascending: true })
     .order('address', { ascending: true });
