@@ -92,6 +92,16 @@ export function UsersIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function ClientsIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M9 21V9h6v12" />
+      <path d="M3 9h18" />
+    </IconBase>
+  );
+}
+
 export function EventLogIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <IconBase {...props}>

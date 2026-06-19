@@ -10,10 +10,12 @@ import {
   listPanelUsersAction,
   updatePanelUserAction,
 } from '@/app/actions/user-management';
+import { listClientsAction } from '@/app/actions/clients';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import type { ClientRow } from '@/lib/clients/types';
 import type { PanelUserRole, PanelUserRow } from '@/lib/users/types';
 import { useI18n } from '@/lib/i18n';
 
@@ -32,6 +34,7 @@ export function UserManagementPage() {
   const { profile, user, isLoading: authLoading, isAuthorized } = useAuth();
 
   const [rows, setRows] = useState<PanelUserRow[]>([]);
+  const [clientOptions, setClientOptions] = useState<ClientRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -47,6 +50,7 @@ export function UserManagementPage() {
   const [isActive, setIsActive] = useState(true);
   const [spreadBpsOverride, setSpreadBpsOverride] = useState('');
   const [maxAmountBrl, setMaxAmountBrl] = useState('');
+  const [clientId, setClientId] = useState('');
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
@@ -67,14 +71,23 @@ export function UserManagementPage() {
         return;
       }
 
-      const result = await listPanelUsersAction(token);
-      if (!result.ok) {
-        setLoadError(result.message);
+      const [usersResult, clientsResult] = await Promise.all([
+        listPanelUsersAction(token),
+        listClientsAction(token),
+      ]);
+
+      if (!usersResult.ok) {
+        setLoadError(usersResult.message);
         setRows([]);
-        return;
+      } else {
+        setRows(usersResult.data);
       }
 
-      setRows(result.data);
+      if (!clientsResult.ok) {
+        setClientOptions([]);
+      } else {
+        setClientOptions(clientsResult.data);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -95,6 +108,7 @@ export function UserManagementPage() {
     setIsActive(true);
     setSpreadBpsOverride('');
     setMaxAmountBrl('');
+    setClientId('');
     setFormError(null);
   };
 
@@ -102,6 +116,9 @@ export function UserManagementPage() {
     resetForm();
     setFormMode('create');
     setSuccessMessage(null);
+    if (clientOptions[0]) {
+      setClientId(clientOptions[0].id);
+    }
   };
 
   const openEdit = (row: PanelUserRow) => {
@@ -116,6 +133,7 @@ export function UserManagementPage() {
       row.spread_bps_override != null ? String(row.spread_bps_override) : '',
     );
     setMaxAmountBrl(row.max_amount_brl ?? '');
+    setClientId(row.client_id ?? '');
     setFormError(null);
     setSuccessMessage(null);
   };
@@ -140,6 +158,7 @@ export function UserManagementPage() {
           role,
           password,
           isActive: true,
+          clientId: role === 'admin' ? undefined : clientId,
           spreadBpsOverride: role === 'operator' ? spreadBpsOverride : undefined,
           maxAmountBrl: role === 'operator' ? maxAmountBrl : undefined,
         });
@@ -155,6 +174,7 @@ export function UserManagementPage() {
           role,
           password: password || undefined,
           isActive,
+          clientId: role === 'admin' ? undefined : clientId,
           spreadBpsOverride: role === 'operator' ? spreadBpsOverride : undefined,
           maxAmountBrl: role === 'operator' ? maxAmountBrl : undefined,
         });
@@ -291,7 +311,15 @@ export function UserManagementPage() {
                 <select
                   className="field__input field__select"
                   value={role}
-                  onChange={(e) => setRole(e.target.value as PanelUserRole)}
+                  onChange={(e) => {
+                    const nextRole = e.target.value as PanelUserRole;
+                    setRole(nextRole);
+                    if (nextRole === 'admin') {
+                      setClientId('');
+                    } else if (!clientId && clientOptions[0]) {
+                      setClientId(clientOptions[0].id);
+                    }
+                  }}
                   disabled={isSaving}
                   required
                 >
@@ -303,6 +331,26 @@ export function UserManagementPage() {
                 </select>
               </label>
             </div>
+
+            {role !== 'admin' ? (
+              <label className="field">
+                <span className="field__label">{t('pages.userManagement.client')}</span>
+                <select
+                  className="field__input field__select"
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  disabled={isSaving || clientOptions.length === 0}
+                  required
+                >
+                  <option value="">{t('pages.userManagement.clientPlaceholder')}</option>
+                  {clientOptions.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.trade_name?.trim() || client.legal_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
 
             <InputField
               id="user-password"
@@ -377,6 +425,7 @@ export function UserManagementPage() {
               <tr>
                 <th>{t('pages.userManagement.email')}</th>
                 <th>{t('pages.userManagement.fullName')}</th>
+                <th>{t('pages.userManagement.client')}</th>
                 <th>{t('pages.userManagement.role')}</th>
                 <th>{t('pages.userManagement.status')}</th>
                 <th aria-label={t('pages.userManagement.actions')} />
@@ -385,17 +434,18 @@ export function UserManagementPage() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={5}>{t('pages.userManagement.loading')}</td>
+                  <td colSpan={6}>{t('pages.userManagement.loading')}</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>{t('pages.userManagement.empty')}</td>
+                  <td colSpan={6}>{t('pages.userManagement.empty')}</td>
                 </tr>
               ) : (
                 rows.map((row) => (
                   <tr key={row.email}>
                     <td>{row.email}</td>
                     <td>{row.full_name?.trim() || '—'}</td>
+                    <td>{row.client_name ?? (row.role === 'admin' ? '—' : t('pages.userManagement.clientMissing'))}</td>
                     <td>{roleLabel(row.role)}</td>
                     <td>
                       <span

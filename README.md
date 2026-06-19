@@ -157,6 +157,7 @@ Contrato detalhado do on-ramp: [ONRAMP_BACKEND_CONTRACT.md](./ONRAMP_BACKEND_CON
 | Arquivo | Conteúdo |
 |---------|----------|
 | [ONRAMP_BACKEND_CONTRACT.md](./ONRAMP_BACKEND_CONTRACT.md) | Estados, rotas e persistência on-ramp |
+| [CLIENTS_ARCHITECTURE.md](./CLIENTS_ARCHITECTURE.md) | Camada multi-tenant (clientes), fases e migração |
 | [CORPX_V2_ROLLOUT_CHECKLIST.md](./CORPX_V2_ROLLOUT_CHECKLIST.md) | Deploy e smoke tests CorpX |
 | [BINANCE_MVP_PLAN.md](./BINANCE_MVP_PLAN.md) | Integração Binance |
 | [ONRAMP_PAGE_PLAN.md](./ONRAMP_PAGE_PLAN.md) | UI on-ramp |

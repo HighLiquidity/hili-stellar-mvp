@@ -9,6 +9,7 @@ export type PanelAccessContext = {
   userId: string;
   email: string;
   role: PanelUserRole;
+  clientId: string | null;
 };
 
 function normalizeAllowedRoles(allowedRoles: readonly PanelUserRole[]): PanelUserRole[] {
@@ -59,7 +60,7 @@ export async function requirePanelRoleFromAccessToken(
 
   const { data: profile, error: profileError } = await admin
     .from('panel_access_list')
-    .select('email, role, is_active')
+    .select('email, role, is_active, client_id')
     .eq('email', email)
     .maybeSingle();
 
@@ -76,6 +77,7 @@ export async function requirePanelRoleFromAccessToken(
     userId: userData.user.id,
     email,
     role: profile.role as PanelUserRole,
+    clientId: (profile.client_id as string | null) ?? null,
   };
 }
 

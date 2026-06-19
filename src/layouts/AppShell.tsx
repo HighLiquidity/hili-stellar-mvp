@@ -13,6 +13,7 @@ import {
   DashboardIcon,
   DepositIcon,
   EventLogIcon,
+  ClientsIcon,
   UsersIcon,
   ApiIntegrationIcon,
   KeyIcon,
@@ -152,6 +153,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
     if (profile?.role === 'admin') {
       items.push(
+        {
+          to: '/app/clients',
+          label: t('nav.clients'),
+          icon: <ClientsIcon width={18} height={18} />,
+        },
         {
           to: '/app/users',
           label: t('nav.users'),

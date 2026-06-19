@@ -5,7 +5,9 @@ import type { PanelUserInput, PanelUserRole, PanelUserRow } from '@/lib/users/ty
 import { requireAdminFromAccessToken } from '@/lib/users/require-admin';
 
 const PANEL_ACCESS_TABLE = 'panel_access_list';
-const PANEL_USER_COLUMNS = 'email, full_name, role, is_active, spread_bps_override, max_amount_brl';
+const PANEL_USER_COLUMNS =
+  'email, full_name, role, is_active, client_id, spread_bps_override, max_amount_brl';
+const CLIENTS_TABLE = 'clients';
 const ROLES: PanelUserRole[] = ['admin', 'operator', 'viewer'];
 
 function normalizeEmail(email: string): string {
@@ -28,6 +30,30 @@ function resolveOperatorCommercialFields(input: Pick<PanelUserInput, 'role' | 's
     spread_bps_override: parseSpreadBpsOverride(input.spreadBpsOverride),
     max_amount_brl: parseMaxAmountBrl(input.maxAmountBrl),
   };
+}
+
+async function resolvePanelUserClientId(
+  admin: Awaited<ReturnType<typeof requireAdminFromAccessToken>>['admin'],
+  input: Pick<PanelUserInput, 'role' | 'clientId'>,
+): Promise<{ ok: true; clientId: string | null } | { ok: false; message: string }> {
+  if (input.role === 'admin') {
+    return { ok: true, clientId: null };
+  }
+
+  const clientId = input.clientId?.trim();
+  if (!clientId) {
+    return { ok: false, message: 'Cliente é obrigatório para operador e visualizador.' };
+  }
+
+  const { data, error } = await admin.from(CLIENTS_TABLE).select('id').eq('id', clientId).maybeSingle();
+  if (error) return { ok: false, message: error.message };
+  if (!data) return { ok: false, message: 'Cliente não encontrado.' };
+
+  return { ok: true, clientId };
+}
+
+function clientDisplayName(client: { trade_name: string | null; legal_name: string }): string {
+  return client.trade_name?.trim() || client.legal_name;
 }
 
 async function findAuthUserIdByEmail(
@@ -63,16 +89,31 @@ export async function listPanelUsersAction(
   try {
     const { admin } = await requireAdminFromAccessToken(accessToken);
 
-    const { data, error } = await admin
-      .from(PANEL_ACCESS_TABLE)
-      .select(PANEL_USER_COLUMNS)
-      .order('email', { ascending: true });
+    const [{ data, error }, clientsResult] = await Promise.all([
+      admin.from(PANEL_ACCESS_TABLE).select(PANEL_USER_COLUMNS).order('email', { ascending: true }),
+      admin.from(CLIENTS_TABLE).select('id, legal_name, trade_name'),
+    ]);
 
     if (error) {
       return { ok: false, message: error.message };
     }
+    if (clientsResult.error) {
+      return { ok: false, message: clientsResult.error.message };
+    }
 
-    return { ok: true, data: (data ?? []) as PanelUserRow[] };
+    const clientNameById = new Map(
+      (clientsResult.data ?? []).map((client) => [
+        client.id as string,
+        clientDisplayName(client as { trade_name: string | null; legal_name: string }),
+      ]),
+    );
+
+    const rows = ((data ?? []) as PanelUserRow[]).map((row) => ({
+      ...row,
+      client_name: row.client_id ? clientNameById.get(row.client_id) ?? null : null,
+    }));
+
+    return { ok: true, data: rows };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
@@ -107,6 +148,9 @@ export async function createPanelUserAction(
       return { ok: false, message: 'Este e-mail já está cadastrado.' };
     }
 
+    const clientResult = await resolvePanelUserClientId(admin, input);
+    if (!clientResult.ok) return clientResult;
+
     const { error: authError } = await admin.auth.admin.createUser({
       email,
       password,
@@ -124,6 +168,7 @@ export async function createPanelUserAction(
       full_name: fullName,
       role: input.role,
       is_active: input.isActive ?? true,
+      client_id: clientResult.clientId,
       ...commercial,
     };
 
@@ -210,6 +255,9 @@ export async function updatePanelUserAction(
       }
     }
 
+    const clientResult = await resolvePanelUserClientId(admin, input);
+    if (!clientResult.ok) return clientResult;
+
     const commercial = resolveOperatorCommercialFields(input);
     const { data, error } = await admin
       .from(PANEL_ACCESS_TABLE)
@@ -217,6 +265,7 @@ export async function updatePanelUserAction(
         full_name: fullName,
         role: input.role,
         is_active: isActive,
+        client_id: clientResult.clientId,
         ...commercial,
       })
       .eq('email', email)
