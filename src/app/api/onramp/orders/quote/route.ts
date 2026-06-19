@@ -95,7 +95,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const commercial = await resolvePanelQuoteCommercialTerms(auth.ctx, getOnrampQuoteSpreadBps());
+    const commercial = await resolvePanelQuoteCommercialTerms(auth.ctx, getOnrampQuoteSpreadBps(), 'onramp');
     const quote = await createOnrampQuote({
       taxId: body.taxId,
       amountBrl: amountBrl ?? undefined,

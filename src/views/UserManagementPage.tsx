@@ -48,8 +48,6 @@ export function UserManagementPage() {
   const [role, setRole] = useState<PanelUserRole>('operator');
   const [password, setPassword] = useState('');
   const [isActive, setIsActive] = useState(true);
-  const [spreadBpsOverride, setSpreadBpsOverride] = useState('');
-  const [maxAmountBrl, setMaxAmountBrl] = useState('');
   const [clientId, setClientId] = useState('');
 
   useEffect(() => {
@@ -106,8 +104,6 @@ export function UserManagementPage() {
     setRole('operator');
     setPassword('');
     setIsActive(true);
-    setSpreadBpsOverride('');
-    setMaxAmountBrl('');
     setClientId('');
     setFormError(null);
   };
@@ -129,10 +125,6 @@ export function UserManagementPage() {
     setRole(row.role);
     setPassword('');
     setIsActive(row.is_active);
-    setSpreadBpsOverride(
-      row.spread_bps_override != null ? String(row.spread_bps_override) : '',
-    );
-    setMaxAmountBrl(row.max_amount_brl ?? '');
     setClientId(row.client_id ?? '');
     setFormError(null);
     setSuccessMessage(null);
@@ -159,8 +151,6 @@ export function UserManagementPage() {
           password,
           isActive: true,
           clientId: role === 'admin' ? undefined : clientId,
-          spreadBpsOverride: role === 'operator' ? spreadBpsOverride : undefined,
-          maxAmountBrl: role === 'operator' ? maxAmountBrl : undefined,
         });
         if (!result.ok) {
           setFormError(result.message);
@@ -175,8 +165,6 @@ export function UserManagementPage() {
           password: password || undefined,
           isActive,
           clientId: role === 'admin' ? undefined : clientId,
-          spreadBpsOverride: role === 'operator' ? spreadBpsOverride : undefined,
-          maxAmountBrl: role === 'operator' ? maxAmountBrl : undefined,
         });
         if (!result.ok) {
           setFormError(result.message);
@@ -378,30 +366,6 @@ export function UserManagementPage() {
                 />
                 <span>{t('pages.userManagement.isActive')}</span>
               </label>
-            ) : null}
-
-            {role === 'operator' ? (
-              <>
-                <p className="surface__lead">{t('pages.userManagement.commercialHint')}</p>
-                <div className="api-key-form__two-col-row">
-                  <InputField
-                    id="operator-spread"
-                    label={t('pages.userManagement.spreadOverride')}
-                    value={spreadBpsOverride}
-                    onChange={(e) => setSpreadBpsOverride(e.target.value)}
-                    placeholder={t('pages.userManagement.spreadOverridePlaceholder')}
-                    disabled={isSaving}
-                  />
-                  <InputField
-                    id="operator-limit"
-                    label={t('pages.userManagement.maxAmountBrl')}
-                    value={maxAmountBrl}
-                    onChange={(e) => setMaxAmountBrl(e.target.value)}
-                    placeholder={t('pages.userManagement.maxAmountBrlPlaceholder')}
-                    disabled={isSaving}
-                  />
-                </div>
-              </>
             ) : null}
 
             <div className="user-management-form__actions">

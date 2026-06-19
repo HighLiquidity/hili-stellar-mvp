@@ -436,7 +436,7 @@ insert into public.clients (
 
 **Critério de aceite:** platform admin gerencia clientes; operadores existentes intactos.
 
-### Fase 3.1 — Política comercial no cliente
+### Fase 3.1 — Política comercial no cliente ✅
 
 | Entrega | Detalhe |
 |---------|---------|
@@ -444,6 +444,8 @@ insert into public.clients (
 | `resolveCommercialTerms` por `clientId` | Painel + API v1 |
 | Remover UI comercial de usuário | Mover para cliente |
 | Deprecar colunas no operador | Manter leitura legado temporária |
+| Migration `20260614120000_migrate_commercial_to_clients.sql` | Copia termos do operador → cliente |
+| Gate `client.status === active` | Bloqueia quote para operador/API |
 
 **Critério de aceite:** dois clientes com spreads distintos → quotes distintas.
 
@@ -504,7 +506,7 @@ Preencher antes de iniciar Fase 3.0:
 | Item roadmap | Ordem sugerida |
 |--------------|----------------|
 | Smoke E2E piloto (single tenant) | Antes ou em paralelo com 3.0 |
-| Fase 3.0 + 3.1 | **Próximo após validação deste doc** |
+| Fase 3.0 + 3.1 | **Concluídas** — próximo: 3.2 |
 | Webhooks outbound | Paralelo a 3.2 |
 | Fase 3.2 | Quando houver 2º cliente real |
 | KYB/KYC | Fase 3.4+ |
@@ -513,7 +515,8 @@ Preencher antes de iniciar Fase 3.0:
 
 | Arquivo | Conteúdo relacionado |
 |---------|---------------------|
-| `src/lib/commercial/` | Resolver de termos (evoluir para cliente) |
+| `src/lib/commercial/` | Resolver de termos por cliente (`client-profile`, `client-gate`) |
+| `supabase/migrations/20260614120000_migrate_commercial_to_clients.sql` | Migração comercial operador → cliente |
 | `src/lib/users/require-panel-role.ts` | Contexto de auth do painel |
 | `src/lib/api-keys/store.ts` | Auth API v1 |
 | `supabase/migrations/20260612120000_operator_commercial_profile.sql` | Baseline comercial atual |
@@ -531,4 +534,4 @@ Preencher antes de iniciar Fase 3.0:
 
 ---
 
-**Status:** Fase 3.0 em implementação — ver migration `20260613120000_clients.sql`.
+**Status:** Fases 3.0 e 3.1 concluídas — ver migrations `20260613120000_clients.sql` e `20260614120000_migrate_commercial_to_clients.sql`. Próximo: Fase 3.2.

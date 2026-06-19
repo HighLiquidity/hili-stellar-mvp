@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       const payoutPixKey = readOptionalString(body.payoutPixKey);
       const payoutBeneficiaryName = readOptionalString(body.payoutBeneficiaryName);
       const actor = apiKeyActor(ctx);
-      const commercial = await resolveApiKeyCommercialTerms(ctx, getOfframpQuoteSpreadBps());
+      const commercial = await resolveApiKeyCommercialTerms(ctx, getOfframpQuoteSpreadBps(), 'offramp');
 
       const quote = await createOfframpQuote({
         amountUsdc: body.amountUsdc,

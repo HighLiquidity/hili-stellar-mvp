@@ -15,8 +15,9 @@ export { assertAmountBrlWithinLimit };
 export async function resolveApiKeyCommercialTerms(
   ctx: ApiKeyAuthContext,
   envSpreadBps: number,
+  flow: 'onramp' | 'offramp',
 ) {
-  return resolveApiKeyQuoteCommercialTerms(ctx, envSpreadBps);
+  return resolveApiKeyQuoteCommercialTerms(ctx, envSpreadBps, flow);
 }
 
 /** @deprecated Use resolveApiKeyCommercialTerms — kept for transitional imports. */

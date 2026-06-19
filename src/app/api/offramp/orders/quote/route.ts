@@ -50,7 +50,7 @@ export async function POST(request: Request) {
   const payoutBeneficiaryName = readOptionalString(body.payoutBeneficiaryName);
 
   try {
-    const commercial = await resolvePanelQuoteCommercialTerms(auth.ctx, getOfframpQuoteSpreadBps());
+    const commercial = await resolvePanelQuoteCommercialTerms(auth.ctx, getOfframpQuoteSpreadBps(), 'offramp');
     const quote = await createOfframpQuote({
       amountUsdc: body.amountUsdc,
       payoutPixKey,

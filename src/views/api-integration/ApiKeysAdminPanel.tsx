@@ -438,7 +438,7 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
             {isAdmin ? (
               <p className="surface__lead api-cross-link">
                 {t('pages.apiIntegration.keys.commercialTermsHint')}{' '}
-                <Link href="/app/users">{t('pages.apiIntegration.keys.commercialTermsLink')}</Link>
+                <Link href="/app/clients">{t('pages.apiIntegration.keys.commercialTermsLink')}</Link>
               </p>
             ) : null}
 

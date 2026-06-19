@@ -20,11 +20,11 @@ export function assertAmountBrlWithinLimit(
 
   const max = parseMaxDepositBrl(limit);
   if (max == null) {
-    throwFlowValidationError(flow, 'Operator maxAmountBrl is invalid.');
+    throwFlowValidationError(flow, 'Client maxAmountBrl is invalid.');
   }
 
   const amount = brlStringToJsonNumber(amountBrl);
   if (isDepositAboveMax(amount, max)) {
-    throwFlowValidationError(flow, `amountBrl exceeds the operator limit of ${limit}.`);
+    throwFlowValidationError(flow, `amountBrl exceeds the client limit of ${limit}.`);
   }
 }

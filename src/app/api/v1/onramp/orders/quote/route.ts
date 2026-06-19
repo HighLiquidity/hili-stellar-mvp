@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       }
 
       const actor = apiKeyActor(ctx);
-      const commercial = await resolveApiKeyCommercialTerms(ctx, getOnrampQuoteSpreadBps());
+      const commercial = await resolveApiKeyCommercialTerms(ctx, getOnrampQuoteSpreadBps(), 'onramp');
       const quote = await createOnrampQuote({
         taxId: body.taxId,
         amountBrl: amountBrl ?? undefined,

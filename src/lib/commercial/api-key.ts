@@ -3,6 +3,8 @@ import '@/lib/server/only';
 import type { ApiKeyAuthContext } from '@/lib/api-keys/store';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
+import { assertClientEligibleForQuotes } from './client-gate';
+import { loadClientCommercialRecordByUserEmail, toCommercialProfileSource } from './client-profile';
 import { loadOperatorCommercialProfileByEmail } from './operator-profile';
 import { resolveCommercialTerms } from './resolve';
 import type { CommercialTerms } from './types';
@@ -10,13 +12,31 @@ import type { CommercialTerms } from './types';
 export async function resolveApiKeyQuoteCommercialTerms(
   ctx: ApiKeyAuthContext,
   envSpreadBps: number,
+  flow: 'onramp' | 'offramp',
 ): Promise<CommercialTerms> {
   const admin = createSupabaseAdmin();
+
+  if (!admin) {
+    return resolveCommercialTerms({
+      envSpreadBps,
+      legacyApiKeySpreadBpsOverride: ctx.spreadBpsOverride,
+      legacyApiKeyMaxAmountBrl: ctx.maxAmountBrl,
+    });
+  }
+
+  const clientRecord =
+    ctx.email ? await loadClientCommercialRecordByUserEmail(admin, ctx.email) : null;
+
+  if (clientRecord) {
+    assertClientEligibleForQuotes(clientRecord, flow);
+  }
+
   const operatorProfile =
-    admin && ctx.email ? await loadOperatorCommercialProfileByEmail(admin, ctx.email) : null;
+    ctx.email ? await loadOperatorCommercialProfileByEmail(admin, ctx.email) : null;
 
   return resolveCommercialTerms({
     envSpreadBps,
+    clientProfile: toCommercialProfileSource(clientRecord),
     operatorProfile,
     legacyApiKeySpreadBpsOverride: ctx.spreadBpsOverride,
     legacyApiKeyMaxAmountBrl: ctx.maxAmountBrl,
