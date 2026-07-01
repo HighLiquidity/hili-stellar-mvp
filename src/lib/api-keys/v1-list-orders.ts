@@ -8,7 +8,7 @@ const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
 
 type ListQuery = {
-  userId: string;
+  clientId: string;
   page?: number;
   pageSize?: number;
   status?: string;
@@ -37,13 +37,18 @@ function mapRow(row: OrderListDbRow): PublicV1OrderListItem {
   };
 }
 
-async function listOrdersForUser(
+async function listOrdersForClient(
   table: 'onramp_orders' | 'offramp_orders',
   query: ListQuery,
 ): Promise<PublicV1OrdersListResponse> {
   const admin = createSupabaseAdmin();
   if (!admin) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY missing');
+  }
+
+  const clientId = query.clientId.trim();
+  if (!clientId) {
+    throw new Error('clientId is required for API order listing.');
   }
 
   const page = Math.max(1, query.page ?? 1);
@@ -57,11 +62,11 @@ async function listOrdersForUser(
   let countQuery = admin
     .from(table)
     .select('*', { count: 'exact', head: true })
-    .eq('created_by_user_id', query.userId);
+    .eq('client_id', clientId);
   let dataQuery = admin
     .from(table)
     .select(selectColumns)
-    .eq('created_by_user_id', query.userId)
+    .eq('client_id', clientId)
     .order('created_at', { ascending: false })
     .range(from, to);
 
@@ -97,10 +102,10 @@ async function listOrdersForUser(
   };
 }
 
-export function listV1OnrampOrdersForUser(query: ListQuery): Promise<PublicV1OrdersListResponse> {
-  return listOrdersForUser('onramp_orders', query);
+export function listV1OnrampOrdersForClient(query: ListQuery): Promise<PublicV1OrdersListResponse> {
+  return listOrdersForClient('onramp_orders', query);
 }
 
-export function listV1OfframpOrdersForUser(query: ListQuery): Promise<PublicV1OrdersListResponse> {
-  return listOrdersForUser('offramp_orders', query);
+export function listV1OfframpOrdersForClient(query: ListQuery): Promise<PublicV1OrdersListResponse> {
+  return listOrdersForClient('offramp_orders', query);
 }

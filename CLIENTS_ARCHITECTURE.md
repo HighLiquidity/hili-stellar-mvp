@@ -449,24 +449,29 @@ insert into public.clients (
 
 **Critério de aceite:** dois clientes com spreads distintos → quotes distintas.
 
-### Fase 3.2 — Isolamento de dados
+### Fase 3.2 — Isolamento de dados ✅
 
 | Entrega | Detalhe |
 |---------|---------|
-| `client_id` em keys, ordens, whitelist, logs | |
-| Filtros em todas as listagens | |
-| Índice `externalId` por cliente | |
-| Testes de não-vazamento | |
+| `client_id` em keys, ordens, whitelist, logs | Migration `20260615120000_client_data_isolation.sql` |
+| Filtros em todas as listagens | Painel + API v1 |
+| Índice `externalId` por cliente | Substitui índice por `created_by_user_id` |
+| Testes de não-vazamento | `src/lib/clients/scope.test.ts` |
+| Helper `src/lib/clients/scope.ts` | `resolvePanelDataScope`, asserts de ownership |
 
 **Critério de aceite:** smoke multi-cliente passa.
 
-### Fase 3.3 — Gestão delegada
+### Fase 3.3 — Gestão delegada ✅
 
 | Entrega | Detalhe |
 |---------|---------|
-| Papel `client_admin` | |
-| CRUD usuários no próprio cliente | |
-| Política whitelist: client_admin aprova? | Decisão produto |
+| Papel `client_admin` | Migration `20260616120000_client_admin_role.sql` |
+| CRUD usuários no próprio cliente | `client_admin` → operator/viewer; platform admin → todos os papéis |
+| Limite transacional por operador | `panel_access_list.max_amount_brl` ≤ `clients.max_amount_brl` (spread só no cliente) |
+| API keys | Somente platform admin + `client_admin`; operador sem self-service |
+| Whitelist | Platform admin + `client_admin` aprovam pendências no próprio `client_id` |
+
+**Critério de aceite:** `client_admin` gerencia operadores/viewer, keys e whitelist do tenant; pode operar ramp no painel com termos do cliente (teto completo, sem sub-limite de operador). Não acessa `/app/clients`.
 
 ### Fase 3.4 — KYB/KYC
 
@@ -506,7 +511,7 @@ Preencher antes de iniciar Fase 3.0:
 | Item roadmap | Ordem sugerida |
 |--------------|----------------|
 | Smoke E2E piloto (single tenant) | Antes ou em paralelo com 3.0 |
-| Fase 3.0 + 3.1 | **Concluídas** — próximo: 3.2 |
+| Fase 3.0 + 3.1 + 3.2 + 3.3 | **Concluídas** — próximo: 3.4 |
 | Webhooks outbound | Paralelo a 3.2 |
 | Fase 3.2 | Quando houver 2º cliente real |
 | KYB/KYC | Fase 3.4+ |
@@ -516,7 +521,8 @@ Preencher antes de iniciar Fase 3.0:
 | Arquivo | Conteúdo relacionado |
 |---------|---------------------|
 | `src/lib/commercial/` | Resolver de termos por cliente (`client-profile`, `client-gate`) |
-| `supabase/migrations/20260614120000_migrate_commercial_to_clients.sql` | Migração comercial operador → cliente |
+| `src/lib/clients/scope.ts` | Escopo de dados por tenant (painel + API) |
+| `supabase/migrations/20260615120000_client_data_isolation.sql` | `client_id` + backfill + índices |
 | `src/lib/users/require-panel-role.ts` | Contexto de auth do painel |
 | `src/lib/api-keys/store.ts` | Auth API v1 |
 | `supabase/migrations/20260612120000_operator_commercial_profile.sql` | Baseline comercial atual |
@@ -534,4 +540,4 @@ Preencher antes de iniciar Fase 3.0:
 
 ---
 
-**Status:** Fases 3.0 e 3.1 concluídas — ver migrations `20260613120000_clients.sql` e `20260614120000_migrate_commercial_to_clients.sql`. Próximo: Fase 3.2.
+**Status:** Fases 3.0–3.3 concluídas — ver migrations até `20260616120000_client_admin_role.sql`. Próximo: Fase 3.4.

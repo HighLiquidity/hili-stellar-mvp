@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 
+import { assertOfframpOrderInDataScope, resolvePanelDataScope } from '@/lib/clients/scope';
 import { readOfframpOrder, retryOfframpReconciliation } from '@/lib/offramp';
 import { resetOfframpBrhRedemptionForRetry } from '@/lib/offramp/brh-redemption-retry';
+import { findOfframpOrderById } from '@/lib/offramp/order-store';
 import { attachOfframpPixPayoutEndToEndId } from '@/lib/offramp/pix-payout-sync';
 import { handleOfframpRouteError, requireOfframpRouteOperator } from '../../../_utils';
 
@@ -24,6 +26,10 @@ export async function POST(request: Request, context: RouteContext) {
   const { id } = await context.params;
 
   try {
+    const scope = resolvePanelDataScope(auth.ctx);
+    const existing = await findOfframpOrderById(id);
+    assertOfframpOrderInDataScope(existing, scope, { userId: auth.ctx.userId });
+
     let endToEndId: string | undefined;
     let resetBrhRedemption = false;
     const contentType = request.headers.get('content-type') ?? '';

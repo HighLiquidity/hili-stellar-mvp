@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { panelRampActor } from '@/lib/clients/scope';
 import { lockOfframpQuote } from '@/lib/offramp';
 import { handleOfframpRouteError, requireOfframpRouteOperator } from '../../../_utils';
 
@@ -40,7 +41,7 @@ export async function POST(request: Request, context: RouteContext) {
   try {
     const locked = await lockOfframpQuote({
       orderId: id,
-      actor: { userId: auth.ctx.userId, role: auth.ctx.role },
+      actor: panelRampActor(auth.ctx),
       payoutPixKey,
       payoutBeneficiaryName,
     });

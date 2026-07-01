@@ -5,6 +5,7 @@ import { isOfframpQuotePlaceholderPixKey } from '@/lib/ramp/quote-placeholders';
 import { RampApiError } from '@/lib/ramp/client';
 import { getRampCallbackUrl, isRampConfigured } from '@/lib/ramp/config';
 import { ensureOfframpUsdcDepositOperation } from '@/lib/ramp/offramp-usdc-deposit';
+import { assertOfframpOrderInDataScope, type DataScope } from '@/lib/clients/scope';
 import type { PanelUserRole } from '@/lib/users/types';
 import { OfframpOperationError } from './errors';
 import {
@@ -48,6 +49,7 @@ export type LockOfframpQuoteInput = {
   actor: {
     userId: string;
     role: PanelUserRole;
+    dataScope?: DataScope | null;
   };
   payoutPixKey?: string;
   payoutBeneficiaryName?: string | null;
@@ -56,6 +58,10 @@ export type LockOfframpQuoteInput = {
 export async function lockOfframpQuote(input: LockOfframpQuoteInput): Promise<OfframpLockResponse> {
   const order = await findOfframpOrderById(input.orderId);
   if (!order) throw new OfframpOperationError('Order not found', 404);
+
+  if (input.actor.dataScope !== undefined) {
+    assertOfframpOrderInDataScope(order, input.actor.dataScope, { userId: input.actor.userId });
+  }
 
   if (order.status === 'awaiting_deposit') {
     if (!order.usdc_deposit_address || !order.usdc_deposit_memo) {

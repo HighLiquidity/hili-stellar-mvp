@@ -4,7 +4,11 @@ import type { ApiKeyAuthContext } from '@/lib/api-keys/store';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
 import { assertClientEligibleForQuotes } from './client-gate';
-import { loadClientCommercialRecordByUserEmail, toCommercialProfileSource } from './client-profile';
+import {
+  loadClientCommercialRecordById,
+  loadClientCommercialRecordByUserEmail,
+  toCommercialProfileSource,
+} from './client-profile';
 import { loadOperatorCommercialProfileByEmail } from './operator-profile';
 import { resolveCommercialTerms } from './resolve';
 import type { CommercialTerms } from './types';
@@ -24,8 +28,11 @@ export async function resolveApiKeyQuoteCommercialTerms(
     });
   }
 
-  const clientRecord =
-    ctx.email ? await loadClientCommercialRecordByUserEmail(admin, ctx.email) : null;
+  const clientRecord = ctx.clientId
+    ? await loadClientCommercialRecordById(admin, ctx.clientId)
+    : ctx.email
+      ? await loadClientCommercialRecordByUserEmail(admin, ctx.email)
+      : null;
 
   if (clientRecord) {
     assertClientEligibleForQuotes(clientRecord, flow);

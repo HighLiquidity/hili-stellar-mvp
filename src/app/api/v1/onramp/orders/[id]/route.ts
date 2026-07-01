@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { assertOnrampOrderOwnedByUser } from '@/lib/api-keys/ownership';
+import { assertOnrampOrderOwnedByApiKey } from '@/lib/api-keys/ownership';
 import { toPublicOnrampOrderResponse } from '@/lib/api-keys/v1-responses';
 import { getOnrampOrder } from '@/lib/onramp';
 import { findOnrampOrderById } from '@/lib/onramp/order-store';
@@ -28,7 +28,7 @@ export async function GET(request: Request, context: RouteContext) {
     errorHandler: handleV1OnrampRouteError,
     handler: async (ctx) => {
       const existing = await findOnrampOrderById(id);
-      assertOnrampOrderOwnedByUser(existing, ctx.userId);
+      assertOnrampOrderOwnedByApiKey(existing, ctx);
 
       const order = await getOnrampOrder(id);
       return NextResponse.json(

@@ -33,7 +33,7 @@ function getBearerToken(request: Request): string | null {
   return match?.[1]?.trim() || null;
 }
 
-/** Internal on-ramp routes are restricted to admin and operator panel users. */
+/** Internal on-ramp routes are restricted to platform admin, client admin, and operator panel users. */
 export async function requireOnrampRouteOperator(request: Request): Promise<RouteAuthResult> {
   const accessToken = getBearerToken(request);
   if (!accessToken) {

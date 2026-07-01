@@ -73,6 +73,7 @@ export async function POST(request: Request) {
         apiKeyMaxAmountBrl: commercial.maxAmountBrl,
         actorEmail: actor.email ?? undefined,
         actorUserId: actor.userId,
+        actorClientId: ctx.clientId,
       });
 
       return NextResponse.json(quote, { status: 200 });

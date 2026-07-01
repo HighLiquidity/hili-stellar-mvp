@@ -1,39 +1,136 @@
 'use server';
 
+import { assertOperatorMaxWithinClientCeiling } from '@/lib/commercial/operator-limits';
+import { parseMaxAmountBrl } from '@/lib/commercial/parse';
+import {
+  CLIENT_ADMIN_MANAGEABLE_ROLES,
+  isClientAdminRole,
+  isPlatformAdminRole,
+  PLATFORM_ADMIN_ASSIGNABLE_ROLES,
+  requiresClientId,
+} from '@/lib/users/roles';
+import { requireUserManagerFromAccessToken } from '@/lib/users/require-delegated-admin';
+import type { PanelAccessContext } from '@/lib/users/require-panel-role';
 import type { PanelUserInput, PanelUserRole, PanelUserRow } from '@/lib/users/types';
-import { requireAdminFromAccessToken } from '@/lib/users/require-admin';
 
 const PANEL_ACCESS_TABLE = 'panel_access_list';
-const PANEL_USER_COLUMNS = 'email, full_name, role, is_active, client_id';
+const PANEL_USER_COLUMNS =
+  'email, full_name, role, is_active, client_id, max_amount_brl, created_at, updated_at';
 const CLIENTS_TABLE = 'clients';
-const ROLES: PanelUserRole[] = ['admin', 'operator', 'viewer'];
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-function validateRole(role: string): role is PanelUserRole {
-  return ROLES.includes(role as PanelUserRole);
+function normalizeOperatorMaxAmount(value: string | undefined): string | null {
+  if (value === undefined) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return parseMaxAmountBrl(trimmed);
+}
+
+function assignableRolesForActor(ctx: PanelAccessContext): PanelUserRole[] {
+  return isPlatformAdminRole(ctx.role) ? PLATFORM_ADMIN_ASSIGNABLE_ROLES : CLIENT_ADMIN_MANAGEABLE_ROLES;
+}
+
+function validateAssignableRole(ctx: PanelAccessContext, role: PanelUserRole): boolean {
+  return assignableRolesForActor(ctx).includes(role);
+}
+
+async function fetchClientCeiling(
+  admin: PanelAccessContext['admin'],
+  clientId: string,
+): Promise<string | null> {
+  const { data, error } = await admin
+    .from(CLIENTS_TABLE)
+    .select('max_amount_brl')
+    .eq('id', clientId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error('Cliente não encontrado.');
+
+  return (data.max_amount_brl as string | null) ?? null;
 }
 
 async function resolvePanelUserClientId(
-  admin: Awaited<ReturnType<typeof requireAdminFromAccessToken>>['admin'],
+  ctx: PanelAccessContext,
   input: Pick<PanelUserInput, 'role' | 'clientId'>,
 ): Promise<{ ok: true; clientId: string | null } | { ok: false; message: string }> {
   if (input.role === 'admin') {
     return { ok: true, clientId: null };
   }
 
-  const clientId = input.clientId?.trim();
-  if (!clientId) {
-    return { ok: false, message: 'Cliente é obrigatório para operador e visualizador.' };
+  if (isClientAdminRole(ctx.role)) {
+    const actorClientId = ctx.clientId?.trim();
+    if (!actorClientId) {
+      return { ok: false, message: 'Administrador do cliente não está vinculado a um cliente.' };
+    }
+    return { ok: true, clientId: actorClientId };
   }
 
-  const { data, error } = await admin.from(CLIENTS_TABLE).select('id').eq('id', clientId).maybeSingle();
+  const clientId = input.clientId?.trim();
+  if (!clientId) {
+    return { ok: false, message: 'Cliente é obrigatório para este perfil.' };
+  }
+
+  const { data, error } = await ctx.admin.from(CLIENTS_TABLE).select('id').eq('id', clientId).maybeSingle();
   if (error) return { ok: false, message: error.message };
   if (!data) return { ok: false, message: 'Cliente não encontrado.' };
 
   return { ok: true, clientId };
+}
+
+function assertActorCanManageExistingUser(
+  ctx: PanelAccessContext,
+  existing: { role: PanelUserRole; client_id?: string | null },
+): void {
+  if (isPlatformAdminRole(ctx.role)) return;
+
+  const actorClientId = ctx.clientId?.trim();
+  if (!actorClientId || existing.client_id?.trim() !== actorClientId) {
+    throw new Error('Usuário não encontrado.');
+  }
+
+  if (!CLIENT_ADMIN_MANAGEABLE_ROLES.includes(existing.role)) {
+    throw new Error('Você não pode gerenciar este usuário.');
+  }
+}
+
+async function resolveOperatorMaxForWrite(
+  ctx: PanelAccessContext,
+  input: Pick<PanelUserInput, 'role' | 'maxAmountBrl'>,
+  clientId: string | null,
+): Promise<{ ok: true; maxAmountBrl: string | null } | { ok: false; message: string }> {
+  if (input.role !== 'operator') {
+    return { ok: true, maxAmountBrl: null };
+  }
+
+  let maxAmountBrl: string | null = null;
+  try {
+    maxAmountBrl = normalizeOperatorMaxAmount(input.maxAmountBrl);
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : 'Limite transacional inválido.',
+    };
+  }
+
+  if (!clientId) {
+    return { ok: false, message: 'Operador deve estar vinculado a um cliente.' };
+  }
+
+  try {
+    const clientCeiling = await fetchClientCeiling(ctx.admin, clientId);
+    assertOperatorMaxWithinClientCeiling(maxAmountBrl, clientCeiling);
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : 'Limite transacional inválido.',
+    };
+  }
+
+  return { ok: true, maxAmountBrl };
 }
 
 function clientDisplayName(client: { trade_name: string | null; legal_name: string }): string {
@@ -41,7 +138,7 @@ function clientDisplayName(client: { trade_name: string | null; legal_name: stri
 }
 
 async function findAuthUserIdByEmail(
-  admin: Awaited<ReturnType<typeof requireAdminFromAccessToken>>['admin'],
+  admin: PanelAccessContext['admin'],
   email: string,
 ): Promise<string | null> {
   let page = 1;
@@ -67,15 +164,66 @@ export type UserManagementActionResult<T> =
   | { ok: true; data: T }
   | { ok: false; message: string };
 
+export async function getManagedClientCeilingAction(
+  accessToken: string,
+): Promise<UserManagementActionResult<{ maxAmountBrl: string | null; clientName: string | null }>> {
+  try {
+    const ctx = await requireUserManagerFromAccessToken(accessToken);
+
+    if (isPlatformAdminRole(ctx.role)) {
+      return { ok: true, data: { maxAmountBrl: null, clientName: null } };
+    }
+
+    const clientId = ctx.clientId?.trim();
+    if (!clientId) {
+      return { ok: false, message: 'Administrador do cliente não está vinculado a um cliente.' };
+    }
+
+    const { data, error } = await ctx.admin
+      .from(CLIENTS_TABLE)
+      .select('max_amount_brl, legal_name, trade_name')
+      .eq('id', clientId)
+      .maybeSingle();
+
+    if (error) return { ok: false, message: error.message };
+    if (!data) return { ok: false, message: 'Cliente não encontrado.' };
+
+    return {
+      ok: true,
+      data: {
+        maxAmountBrl: (data.max_amount_brl as string | null) ?? null,
+        clientName: clientDisplayName(data as { trade_name: string | null; legal_name: string }),
+      },
+    };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function listPanelUsersAction(
   accessToken: string,
 ): Promise<UserManagementActionResult<PanelUserRow[]>> {
   try {
-    const { admin } = await requireAdminFromAccessToken(accessToken);
+    const ctx = await requireUserManagerFromAccessToken(accessToken);
+
+    let usersQuery = ctx.admin
+      .from(PANEL_ACCESS_TABLE)
+      .select(PANEL_USER_COLUMNS)
+      .order('email', { ascending: true });
+
+    if (isClientAdminRole(ctx.role)) {
+      const clientId = ctx.clientId?.trim();
+      if (!clientId) {
+        return { ok: false, message: 'Administrador do cliente não está vinculado a um cliente.' };
+      }
+      usersQuery = usersQuery.eq('client_id', clientId);
+    }
 
     const [{ data, error }, clientsResult] = await Promise.all([
-      admin.from(PANEL_ACCESS_TABLE).select(PANEL_USER_COLUMNS).order('email', { ascending: true }),
-      admin.from(CLIENTS_TABLE).select('id, legal_name, trade_name'),
+      usersQuery,
+      isPlatformAdminRole(ctx.role)
+        ? ctx.admin.from(CLIENTS_TABLE).select('id, legal_name, trade_name')
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
     if (error) {
@@ -91,6 +239,22 @@ export async function listPanelUsersAction(
         clientDisplayName(client as { trade_name: string | null; legal_name: string }),
       ]),
     );
+
+    if (isClientAdminRole(ctx.role) && ctx.clientId) {
+      const { data: ownClient, error: ownClientError } = await ctx.admin
+        .from(CLIENTS_TABLE)
+        .select('id, legal_name, trade_name')
+        .eq('id', ctx.clientId)
+        .maybeSingle();
+
+      if (ownClientError) return { ok: false, message: ownClientError.message };
+      if (ownClient) {
+        clientNameById.set(
+          ownClient.id as string,
+          clientDisplayName(ownClient as { trade_name: string | null; legal_name: string }),
+        );
+      }
+    }
 
     const rows = ((data ?? []) as PanelUserRow[]).map((row) => ({
       ...row,
@@ -108,7 +272,7 @@ export async function createPanelUserAction(
   input: PanelUserInput,
 ): Promise<UserManagementActionResult<PanelUserRow>> {
   try {
-    const { admin, email: actorEmail } = await requireAdminFromAccessToken(accessToken);
+    const ctx = await requireUserManagerFromAccessToken(accessToken);
 
     const email = normalizeEmail(input.email);
     const fullName = input.fullName.trim();
@@ -120,22 +284,32 @@ export async function createPanelUserAction(
     if (!fullName) {
       return { ok: false, message: 'Nome é obrigatório.' };
     }
-    if (!validateRole(input.role)) {
+    if (!validateAssignableRole(ctx, input.role)) {
       return { ok: false, message: 'Perfil inválido.' };
+    }
+    if (requiresClientId(input.role) && isPlatformAdminRole(ctx.role) && !input.clientId?.trim()) {
+      return { ok: false, message: 'Cliente é obrigatório para este perfil.' };
     }
     if (password.length < 8) {
       return { ok: false, message: 'Senha deve ter pelo menos 8 caracteres.' };
     }
 
-    const { data: existing } = await admin.from(PANEL_ACCESS_TABLE).select('email').eq('email', email).maybeSingle();
+    const { data: existing } = await ctx.admin
+      .from(PANEL_ACCESS_TABLE)
+      .select('email')
+      .eq('email', email)
+      .maybeSingle();
     if (existing) {
       return { ok: false, message: 'Este e-mail já está cadastrado.' };
     }
 
-    const clientResult = await resolvePanelUserClientId(admin, input);
+    const clientResult = await resolvePanelUserClientId(ctx, input);
     if (!clientResult.ok) return clientResult;
 
-    const { error: authError } = await admin.auth.admin.createUser({
+    const maxResult = await resolveOperatorMaxForWrite(ctx, input, clientResult.clientId);
+    if (!maxResult.ok) return maxResult;
+
+    const { error: authError } = await ctx.admin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
@@ -152,9 +326,10 @@ export async function createPanelUserAction(
       role: input.role,
       is_active: input.isActive ?? true,
       client_id: clientResult.clientId,
+      max_amount_brl: maxResult.maxAmountBrl,
     };
 
-    const { data, error } = await admin
+    const { data, error } = await ctx.admin
       .from(PANEL_ACCESS_TABLE)
       .insert(row)
       .select(PANEL_USER_COLUMNS)
@@ -164,7 +339,7 @@ export async function createPanelUserAction(
       return { ok: false, message: error.message };
     }
 
-    console.info('[users/create] panel user created', { email, by: actorEmail });
+    console.info('[users/create] panel user created', { email, by: ctx.email });
     return { ok: true, data: data as PanelUserRow };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
@@ -177,14 +352,14 @@ export async function updatePanelUserAction(
   input: Omit<PanelUserInput, 'email'> & { email?: never },
 ): Promise<UserManagementActionResult<PanelUserRow>> {
   try {
-    const { admin, email: actorEmail } = await requireAdminFromAccessToken(accessToken);
+    const ctx = await requireUserManagerFromAccessToken(accessToken);
 
     const email = normalizeEmail(emailRaw);
     const fullName = input.fullName.trim();
     const password = input.password?.trim();
     const isActive = input.isActive ?? true;
 
-    if (!validateRole(input.role)) {
+    if (!validateAssignableRole(ctx, input.role)) {
       return { ok: false, message: 'Perfil inválido.' };
     }
     if (!fullName) {
@@ -194,9 +369,9 @@ export async function updatePanelUserAction(
       return { ok: false, message: 'Nova senha deve ter pelo menos 8 caracteres.' };
     }
 
-    const { data: existing, error: readError } = await admin
+    const { data: existing, error: readError } = await ctx.admin
       .from(PANEL_ACCESS_TABLE)
-      .select('email, role, is_active')
+      .select('email, role, is_active, client_id')
       .eq('email', email)
       .maybeSingle();
 
@@ -207,12 +382,22 @@ export async function updatePanelUserAction(
       return { ok: false, message: 'Usuário não encontrado.' };
     }
 
-    if (email === actorEmail && (!isActive || input.role !== 'admin')) {
-      return { ok: false, message: 'Você não pode remover seu próprio acesso de administrador.' };
+    assertActorCanManageExistingUser(ctx, existing as { role: PanelUserRole; client_id?: string | null });
+
+    if (email === ctx.email) {
+      if (isPlatformAdminRole(ctx.role) && (!isActive || input.role !== 'admin')) {
+        return { ok: false, message: 'Você não pode remover seu próprio acesso de administrador.' };
+      }
+      if (isClientAdminRole(ctx.role) && (!isActive || input.role !== 'client_admin')) {
+        return {
+          ok: false,
+          message: 'Você não pode remover seu próprio acesso de administrador do cliente.',
+        };
+      }
     }
 
     if (existing.role === 'admin' && input.role !== 'admin') {
-      const { count, error: countError } = await admin
+      const { count, error: countError } = await ctx.admin
         .from(PANEL_ACCESS_TABLE)
         .select('email', { count: 'exact', head: true })
         .eq('role', 'admin')
@@ -226,9 +411,9 @@ export async function updatePanelUserAction(
       }
     }
 
-    const authUserId = await findAuthUserIdByEmail(admin, email);
+    const authUserId = await findAuthUserIdByEmail(ctx.admin, email);
     if (authUserId) {
-      const { error: authUpdateError } = await admin.auth.admin.updateUserById(authUserId, {
+      const { error: authUpdateError } = await ctx.admin.auth.admin.updateUserById(authUserId, {
         ...(password ? { password } : {}),
         user_metadata: { full_name: fullName },
       });
@@ -237,17 +422,26 @@ export async function updatePanelUserAction(
       }
     }
 
-    const clientResult = await resolvePanelUserClientId(admin, input);
+    const clientResult = await resolvePanelUserClientId(ctx, input);
     if (!clientResult.ok) return clientResult;
 
-    const { data, error } = await admin
+    const maxResult = await resolveOperatorMaxForWrite(ctx, input, clientResult.clientId);
+    if (!maxResult.ok) return maxResult;
+
+    const updatePayload: Record<string, unknown> = {
+      full_name: fullName,
+      role: input.role,
+      is_active: isActive,
+      client_id: clientResult.clientId,
+    };
+
+    if (input.role === 'operator' || existing.role === 'operator') {
+      updatePayload.max_amount_brl = input.role === 'operator' ? maxResult.maxAmountBrl : null;
+    }
+
+    const { data, error } = await ctx.admin
       .from(PANEL_ACCESS_TABLE)
-      .update({
-        full_name: fullName,
-        role: input.role,
-        is_active: isActive,
-        client_id: clientResult.clientId,
-      })
+      .update(updatePayload)
       .eq('email', email)
       .select(PANEL_USER_COLUMNS)
       .single();
@@ -267,20 +461,20 @@ export async function deletePanelUserAction(
   emailRaw: string,
 ): Promise<UserManagementActionResult<{ email: string }>> {
   try {
-    const { admin, email: actorEmail } = await requireAdminFromAccessToken(accessToken);
+    const ctx = await requireUserManagerFromAccessToken(accessToken);
 
     const email = normalizeEmail(emailRaw);
     if (!email) {
       return { ok: false, message: 'E-mail inválido.' };
     }
 
-    if (email === actorEmail) {
+    if (email === ctx.email) {
       return { ok: false, message: 'Você não pode excluir sua própria conta.' };
     }
 
-    const { data: existing, error: readError } = await admin
+    const { data: existing, error: readError } = await ctx.admin
       .from(PANEL_ACCESS_TABLE)
-      .select('email, role, is_active')
+      .select('email, role, is_active, client_id')
       .eq('email', email)
       .maybeSingle();
 
@@ -291,8 +485,10 @@ export async function deletePanelUserAction(
       return { ok: false, message: 'Usuário não encontrado.' };
     }
 
+    assertActorCanManageExistingUser(ctx, existing as { role: PanelUserRole; client_id?: string | null });
+
     if (existing.role === 'admin' && existing.is_active) {
-      const { count, error: countError } = await admin
+      const { count, error: countError } = await ctx.admin
         .from(PANEL_ACCESS_TABLE)
         .select('email', { count: 'exact', head: true })
         .eq('role', 'admin')
@@ -306,20 +502,20 @@ export async function deletePanelUserAction(
       }
     }
 
-    const authUserId = await findAuthUserIdByEmail(admin, email);
+    const authUserId = await findAuthUserIdByEmail(ctx.admin, email);
     if (authUserId) {
-      const { error: deleteAuthError } = await admin.auth.admin.deleteUser(authUserId);
+      const { error: deleteAuthError } = await ctx.admin.auth.admin.deleteUser(authUserId);
       if (deleteAuthError) {
         return { ok: false, message: deleteAuthError.message };
       }
     }
 
-    const { error } = await admin.from(PANEL_ACCESS_TABLE).delete().eq('email', email);
+    const { error } = await ctx.admin.from(PANEL_ACCESS_TABLE).delete().eq('email', email);
     if (error) {
       return { ok: false, message: error.message };
     }
 
-    console.info('[users/delete] panel user removed', { email, by: actorEmail });
+    console.info('[users/delete] panel user removed', { email, by: ctx.email });
     return { ok: true, data: { email } };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };

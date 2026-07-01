@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import {
   createPanelUserAction,
   deletePanelUserAction,
+  getManagedClientCeilingAction,
   listPanelUsersAction,
   updatePanelUserAction,
 } from '@/app/actions/user-management';
@@ -16,12 +17,15 @@ import { InputField } from '@/components/ui/InputField';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import type { ClientRow } from '@/lib/clients/types';
+import { canManagePanelUsers } from '@/lib/users/panel-access';
+import {
+  CLIENT_ADMIN_MANAGEABLE_ROLES,
+  PLATFORM_ADMIN_ASSIGNABLE_ROLES,
+} from '@/lib/users/roles';
 import type { PanelUserRole, PanelUserRow } from '@/lib/users/types';
 import { useI18n } from '@/lib/i18n';
 
 type FormMode = 'create' | 'edit' | null;
-
-const ROLES: PanelUserRole[] = ['admin', 'operator', 'viewer'];
 
 async function getAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
@@ -33,8 +37,13 @@ export function UserManagementPage() {
   const router = useRouter();
   const { profile, user, isLoading: authLoading, isAuthorized } = useAuth();
 
+  const isPlatformAdmin = profile?.role === 'admin';
+  const canManageUsers = canManagePanelUsers(profile?.role);
+
   const [rows, setRows] = useState<PanelUserRow[]>([]);
   const [clientOptions, setClientOptions] = useState<ClientRow[]>([]);
+  const [clientCeiling, setClientCeiling] = useState<string | null>(null);
+  const [managedClientName, setManagedClientName] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -49,13 +58,16 @@ export function UserManagementPage() {
   const [password, setPassword] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [clientId, setClientId] = useState('');
+  const [maxAmountBrl, setMaxAmountBrl] = useState('');
+
+  const assignableRoles = isPlatformAdmin ? PLATFORM_ADMIN_ASSIGNABLE_ROLES : CLIENT_ADMIN_MANAGEABLE_ROLES;
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
-    if (profile?.role !== 'admin') {
+    if (!canManageUsers) {
       router.replace('/app/dashboard');
     }
-  }, [authLoading, isAuthorized, profile?.role, router]);
+  }, [authLoading, canManageUsers, isAuthorized, router]);
 
   const loadUsers = useCallback(async () => {
     setLoadError(null);
@@ -69,9 +81,10 @@ export function UserManagementPage() {
         return;
       }
 
-      const [usersResult, clientsResult] = await Promise.all([
+      const [usersResult, clientsResult, ceilingResult] = await Promise.all([
         listPanelUsersAction(token),
-        listClientsAction(token),
+        isPlatformAdmin ? listClientsAction(token) : Promise.resolve({ ok: true as const, data: [] as ClientRow[] }),
+        getManagedClientCeilingAction(token),
       ]);
 
       if (!usersResult.ok) {
@@ -86,15 +99,23 @@ export function UserManagementPage() {
       } else {
         setClientOptions(clientsResult.data);
       }
+
+      if (ceilingResult.ok) {
+        setClientCeiling(ceilingResult.data.maxAmountBrl);
+        setManagedClientName(ceilingResult.data.clientName);
+      } else {
+        setClientCeiling(null);
+        setManagedClientName(null);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [t]);
+  }, [isPlatformAdmin, t]);
 
   useEffect(() => {
-    if (authLoading || profile?.role !== 'admin') return;
+    if (authLoading || !canManageUsers) return;
     void loadUsers();
-  }, [authLoading, profile?.role, loadUsers]);
+  }, [authLoading, canManageUsers, loadUsers]);
 
   const resetForm = () => {
     setFormMode(null);
@@ -105,6 +126,7 @@ export function UserManagementPage() {
     setPassword('');
     setIsActive(true);
     setClientId('');
+    setMaxAmountBrl('');
     setFormError(null);
   };
 
@@ -126,6 +148,7 @@ export function UserManagementPage() {
     setPassword('');
     setIsActive(row.is_active);
     setClientId(row.client_id ?? '');
+    setMaxAmountBrl(row.max_amount_brl?.trim() ?? '');
     setFormError(null);
     setSuccessMessage(null);
   };
@@ -151,6 +174,7 @@ export function UserManagementPage() {
           password,
           isActive: true,
           clientId: role === 'admin' ? undefined : clientId,
+          maxAmountBrl: role === 'operator' ? maxAmountBrl : undefined,
         });
         if (!result.ok) {
           setFormError(result.message);
@@ -165,6 +189,7 @@ export function UserManagementPage() {
           password: password || undefined,
           isActive,
           clientId: role === 'admin' ? undefined : clientId,
+          maxAmountBrl: role === 'operator' ? maxAmountBrl : undefined,
         });
         if (!result.ok) {
           setFormError(result.message);
@@ -216,7 +241,7 @@ export function UserManagementPage() {
 
   const roleLabel = (value: PanelUserRole) => t(`pages.userManagement.roles.${value}`);
 
-  if (authLoading || profile?.role !== 'admin') {
+  if (authLoading || !canManageUsers) {
     return (
       <section className="dashboard-layout">
         <article className="surface">
@@ -311,7 +336,7 @@ export function UserManagementPage() {
                   disabled={isSaving}
                   required
                 >
-                  {ROLES.map((r) => (
+                  {assignableRoles.map((r) => (
                     <option key={r} value={r}>
                       {roleLabel(r)}
                     </option>
@@ -320,7 +345,7 @@ export function UserManagementPage() {
               </label>
             </div>
 
-            {role !== 'admin' ? (
+            {role !== 'admin' && isPlatformAdmin ? (
               <label className="field">
                 <span className="field__label">{t('pages.userManagement.client')}</span>
                 <select
@@ -338,6 +363,29 @@ export function UserManagementPage() {
                   ))}
                 </select>
               </label>
+            ) : null}
+
+            {!isPlatformAdmin && managedClientName ? (
+              <p className="surface__lead">
+                {t('pages.userManagement.managedClient')}: <strong>{managedClientName}</strong>
+              </p>
+            ) : null}
+
+            {role === 'operator' ? (
+              <div className="field">
+                <InputField
+                  id="user-max-amount"
+                  label={t('pages.userManagement.operatorMaxAmount')}
+                  type="text"
+                  value={maxAmountBrl}
+                  onChange={(e) => setMaxAmountBrl(e.target.value)}
+                  placeholder={t('pages.userManagement.operatorMaxAmountPlaceholder')}
+                  disabled={isSaving}
+                />
+                {clientCeiling ? (
+                  <p className="field__hint">{t('pages.userManagement.operatorMaxAmountHint').replace('{{max}}', clientCeiling)}</p>
+                ) : null}
+              </div>
             ) : null}
 
             <InputField
@@ -391,6 +439,7 @@ export function UserManagementPage() {
                 <th>{t('pages.userManagement.fullName')}</th>
                 <th>{t('pages.userManagement.client')}</th>
                 <th>{t('pages.userManagement.role')}</th>
+                <th>{t('pages.userManagement.operatorMaxAmount')}</th>
                 <th>{t('pages.userManagement.status')}</th>
                 <th aria-label={t('pages.userManagement.actions')} />
               </tr>
@@ -398,11 +447,11 @@ export function UserManagementPage() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6}>{t('pages.userManagement.loading')}</td>
+                  <td colSpan={7}>{t('pages.userManagement.loading')}</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>{t('pages.userManagement.empty')}</td>
+                  <td colSpan={7}>{t('pages.userManagement.empty')}</td>
                 </tr>
               ) : (
                 rows.map((row) => (
@@ -411,6 +460,7 @@ export function UserManagementPage() {
                     <td>{row.full_name?.trim() || '—'}</td>
                     <td>{row.client_name ?? (row.role === 'admin' ? '—' : t('pages.userManagement.clientMissing'))}</td>
                     <td>{roleLabel(row.role)}</td>
+                    <td>{row.role === 'operator' ? row.max_amount_brl?.trim() || '—' : '—'}</td>
                     <td>
                       <span
                         className={`user-management-status${row.is_active ? ' is-active' : ' is-inactive'}`}

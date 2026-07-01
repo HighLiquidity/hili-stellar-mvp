@@ -30,4 +30,5 @@ export type RampOrdersListQuery = {
   status?: string;
   dateFrom?: string;
   dateTo?: string;
+  clientId?: string;
 };

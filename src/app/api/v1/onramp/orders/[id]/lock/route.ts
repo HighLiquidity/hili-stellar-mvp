@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { assertOnrampOrderOwnedByUser } from '@/lib/api-keys/ownership';
+import { assertOnrampOrderOwnedByApiKey } from '@/lib/api-keys/ownership';
 import { lockOnrampOrderWithPix } from '@/lib/onramp';
 import { findOnrampOrderById } from '@/lib/onramp/order-store';
 
@@ -47,7 +47,7 @@ export async function POST(request: Request, context: RouteContext) {
           : undefined;
 
       const existing = await findOnrampOrderById(id);
-      assertOnrampOrderOwnedByUser(existing, ctx.userId);
+      assertOnrampOrderOwnedByApiKey(existing, ctx);
 
       const locked = await lockOnrampOrderWithPix({
         orderId: id,

@@ -3,8 +3,11 @@ export type CommercialProfileSource = {
   maxAmountBrl: string | null;
 };
 
-/** @deprecated Use CommercialProfileSource; kept for legacy operator reads. */
-export type OperatorCommercialProfile = CommercialProfileSource;
+/** Operator sub-limit (max BRL only); spread is ignored at resolve time. */
+export type OperatorCommercialProfile = {
+  spreadBpsOverride?: number | null;
+  maxAmountBrl: string | null;
+};
 
 export type CommercialTerms = {
   spreadBps: number;

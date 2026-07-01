@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { resolveListClientId, resolvePanelDataScope } from '@/lib/clients/scope';
 import { listOfframpOrders } from '@/lib/offramp/list-orders';
 
 import { handleOfframpRouteError, requireOfframpRouteOperator } from '../_utils';
@@ -21,12 +22,14 @@ export async function GET(request: Request) {
   const pageSizeRaw = readQueryParam(url, 'pageSize');
 
   try {
+    const scope = resolvePanelDataScope(auth.ctx);
     const result = await listOfframpOrders({
       page: pageRaw ? Number.parseInt(pageRaw, 10) : undefined,
       pageSize: pageSizeRaw ? Number.parseInt(pageSizeRaw, 10) : undefined,
       status: readQueryParam(url, 'status'),
       dateFrom: readQueryParam(url, 'dateFrom'),
       dateTo: readQueryParam(url, 'dateTo'),
+      clientId: resolveListClientId(scope),
     });
     return NextResponse.json(result, { status: 200 });
   } catch (error) {

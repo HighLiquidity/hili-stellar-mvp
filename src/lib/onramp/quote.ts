@@ -61,6 +61,7 @@ export type CreateOnrampQuoteInput = {
   apiKeyMaxAmountBrl?: string | null;
   actorEmail?: string | null;
   actorUserId?: string | null;
+  actorClientId?: string | null;
 };
 
 export type OnrampQuoteView = {
@@ -373,9 +374,10 @@ export async function createOnrampQuote(input: CreateOnrampQuoteInput): Promise<
   }
 
   const integratorExternalId = input.integratorExternalId?.trim() || null;
-  if (integratorExternalId && input.actorUserId) {
+  if (integratorExternalId && (input.actorClientId || input.actorUserId)) {
     const duplicate = await findOnrampOrderByIntegratorExternalId({
-      userId: input.actorUserId,
+      clientId: input.actorClientId ?? undefined,
+      userId: input.actorClientId ? undefined : (input.actorUserId ?? undefined),
       externalId: integratorExternalId,
     });
     if (duplicate) {
@@ -434,6 +436,7 @@ export async function createOnrampQuote(input: CreateOnrampQuoteInput): Promise<
     quoteSpreadBps: spreadBps,
     createdByEmail: input.actorEmail ?? null,
     createdByUserId: input.actorUserId ?? null,
+    clientId: input.actorClientId ?? null,
     integratorExternalId,
     metadata: {
       quote: {

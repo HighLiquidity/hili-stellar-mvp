@@ -53,6 +53,7 @@ export async function executeV1Route(options: ExecuteV1RouteOptions): Promise<Ne
       await logApiKeyRequest({
         apiKeyId: ctx.apiKeyId,
         keyPrefix: ctx.keyPrefix,
+        clientId: ctx.clientId,
         method,
         route: options.route,
         statusCode: response.status,
@@ -90,6 +91,7 @@ export async function executeV1Route(options: ExecuteV1RouteOptions): Promise<Ne
       await logApiKeyRequest({
         apiKeyId: ctx.apiKeyId,
         keyPrefix: ctx.keyPrefix,
+        clientId: ctx.clientId,
         method,
         route: options.route,
         statusCode: response.status,
@@ -139,6 +141,7 @@ export async function executeV1Route(options: ExecuteV1RouteOptions): Promise<Ne
   await logApiKeyRequest({
     apiKeyId: ctx.apiKeyId,
     keyPrefix: ctx.keyPrefix,
+    clientId: ctx.clientId,
     method,
     route: options.route,
     statusCode,

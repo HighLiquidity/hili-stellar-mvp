@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { panelRampActor } from '@/lib/clients/scope';
 import { logOnrampEvent } from '@/lib/fiat-operations/log-onramp';
 import { lockOnrampOrderWithPix } from '@/lib/onramp';
 
@@ -42,7 +43,7 @@ export async function POST(request: Request, context: RouteContext) {
   try {
     const locked = await lockOnrampOrderWithPix({
       orderId: id,
-      actor: { userId: auth.ctx.userId, role: auth.ctx.role },
+      actor: panelRampActor(auth.ctx),
       destinationAddress,
     });
 

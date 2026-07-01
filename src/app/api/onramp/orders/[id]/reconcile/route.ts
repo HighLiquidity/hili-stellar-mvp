@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 
+import { assertOnrampOrderInDataScope, resolvePanelDataScope } from '@/lib/clients/scope';
 import { logOnrampEvent } from '@/lib/fiat-operations/log-onramp';
 import { getOnrampOrder, startOnrampReconciliation } from '@/lib/onramp';
+import { findOnrampOrderById } from '@/lib/onramp/order-store';
 
 import { handleOnrampRouteError, requireOnrampRouteOperator } from '../../../_utils';
 
@@ -25,6 +27,10 @@ export async function POST(request: Request, context: RouteContext) {
   const { id } = await context.params;
 
   try {
+    const scope = resolvePanelDataScope(auth.ctx);
+    const existing = await findOnrampOrderById(id);
+    assertOnrampOrderInDataScope(existing, scope, { userId: auth.ctx.userId });
+
     await startOnrampReconciliation(id, { source: 'api/onramp/orders/reconcile' });
     const order = await getOnrampOrder(id);
 

@@ -2,13 +2,14 @@ import '@/lib/server/only';
 
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
+import { fallbackLegacyClientId, resolveClientIdForAuthUserId } from '@/lib/clients/resolve-client-id';
 import { generateApiKeyCredentials, hashApiKeySecret, verifyApiKeySecret } from './crypto';
 import type { ApiKeyRow, ApiKeyScope } from './types';
 
 export const API_KEYS_TABLE = 'api_keys';
 
 const API_KEY_COLUMNS =
-  'id, label, key_prefix, linked_user_id, scopes, is_active, revoked_at, last_used_at, spread_bps_override, max_amount_brl, created_at, updated_at, created_by_email';
+  'id, label, key_prefix, linked_user_id, client_id, scopes, is_active, revoked_at, last_used_at, spread_bps_override, max_amount_brl, created_at, updated_at, created_by_email';
 
 const SCOPES: ApiKeyScope[] = ['onramp', 'offramp', 'orders:read'];
 
@@ -17,6 +18,7 @@ type ApiKeyDbRow = {
   label: string;
   key_prefix: string;
   linked_user_id: string;
+  client_id: string | null;
   scopes: string[] | null;
   is_active: boolean;
   revoked_at: string | null;
@@ -33,6 +35,7 @@ export type ApiKeyAuthContext = {
   keyPrefix: string;
   label: string;
   userId: string;
+  clientId: string | null;
   email: string | null;
   scopes: ApiKeyScope[];
   spreadBpsOverride: number | null;
@@ -107,9 +110,55 @@ async function findAuthUserIdByEmail(
   return null;
 }
 
-async function assertLinkedPanelOperator(
+export async function listApiKeysForClient(clientId: string): Promise<ApiKeyRow[]> {
+  const admin = createSupabaseAdmin();
+  if (!admin) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY missing');
+  }
+
+  const normalizedClientId = clientId.trim();
+  if (!normalizedClientId) {
+    throw new Error('Client id is required.');
+  }
+
+  const { data, error } = await admin
+    .from(API_KEYS_TABLE)
+    .select(API_KEY_COLUMNS)
+    .eq('client_id', normalizedClientId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapApiKeyRows((data ?? []) as ApiKeyDbRow[]);
+}
+
+export async function assertApiKeyInClient(apiKeyId: string, clientId: string): Promise<void> {
+  const admin = createSupabaseAdmin();
+  if (!admin) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY missing');
+  }
+
+  const { data, error } = await admin
+    .from(API_KEYS_TABLE)
+    .select('client_id')
+    .eq('id', apiKeyId.trim())
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data || data.client_id !== clientId.trim()) {
+    throw new Error('API key not found.');
+  }
+}
+
+async function assertLinkedOperatorInClient(
   admin: NonNullable<ReturnType<typeof createSupabaseAdmin>>,
   userId: string,
+  clientId: string,
 ): Promise<void> {
   const emails = await listAuthEmailsByUserId(admin);
   const email = emails.get(userId);
@@ -119,7 +168,7 @@ async function assertLinkedPanelOperator(
 
   const { data: panelRow, error: panelError } = await admin
     .from('panel_access_list')
-    .select('role, is_active')
+    .select('role, is_active, client_id')
     .eq('email', email)
     .maybeSingle();
 
@@ -127,12 +176,12 @@ async function assertLinkedPanelOperator(
     throw new Error(panelError.message);
   }
 
-  if (!panelRow?.is_active) {
-    throw new Error('Linked operator is inactive in panel access list.');
+  if (!panelRow?.is_active || panelRow.role !== 'operator') {
+    throw new Error('API keys can only be linked to active operator users.');
   }
 
-  if (panelRow.role !== 'operator' && panelRow.role !== 'admin') {
-    throw new Error('API keys can only be linked to operator or admin users.');
+  if (panelRow.client_id?.trim() !== clientId.trim()) {
+    throw new Error('Linked operator does not belong to this client.');
   }
 }
 
@@ -236,6 +285,7 @@ export async function createApiKey(input: {
   createdByEmail: string;
   spreadBpsOverride?: number | null;
   maxAmountBrl?: string | null;
+  expectedClientId?: string | null;
 }): Promise<{ row: ApiKeyRow; secret: string }> {
   const admin = createSupabaseAdmin();
   if (!admin) {
@@ -259,7 +309,39 @@ export async function createApiKey(input: {
     throw new Error('Linked operator user was not found in Auth.');
   }
 
-  await assertLinkedPanelOperator(admin, linkedUserId);
+  const expectedClientId = input.expectedClientId?.trim() || null;
+  if (expectedClientId) {
+    await assertLinkedOperatorInClient(admin, linkedUserId, expectedClientId);
+  } else {
+    const emails = await listAuthEmailsByUserId(admin);
+    const email = emails.get(linkedUserId);
+    if (!email) {
+      throw new Error('Linked operator user was not found in Auth.');
+    }
+
+    const { data: panelRow, error: panelError } = await admin
+      .from('panel_access_list')
+      .select('role, is_active')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (panelError) {
+      throw new Error(panelError.message);
+    }
+
+    if (!panelRow?.is_active) {
+      throw new Error('Linked operator is inactive in panel access list.');
+    }
+
+    if (panelRow.role !== 'operator' && panelRow.role !== 'admin') {
+      throw new Error('API keys can only be linked to operator or admin users.');
+    }
+  }
+
+  const clientId = expectedClientId ?? fallbackLegacyClientId(await resolveClientIdForAuthUserId(admin, linkedUserId));
+  if (!clientId) {
+    throw new Error('Linked operator is not assigned to a client.');
+  }
 
   const credentials = generateApiKeyCredentials();
   const now = new Date().toISOString();
@@ -271,6 +353,7 @@ export async function createApiKey(input: {
       key_prefix: credentials.keyPrefix,
       secret_hash: credentials.secretHash,
       linked_user_id: linkedUserId,
+      client_id: clientId,
       scopes,
       spread_bps_override: input.spreadBpsOverride ?? null,
       max_amount_brl: input.maxAmountBrl?.trim() || null,
@@ -328,7 +411,7 @@ export async function authenticateApiKeySecret(secret: string): Promise<ApiKeyAu
   const secretHash = hashApiKeySecret(secret);
   const { data, error } = await admin
     .from(API_KEYS_TABLE)
-    .select('id, label, key_prefix, linked_user_id, scopes, is_active, spread_bps_override, max_amount_brl')
+    .select('id, label, key_prefix, linked_user_id, client_id, scopes, is_active, spread_bps_override, max_amount_brl')
     .eq('secret_hash', secretHash)
     .eq('is_active', true)
     .maybeSingle();
@@ -347,6 +430,7 @@ export async function authenticateApiKeySecret(secret: string): Promise<ApiKeyAu
     | 'label'
     | 'key_prefix'
     | 'linked_user_id'
+    | 'client_id'
     | 'scopes'
     | 'is_active'
     | 'spread_bps_override'
@@ -365,6 +449,7 @@ export async function authenticateApiKeySecret(secret: string): Promise<ApiKeyAu
     keyPrefix: row.key_prefix,
     label: row.label,
     userId: row.linked_user_id,
+    clientId: row.client_id,
     email: emails.get(row.linked_user_id) ?? null,
     scopes: normalizeScopes(row.scopes),
     spreadBpsOverride: row.spread_bps_override,

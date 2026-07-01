@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { resolvePanelQuoteCommercialTerms } from '@/lib/commercial/panel';
 import { logOnrampEvent } from '@/lib/fiat-operations/log-onramp';
 import { createOnrampQuote, getOnrampQuoteSpreadBps } from '@/lib/onramp';
+import { isClientTenantRampActor } from '@/lib/users/roles';
 
 import { badRequest, handleOnrampRouteError, requireOnrampRouteOperator } from '../../_utils';
 
@@ -105,6 +106,7 @@ export async function POST(request: Request) {
       apiKeyMaxAmountBrl: commercial.maxAmountBrl,
       actorEmail: auth.ctx.email,
       actorUserId: auth.ctx.userId,
+      actorClientId: isClientTenantRampActor(auth.ctx.role) ? auth.ctx.clientId : null,
     });
 
     await logOnrampEvent({

@@ -67,6 +67,12 @@ export async function listOfframpOrders(query: RampOrdersListQuery = {}): Promis
     .order('created_at', { ascending: false })
     .range(from, to);
 
+  if (query.clientId?.trim()) {
+    const clientId = query.clientId.trim();
+    countQuery = countQuery.eq('client_id', clientId);
+    dataQuery = dataQuery.eq('client_id', clientId);
+  }
+
   if (query.status?.trim()) {
     const status = query.status.trim() as OfframpOrderStatus;
     countQuery = countQuery.eq('status', status);

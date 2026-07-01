@@ -1,15 +1,16 @@
 'use server';
 
-import { listApiKeyRequestLogs, listApiKeyRequestLogsForLinkedUser } from '@/lib/api-keys/request-log';
+import { listApiKeyRequestLogs, listApiKeyRequestLogsForClient } from '@/lib/api-keys/request-log';
 import {
-  assertApiKeyOwnedByUser,
+  assertApiKeyInClient,
   createApiKey,
   listApiKeys,
-  listApiKeysForLinkedUser,
+  listApiKeysForClient,
   revokeApiKey,
 } from '@/lib/api-keys/store';
 import type { ApiActivityRow, ApiKeyCreateResult, ApiKeyRow, ApiKeyScope } from '@/lib/api-keys/types';
-import { requireOperatorOrAdminFromAccessToken } from '@/lib/users/require-panel-role';
+import { requireApiKeyManagerFromAccessToken } from '@/lib/users/require-delegated-admin';
+import { isPlatformAdminRole } from '@/lib/users/roles';
 
 const SCOPES: ApiKeyScope[] = ['onramp', 'offramp', 'orders:read'];
 
@@ -21,9 +22,10 @@ function normalizeScopes(scopes: ApiKeyScope[]): ApiKeyScope[] {
 
 export async function listApiKeysAction(accessToken: string): Promise<ApiKeysActionResult<ApiKeyRow[]>> {
   try {
-    const ctx = await requireOperatorOrAdminFromAccessToken(accessToken);
-    const rows =
-      ctx.role === 'admin' ? await listApiKeys() : await listApiKeysForLinkedUser(ctx.userId);
+    const ctx = await requireApiKeyManagerFromAccessToken(accessToken);
+    const rows = isPlatformAdminRole(ctx.role)
+      ? await listApiKeys()
+      : await listApiKeysForClient(ctx.clientId ?? '');
     return { ok: true, data: rows };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : String(error) };
@@ -39,17 +41,7 @@ export async function createApiKeyAction(
   },
 ): Promise<ApiKeysActionResult<ApiKeyCreateResult>> {
   try {
-    const ctx = await requireOperatorOrAdminFromAccessToken(accessToken);
-
-    if (ctx.role === 'operator') {
-      const result = await createApiKey({
-        label: input.label,
-        linkedUserId: ctx.userId,
-        scopes: normalizeScopes(input.scopes),
-        createdByEmail: ctx.email,
-      });
-      return { ok: true, data: result };
-    }
+    const ctx = await requireApiKeyManagerFromAccessToken(accessToken);
 
     const linkedUserEmail = input.linkedUserEmail?.trim();
     if (!linkedUserEmail) {
@@ -61,6 +53,7 @@ export async function createApiKeyAction(
       linkedUserEmail,
       scopes: normalizeScopes(input.scopes),
       createdByEmail: ctx.email,
+      expectedClientId: isPlatformAdminRole(ctx.role) ? null : ctx.clientId,
     });
     return { ok: true, data: result };
   } catch (error) {
@@ -73,10 +66,14 @@ export async function revokeApiKeyAction(
   apiKeyId: string,
 ): Promise<ApiKeysActionResult<ApiKeyRow>> {
   try {
-    const ctx = await requireOperatorOrAdminFromAccessToken(accessToken);
+    const ctx = await requireApiKeyManagerFromAccessToken(accessToken);
 
-    if (ctx.role === 'operator') {
-      await assertApiKeyOwnedByUser(apiKeyId, ctx.userId);
+    if (!isPlatformAdminRole(ctx.role)) {
+      const clientId = ctx.clientId?.trim();
+      if (!clientId) {
+        return { ok: false, message: 'Client admin is not linked to a client.' };
+      }
+      await assertApiKeyInClient(apiKeyId, clientId);
     }
 
     const row = await revokeApiKey(apiKeyId);
@@ -90,11 +87,10 @@ export async function listApiKeyActivityAction(
   accessToken: string,
 ): Promise<ApiKeysActionResult<ApiActivityRow[]>> {
   try {
-    const ctx = await requireOperatorOrAdminFromAccessToken(accessToken);
-    const rows =
-      ctx.role === 'admin'
-        ? await listApiKeyRequestLogs()
-        : await listApiKeyRequestLogsForLinkedUser(ctx.userId);
+    const ctx = await requireApiKeyManagerFromAccessToken(accessToken);
+    const rows = isPlatformAdminRole(ctx.role)
+      ? await listApiKeyRequestLogs()
+      : await listApiKeyRequestLogsForClient(ctx.clientId ?? '');
     return { ok: true, data: rows };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { assertOfframpOrderOwnedByUser } from '@/lib/api-keys/ownership';
+import { assertOfframpOrderOwnedByApiKey } from '@/lib/api-keys/ownership';
 import { lockOfframpQuote } from '@/lib/offramp';
 import { findOfframpOrderById } from '@/lib/offramp/order-store';
 
@@ -49,7 +49,7 @@ export async function POST(request: Request, context: RouteContext) {
           : undefined;
 
       const existing = await findOfframpOrderById(id);
-      assertOfframpOrderOwnedByUser(existing, ctx.userId);
+      assertOfframpOrderOwnedByApiKey(existing, ctx);
 
       const locked = await lockOfframpQuote({
         orderId: id,

@@ -35,6 +35,7 @@ function mapActivityRow(row: RequestLogDbRow): ApiActivityRow {
 export async function logApiKeyRequest(input: {
   apiKeyId: string;
   keyPrefix: string;
+  clientId?: string | null;
   method: string;
   route: string;
   statusCode: number;
@@ -47,6 +48,7 @@ export async function logApiKeyRequest(input: {
   const { error } = await admin.from(REQUEST_LOGS_TABLE).insert({
     api_key_id: input.apiKeyId,
     key_prefix: input.keyPrefix,
+    client_id: input.clientId?.trim() || null,
     method: input.method.toUpperCase(),
     route: input.route,
     status_code: input.statusCode,
@@ -115,6 +117,35 @@ export async function listApiKeyRequestLogs(limit = DEFAULT_LIST_LIMIT): Promise
   const { data, error } = await admin
     .from(REQUEST_LOGS_TABLE)
     .select('id, created_at, api_key_id, key_prefix, method, route, status_code, duration_ms, idempotency_key')
+    .order('created_at', { ascending: false })
+    .limit(safeLimit);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as RequestLogDbRow[]).map(mapActivityRow);
+}
+
+export async function listApiKeyRequestLogsForClient(
+  clientId: string,
+  limit = DEFAULT_LIST_LIMIT,
+): Promise<ApiActivityRow[]> {
+  const admin = createSupabaseAdmin();
+  if (!admin) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY missing');
+  }
+
+  const normalizedClientId = clientId.trim();
+  if (!normalizedClientId) {
+    return [];
+  }
+
+  const safeLimit = Math.min(Math.max(limit, 1), 500);
+  const { data, error } = await admin
+    .from(REQUEST_LOGS_TABLE)
+    .select('id, created_at, api_key_id, key_prefix, method, route, status_code, duration_ms, idempotency_key')
+    .eq('client_id', normalizedClientId)
     .order('created_at', { ascending: false })
     .limit(safeLimit);
 

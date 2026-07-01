@@ -551,9 +551,14 @@ const dictionaries: Record<Locale, TranslationTree> = {
         deleteConfirm: 'Excluir o usuário {{email}}? A conta de autenticação também será removida.',
         roles: {
           admin: 'Administrador',
+          client_admin: 'Administrador do cliente',
           operator: 'Operador',
           viewer: 'Visualizador',
         },
+        operatorMaxAmount: 'Limite transacional (BRL)',
+        operatorMaxAmountPlaceholder: 'Opcional — ex.: 5000.00',
+        operatorMaxAmountHint: 'Máximo permitido pelo cliente: {{max}} BRL. Deixe vazio para usar só o teto do cliente.',
+        managedClient: 'Cliente gerenciado',
         errors: {
           session: 'Sessão inválida. Faça login novamente.',
         },
@@ -1542,9 +1547,14 @@ const dictionaries: Record<Locale, TranslationTree> = {
         deleteConfirm: 'Delete user {{email}}? Their auth account will also be removed.',
         roles: {
           admin: 'Administrator',
+          client_admin: 'Client administrator',
           operator: 'Operator',
           viewer: 'Viewer',
         },
+        operatorMaxAmount: 'Transaction limit (BRL)',
+        operatorMaxAmountPlaceholder: 'Optional — e.g. 5000.00',
+        operatorMaxAmountHint: 'Client ceiling: {{max}} BRL. Leave empty to use only the client limit.',
+        managedClient: 'Managed client',
         errors: {
           session: 'Invalid session. Please sign in again.',
         },

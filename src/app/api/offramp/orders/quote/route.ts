@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { resolvePanelQuoteCommercialTerms } from '@/lib/commercial/panel';
 import { createOfframpQuote, getOfframpQuoteSpreadBps } from '@/lib/offramp';
+import { isClientTenantRampActor } from '@/lib/users/roles';
 import { badRequest, handleOfframpRouteError, requireOfframpRouteOperator } from '../../_utils';
 
 export const runtime = 'nodejs';
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
       apiKeyMaxAmountBrl: commercial.maxAmountBrl,
       actorEmail: auth.ctx.email,
       actorUserId: auth.ctx.userId,
+      actorClientId: isClientTenantRampActor(auth.ctx.role) ? auth.ctx.clientId : null,
     });
 
     return NextResponse.json(quote, { status: 200 });

@@ -2,6 +2,13 @@
 
 import { requireAdminFromAccessToken } from '@/lib/users/require-admin';
 import { requireOperatorOrAdminFromAccessToken } from '@/lib/users/require-panel-role';
+import { canSubmitOwnWhitelistRequests } from '@/lib/users/roles';
+import {
+  assertWhitelistRowInApproverScope,
+  loadWhitelistRowClientId,
+  requireWhitelistApproverFromAccessToken,
+  resolveWhitelistClientFilter,
+} from '@/lib/users/require-whitelist-approver';
 import {
   getOnrampWithdrawNetwork,
   normalizeWithdrawWhitelistAddress,
@@ -333,16 +340,23 @@ export async function listPendingWithdrawWhitelistAction(
   accessToken: string,
 ): Promise<ActionResult<WithdrawWhitelistRowWithEmail[]>> {
   try {
-    const { admin } = await requireAdminFromAccessToken(accessToken);
+    const ctx = await requireWhitelistApproverFromAccessToken(accessToken);
+    const clientFilter = resolveWhitelistClientFilter(ctx);
+
+    let query = ctx.admin
+      .from(WHITELIST_TABLE)
+      .select(WHITELIST_COLUMNS)
+      .eq('approval_status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (clientFilter) {
+      query = query.eq('client_id', clientFilter);
+    }
 
     const [{ data, error }, userIdEmailMap] = await Promise.all([
-      admin
-        .from(WHITELIST_TABLE)
-        .select(WHITELIST_COLUMNS)
-        .eq('approval_status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(200),
-      listAuthUsersByEmail(admin),
+      query,
+      listAuthUsersByEmail(ctx.admin),
     ]);
 
     if (error) return { ok: false, message: error.message };
@@ -367,9 +381,13 @@ export async function submitWithdrawWhitelistRequestAction(
   },
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const { admin, userId, email: actorEmail, role } = await requireOperatorOrAdminFromAccessToken(accessToken);
-    if (role !== 'operator') {
-      return { ok: false, message: 'Only operators can submit whitelist requests.' };
+    const { admin, userId, email: actorEmail, role, clientId } = await requireOperatorOrAdminFromAccessToken(accessToken);
+    if (!canSubmitOwnWhitelistRequests(role)) {
+      return { ok: false, message: 'Only operators and client admins can submit whitelist requests.' };
+    }
+
+    if (!clientId) {
+      return { ok: false, message: 'Operator is not linked to a client.' };
     }
 
     const address = normalizeWithdrawWhitelistAddress(input.address);
@@ -409,6 +427,7 @@ export async function submitWithdrawWhitelistRequestAction(
 
     const payload = {
       user_id: userId,
+      client_id: clientId,
       address,
       network,
       label: input.label?.trim() || null,
@@ -480,39 +499,29 @@ export async function approveWithdrawWhitelistRequestAction(
   id: string,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const { admin, email: actorEmail } = await requireAdminFromAccessToken(accessToken);
-    const targetId = id.trim();
-    if (!targetId) {
-      return { ok: false, message: 'ID inválido.' };
-    }
+    const ctx = await requireWhitelistApproverFromAccessToken(accessToken);
+    const row = await loadWhitelistRowClientId(ctx.admin, WHITELIST_TABLE, id);
+    assertWhitelistRowInApproverScope(ctx, row.client_id);
 
-    const { data: row, error: fetchError } = await admin
-      .from(WHITELIST_TABLE)
-      .select('id, approval_status')
-      .eq('id', targetId)
-      .maybeSingle();
-
-    if (fetchError) return { ok: false, message: fetchError.message };
-    if (!row) return { ok: false, message: 'Request not found.' };
     if (row.approval_status !== 'pending') {
       return { ok: false, message: 'Request is not pending.' };
     }
 
     const now = new Date().toISOString();
-    const { error } = await admin
+    const { error } = await ctx.admin
       .from(WHITELIST_TABLE)
       .update({
         is_active: true,
         approval_status: 'approved',
         reviewed_at: now,
-        reviewed_by_email: actorEmail,
+        reviewed_by_email: ctx.email,
         rejection_reason: null,
         updated_at: now,
       })
-      .eq('id', targetId);
+      .eq('id', row.id);
 
     if (error) return { ok: false, message: error.message };
-    return { ok: true, data: { id: targetId } };
+    return { ok: true, data: { id: row.id } };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
@@ -523,39 +532,29 @@ export async function rejectWithdrawWhitelistRequestAction(
   input: { id: string; reason?: string | null },
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const { admin, email: actorEmail } = await requireAdminFromAccessToken(accessToken);
-    const targetId = input.id.trim();
-    if (!targetId) {
-      return { ok: false, message: 'ID inválido.' };
-    }
+    const ctx = await requireWhitelistApproverFromAccessToken(accessToken);
+    const row = await loadWhitelistRowClientId(ctx.admin, WHITELIST_TABLE, input.id);
+    assertWhitelistRowInApproverScope(ctx, row.client_id);
 
-    const { data: row, error: fetchError } = await admin
-      .from(WHITELIST_TABLE)
-      .select('id, approval_status')
-      .eq('id', targetId)
-      .maybeSingle();
-
-    if (fetchError) return { ok: false, message: fetchError.message };
-    if (!row) return { ok: false, message: 'Request not found.' };
     if (row.approval_status !== 'pending') {
       return { ok: false, message: 'Request is not pending.' };
     }
 
     const now = new Date().toISOString();
-    const { error } = await admin
+    const { error } = await ctx.admin
       .from(WHITELIST_TABLE)
       .update({
         is_active: false,
         approval_status: 'rejected',
         reviewed_at: now,
-        reviewed_by_email: actorEmail,
+        reviewed_by_email: ctx.email,
         rejection_reason: input.reason?.trim() || null,
         updated_at: now,
       })
-      .eq('id', targetId);
+      .eq('id', row.id);
 
     if (error) return { ok: false, message: error.message };
-    return { ok: true, data: { id: targetId } };
+    return { ok: true, data: { id: row.id } };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }

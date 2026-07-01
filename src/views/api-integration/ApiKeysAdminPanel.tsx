@@ -13,7 +13,6 @@ import { ApiKeySecretReveal } from '@/components/ApiKeySecretReveal';
 import { DevNotice } from '@/components/DevNotice';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import type { ApiKeyRow, ApiKeyScope } from '@/lib/api-keys/types';
 import { useI18n } from '@/lib/i18n';
@@ -29,7 +28,7 @@ type RevealState = {
 } | null;
 
 type ApiKeysAdminPanelProps = {
-  isAdmin: boolean;
+  isPlatformAdmin: boolean;
 };
 
 async function getAccessToken(): Promise<string | null> {
@@ -58,9 +57,8 @@ function formatDateTime(value: string | null, locale: string): string {
   }).format(new Date(value));
 }
 
-export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
+export function ApiKeysAdminPanel({ isPlatformAdmin }: ApiKeysAdminPanelProps) {
   const { t, locale } = useI18n();
-  const { profile } = useAuth();
 
   const [rows, setRows] = useState<ApiKeyRow[]>([]);
   const [operators, setOperators] = useState<PanelUserRow[]>([]);
@@ -68,7 +66,7 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingOperators, setIsLoadingOperators] = useState(isAdmin);
+  const [isLoadingOperators, setIsLoadingOperators] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [reveal, setReveal] = useState<RevealState>(null);
@@ -80,12 +78,12 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
   const operatorOptions = useMemo(
     () =>
       operators
-        .filter((row) => row.is_active && (row.role === 'operator' || row.role === 'admin'))
+        .filter((row) => row.is_active && row.role === 'operator')
         .map((row) => row.email),
     [operators],
   );
 
-  const canCreateKey = isAdmin ? operatorOptions.length > 0 : Boolean(profile?.email);
+  const canCreateKey = operatorOptions.length > 0;
 
   const loadKeys = useCallback(async () => {
     setLoadError(null);
@@ -113,11 +111,6 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
   }, [t]);
 
   const loadOperators = useCallback(async () => {
-    if (!isAdmin) {
-      setIsLoadingOperators(false);
-      return;
-    }
-
     setIsLoadingOperators(true);
 
     try {
@@ -137,7 +130,7 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
     } finally {
       setIsLoadingOperators(false);
     }
-  }, [isAdmin]);
+  }, []);
 
   useEffect(() => {
     void loadKeys();
@@ -145,7 +138,7 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
   }, [loadKeys, loadOperators]);
 
   useEffect(() => {
-    if (!isAdmin || formMode !== 'create' || operatorOptions.length === 0) return;
+    if (formMode !== 'create' || operatorOptions.length === 0) return;
 
     setLinkedUserEmail((current) => {
       const normalized = current.trim().toLowerCase();
@@ -154,14 +147,14 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
         operatorOptions.some((email) => email.trim().toLowerCase() === normalized);
       return isValid ? current : operatorOptions[0];
     });
-  }, [formMode, isAdmin, operatorOptions]);
+  }, [formMode, operatorOptions]);
 
   const resetForm = () => {
     setFormMode(null);
     setLabel('');
     setScopes(['onramp', 'offramp', 'orders:read']);
     setFormError(null);
-    if (isAdmin && operatorOptions[0]) {
+    if (isPlatformAdmin && operatorOptions[0]) {
       setLinkedUserEmail(operatorOptions[0]);
     }
   };
@@ -172,8 +165,8 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
     setSuccessMessage(null);
     setLabel('');
     setScopes(['onramp', 'offramp', 'orders:read']);
-    if (isAdmin) {
-      setLinkedUserEmail(operatorOptions[0] ?? '');
+    if (operatorOptions[0]) {
+      setLinkedUserEmail(operatorOptions[0]);
     }
   };
 
@@ -195,7 +188,7 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
       return;
     }
 
-    if (isAdmin && !linkedUserEmail.trim()) {
+    if (!linkedUserEmail.trim()) {
       setFormError(t('pages.apiIntegration.keys.errors.operatorRequired'));
       return;
     }
@@ -216,7 +209,7 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
 
       const result = await createApiKeyAction(token, {
         label: trimmedLabel,
-        linkedUserEmail: isAdmin ? linkedUserEmail.trim().toLowerCase() : undefined,
+        linkedUserEmail: linkedUserEmail.trim().toLowerCase(),
         scopes,
       });
 
@@ -267,17 +260,11 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
     }
   };
 
-  const devNotice = isAdmin
-    ? {
-        title: t('pages.apiIntegration.keys.devNoticePersisted.title'),
-        badge: t('pages.apiIntegration.keys.devNoticePersisted.badge'),
-        body: t('pages.apiIntegration.keys.devNoticePersisted.body'),
-      }
-    : {
-        title: t('pages.apiIntegration.keys.devNoticeOperator.title'),
-        badge: t('pages.apiIntegration.keys.devNoticeOperator.badge'),
-        body: t('pages.apiIntegration.keys.devNoticeOperator.body'),
-      };
+  const devNotice = {
+    title: t('pages.apiIntegration.keys.devNoticePersisted.title'),
+    badge: t('pages.apiIntegration.keys.devNoticePersisted.badge'),
+    body: t('pages.apiIntegration.keys.devNoticePersisted.body'),
+  };
 
   return (
     <div className="api-integration-panel">
@@ -296,7 +283,7 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
         </Button>
       </div>
 
-      {isAdmin && !isLoadingOperators && operatorOptions.length === 0 ? (
+      {!isLoadingOperators && operatorOptions.length === 0 ? (
         <p className="surface__lead">{t('pages.apiIntegration.keys.errors.noOperatorsAvailable')}</p>
       ) : null}
 
@@ -337,9 +324,7 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
               <tr>
                 <th scope="col">{t('pages.apiIntegration.keys.columns.label')}</th>
                 <th scope="col">{t('pages.apiIntegration.keys.columns.prefix')}</th>
-                {isAdmin ? (
-                  <th scope="col">{t('pages.apiIntegration.keys.columns.operator')}</th>
-                ) : null}
+                <th scope="col">{t('pages.apiIntegration.keys.columns.operator')}</th>
                 <th scope="col">{t('pages.apiIntegration.keys.columns.scopes')}</th>
                 <th scope="col">{t('pages.apiIntegration.keys.columns.status')}</th>
                 <th scope="col">{t('pages.apiIntegration.keys.columns.lastUsed')}</th>
@@ -353,7 +338,7 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
                   <td>
                     <code>{row.keyPrefix}</code>
                   </td>
-                  {isAdmin ? <td>{row.linkedUserEmail}</td> : null}
+                  <td>{row.linkedUserEmail}</td>
                   <td>{row.scopes.map((scope) => t(`pages.apiIntegration.keys.scopes.${scope}`)).join(', ')}</td>
                   <td>
                     {row.isActive
@@ -386,7 +371,7 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
         <section className="user-management-form api-key-create-form">
           <h2 className="user-management-form__title">{t('pages.apiIntegration.keys.formCreateTitle')}</h2>
           <form className="api-key-create-form__form" onSubmit={(event) => void handleSubmit(event)}>
-            <div className={isAdmin ? 'api-key-form__two-col-row' : undefined}>
+            <div className="api-key-form__two-col-row">
               <InputField
                 id="api-key-label"
                 label={t('pages.apiIntegration.keys.label')}
@@ -396,28 +381,26 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
                 disabled={isSaving}
               />
 
-              {isAdmin ? (
-                <label className="field" htmlFor="api-key-operator">
-                  <span className="field__label">{t('pages.apiIntegration.keys.operator')}</span>
-                  <select
-                    id="api-key-operator"
-                    className="field__input field__select"
-                    value={linkedUserEmail}
-                    onChange={(event) => setLinkedUserEmail(event.target.value)}
-                    disabled={isSaving || isLoadingOperators}
-                  >
-                    {operatorOptions.length === 0 ? (
-                      <option value="">{t('pages.apiIntegration.keys.noOperators')}</option>
-                    ) : (
-                      operatorOptions.map((email) => (
-                        <option key={email} value={email}>
-                          {email}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </label>
-              ) : null}
+              <label className="field" htmlFor="api-key-operator">
+                <span className="field__label">{t('pages.apiIntegration.keys.operator')}</span>
+                <select
+                  id="api-key-operator"
+                  className="field__input field__select"
+                  value={linkedUserEmail}
+                  onChange={(event) => setLinkedUserEmail(event.target.value)}
+                  disabled={isSaving || isLoadingOperators}
+                >
+                  {operatorOptions.length === 0 ? (
+                    <option value="">{t('pages.apiIntegration.keys.noOperators')}</option>
+                  ) : (
+                    operatorOptions.map((email) => (
+                      <option key={email} value={email}>
+                        {email}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
             </div>
 
             <fieldset className="api-key-scopes-fieldset">
@@ -435,7 +418,7 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
               ))}
             </fieldset>
 
-            {isAdmin ? (
+            {isPlatformAdmin ? (
               <p className="surface__lead api-cross-link">
                 {t('pages.apiIntegration.keys.commercialTermsHint')}{' '}
                 <Link href="/app/clients">{t('pages.apiIntegration.keys.commercialTermsLink')}</Link>
@@ -448,7 +431,9 @@ export function ApiKeysAdminPanel({ isAdmin }: ApiKeysAdminPanelProps) {
                 variant="primary"
                 disabled={
                   isSaving ||
-                  (isAdmin && (isLoadingOperators || operatorOptions.length === 0 || !linkedUserEmail.trim()))
+                  isLoadingOperators ||
+                  operatorOptions.length === 0 ||
+                  !linkedUserEmail.trim()
                 }
               >
                 {isSaving ? t('pages.apiIntegration.keys.saving') : t('pages.apiIntegration.keys.create')}

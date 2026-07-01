@@ -37,6 +37,7 @@ export type CreateOfframpQuoteInput = {
   apiKeyMaxAmountBrl?: string | null;
   actorEmail?: string | null;
   actorUserId?: string | null;
+  actorClientId?: string | null;
 };
 
 function pow10(scale: bigint): bigint {
@@ -237,9 +238,10 @@ export async function createOfframpQuote(input: CreateOfframpQuoteInput): Promis
     : OFFRAMP_QUOTE_PLACEHOLDER_PIX_KEY;
 
   const integratorExternalId = input.integratorExternalId?.trim() || null;
-  if (integratorExternalId && input.actorUserId) {
+  if (integratorExternalId && (input.actorClientId || input.actorUserId)) {
     const duplicate = await findOfframpOrderByIntegratorExternalId({
-      userId: input.actorUserId,
+      clientId: input.actorClientId ?? undefined,
+      userId: input.actorClientId ? undefined : (input.actorUserId ?? undefined),
       externalId: integratorExternalId,
     });
     if (duplicate) {
@@ -277,6 +279,7 @@ export async function createOfframpQuote(input: CreateOfframpQuoteInput): Promis
     quoteSpreadBps: spreadBps,
     createdByEmail: input.actorEmail ?? null,
     createdByUserId: input.actorUserId ?? null,
+    clientId: input.actorClientId ?? null,
     integratorExternalId,
     metadata: {
       quote: {

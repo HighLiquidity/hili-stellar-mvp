@@ -15,6 +15,7 @@ import { formatDepositPixErrorMessage } from '@/lib/deposit/format-pix-error';
 
 
 import { isOnrampQuotePlaceholderDestination } from '@/lib/ramp/quote-placeholders';
+import { assertOnrampOrderInDataScope, type DataScope } from '@/lib/clients/scope';
 import type { PanelUserRole } from '@/lib/users/types';
 
 import { OnrampOperationError } from './errors';
@@ -201,6 +202,7 @@ export type LockOnrampOrderInput = {
   actor: {
     userId: string;
     role: PanelUserRole;
+    dataScope?: DataScope | null;
   };
   destinationAddress?: string;
 };
@@ -222,6 +224,10 @@ export async function lockOnrampOrderWithPix(input: LockOnrampOrderInput): Promi
 
     throw new OnrampOperationError('On-ramp order not found.', 404);
 
+  }
+
+  if (input.actor.dataScope !== undefined) {
+    assertOnrampOrderInDataScope(existing, input.actor.dataScope, { userId: input.actor.userId });
   }
 
 

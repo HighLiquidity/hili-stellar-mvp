@@ -6,23 +6,37 @@ import { loadOperatorCommercialProfileByEmail } from './operator-profile';
 import { resolveCommercialTerms } from './resolve';
 import type { CommercialTerms } from './types';
 import type { PanelAccessContext } from '@/lib/users/require-panel-role';
+import {
+  isClientTenantRampActor,
+  isOperatorRole,
+  isPlatformAdminRole,
+} from '@/lib/users/roles';
 
 export async function resolvePanelQuoteCommercialTerms(
   ctx: PanelAccessContext,
   envSpreadBps: number,
   flow: 'onramp' | 'offramp',
 ): Promise<CommercialTerms> {
-  if (ctx.role !== 'operator') {
+  if (isPlatformAdminRole(ctx.role)) {
     return { spreadBps: envSpreadBps, maxAmountBrl: null };
   }
 
-  const clientRecord = ctx.clientId
-    ? await loadClientCommercialRecordById(ctx.admin, ctx.clientId)
-    : null;
+  if (!isClientTenantRampActor(ctx.role)) {
+    return { spreadBps: envSpreadBps, maxAmountBrl: null };
+  }
+
+  const clientId = ctx.clientId?.trim();
+  if (!clientId) {
+    throw new Error('Panel user is not linked to a client.');
+  }
+
+  const clientRecord = await loadClientCommercialRecordById(ctx.admin, clientId);
 
   assertClientEligibleForQuotes(clientRecord, flow);
 
-  const operatorProfile = await loadOperatorCommercialProfileByEmail(ctx.admin, ctx.email);
+  const operatorProfile = isOperatorRole(ctx.role)
+    ? await loadOperatorCommercialProfileByEmail(ctx.admin, ctx.email)
+    : null;
 
   return resolveCommercialTerms({
     envSpreadBps,

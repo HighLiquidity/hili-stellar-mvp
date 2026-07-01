@@ -22,11 +22,25 @@ function normalizeAllowedRoles(allowedRoles: readonly PanelUserRole[]): PanelUse
 }
 
 function buildAccessDeniedMessage(allowedRoles: readonly PanelUserRole[]): string {
-  if (allowedRoles.length === 1 && allowedRoles[0] === 'admin') {
+  const unique = new Set(allowedRoles);
+
+  if (unique.size === 1 && unique.has('admin')) {
     return 'Acesso restrito a administradores.';
   }
 
-  return 'Acesso restrito a administradores ou operadores.';
+  if (unique.has('admin') && unique.has('client_admin') && unique.size === 2) {
+    return 'Acesso restrito a administradores da plataforma ou do cliente.';
+  }
+
+  if (unique.has('admin') && unique.has('operator') && unique.size === 2) {
+    return 'Acesso restrito a administradores ou operadores.';
+  }
+
+  if (unique.has('admin') && unique.has('client_admin') && unique.has('operator')) {
+    return 'Acesso restrito a administradores, administradores do cliente ou operadores.';
+  }
+
+  return 'Acesso não autorizado para este perfil.';
 }
 
 export async function requirePanelRoleFromAccessToken(
@@ -88,5 +102,5 @@ export async function requireAdminFromAccessToken(accessToken: string): Promise<
 export async function requireOperatorOrAdminFromAccessToken(
   accessToken: string,
 ): Promise<PanelAccessContext> {
-  return requirePanelRoleFromAccessToken(accessToken, ['admin', 'operator']);
+  return requirePanelRoleFromAccessToken(accessToken, ['admin', 'client_admin', 'operator']);
 }

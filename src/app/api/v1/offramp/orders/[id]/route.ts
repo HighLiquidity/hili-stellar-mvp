@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { assertOfframpOrderOwnedByUser } from '@/lib/api-keys/ownership';
+import { assertOfframpOrderOwnedByApiKey } from '@/lib/api-keys/ownership';
 import { toPublicOfframpOrderResponse } from '@/lib/api-keys/v1-responses';
 import { readOfframpOrder } from '@/lib/offramp';
 import { findOfframpOrderById } from '@/lib/offramp/order-store';
@@ -28,7 +28,7 @@ export async function GET(request: Request, context: RouteContext) {
     errorHandler: handleV1OfframpRouteError,
     handler: async (ctx) => {
       const existing = await findOfframpOrderById(id);
-      assertOfframpOrderOwnedByUser(existing, ctx.userId);
+      assertOfframpOrderOwnedByApiKey(existing, ctx);
 
       const order = await readOfframpOrder(id);
       return NextResponse.json(

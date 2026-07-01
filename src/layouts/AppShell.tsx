@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { useI18n } from '@/lib/i18n';
-import { isOperatorOrAdminRole } from '@/lib/users/panel-access';
+import { isOperatorOrAdminRole, canApproveWhitelist, canManageApiKeys, canManagePanelUsers } from '@/lib/users/panel-access';
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -171,6 +171,22 @@ export function AppShell({ children }: { children: ReactNode }) {
       );
     }
 
+    if (canManagePanelUsers(profile?.role) && profile?.role === 'client_admin') {
+      items.push({
+        to: '/app/users',
+        label: t('nav.users'),
+        icon: <UsersIcon width={18} height={18} />,
+      });
+    }
+
+    if (canApproveWhitelist(profile?.role) && profile?.role === 'client_admin') {
+      items.push({
+        to: '/app/withdraw-whitelist',
+        label: t('nav.myWhitelist'),
+        icon: <KeyIcon width={18} height={18} />,
+      });
+    }
+
     if (profile?.role === 'operator') {
       items.push({
         to: '/app/withdraw-whitelist',
@@ -179,7 +195,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       });
     }
 
-    if (isOperatorOrAdminRole(profile?.role)) {
+    if (canManageApiKeys(profile?.role)) {
       items.push({
         to: '/app/api-integration',
         label: t('nav.apiIntegration'),

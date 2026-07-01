@@ -18,7 +18,7 @@ import { InputField } from '@/components/ui/InputField';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useI18n } from '@/lib/i18n';
-import { isOperatorOrAdminRole } from '@/lib/users/panel-access';
+import { isOperatorOrAdminRole, canApproveWhitelist } from '@/lib/users/panel-access';
 import type { WhitelistApprovalStatus } from '@/lib/whitelist/approval';
 import { UserPixWhitelistPanel } from '@/views/UserPixWhitelistPanel';
 import { WhitelistPendingPanel } from '@/views/WhitelistPendingPanel';
@@ -50,8 +50,10 @@ export function UserWithdrawWhitelistPage() {
   const { t } = useI18n();
   const router = useRouter();
   const { profile, isLoading: authLoading, isAuthorized } = useAuth();
-  const isAdmin = profile?.role === 'admin';
-  const canAccess = isOperatorOrAdminRole(profile?.role);
+  const isPlatformAdmin = profile?.role === 'admin';
+  const isClientAdmin = profile?.role === 'client_admin';
+  const canApprove = canApproveWhitelist(profile?.role);
+  const canAccess = isOperatorOrAdminRole(profile?.role) || canApprove;
 
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [userOptions, setUserOptions] = useState<string[]>([]);
@@ -73,9 +75,10 @@ export function UserWithdrawWhitelistPage() {
   const [pixIsSaving, setPixIsSaving] = useState(false);
 
   const visibleTabs = useMemo<WhitelistTab[]>(() => {
-    if (isAdmin) return ['wallets', 'pix', 'pending'];
+    if (isPlatformAdmin) return ['wallets', 'pix', 'pending'];
+    if (isClientAdmin) return ['wallets', 'pix', 'pending'];
     return ['wallets', 'pix'];
-  }, [isAdmin]);
+  }, [isPlatformAdmin, isClientAdmin]);
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
@@ -103,7 +106,7 @@ export function UserWithdrawWhitelistPage() {
         return;
       }
 
-      if (isAdmin) {
+      if (isPlatformAdmin) {
         const [rowsResult, usersResult] = await Promise.all([
           listWithdrawWhitelistAction(token),
           listWhitelistUsersAction(token),
@@ -139,7 +142,7 @@ export function UserWithdrawWhitelistPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [isAdmin, t]);
+  }, [isPlatformAdmin, t]);
 
   useEffect(() => {
     if (authLoading || !canAccess) return;
@@ -200,7 +203,7 @@ export function UserWithdrawWhitelistPage() {
         return;
       }
 
-      if (isAdmin) {
+      if (isPlatformAdmin) {
         const result = await upsertWithdrawWhitelistAction(token, {
           id: formMode === 'edit' ? editingId ?? undefined : undefined,
           userEmail,
@@ -317,7 +320,7 @@ export function UserWithdrawWhitelistPage() {
     <section className="dashboard-layout">
       <article className="surface user-management-card">
         <div className="user-management-card__header">
-          <p className="eyebrow">{isAdmin ? t('pages.withdrawWhitelist.eyebrow') : t('pages.whitelistApproval.operatorEyebrow')}</p>
+          <p className="eyebrow">{isPlatformAdmin ? t('pages.withdrawWhitelist.eyebrow') : t('pages.whitelistApproval.operatorEyebrow')}</p>
           <div className="user-management-card__toolbar">
             <div className="onramp-inline-actions" role="tablist" aria-label={t('pages.withdrawWhitelist.tabsLabel')}>
               {visibleTabs.map((tab) => (
@@ -339,7 +342,7 @@ export function UserWithdrawWhitelistPage() {
             </div>
             {activeTab === 'wallets' ? (
               <Button type="button" variant="secondary" onClick={openCreate} disabled={isSaving}>
-                {isAdmin ? t('pages.withdrawWhitelist.addWallet') : t('pages.whitelistApproval.requestWallet')}
+                {isPlatformAdmin ? t('pages.withdrawWhitelist.addWallet') : t('pages.whitelistApproval.requestWallet')}
               </Button>
             ) : null}
             {activeTab === 'pix' ? (
@@ -349,7 +352,7 @@ export function UserWithdrawWhitelistPage() {
                 onClick={() => setPixCreateRequested((count) => count + 1)}
                 disabled={pixIsSaving}
               >
-                {isAdmin ? t('pages.pixWhitelist.addKey') : t('pages.whitelistApproval.requestPixKey')}
+                {isPlatformAdmin ? t('pages.pixWhitelist.addKey') : t('pages.whitelistApproval.requestPixKey')}
               </Button>
             ) : null}
           </div>
@@ -363,17 +366,17 @@ export function UserWithdrawWhitelistPage() {
         {activeTab === 'pix' ? (
           <UserPixWhitelistPanel
             isActive
-            mode={isAdmin ? 'admin' : 'operator'}
+            mode={isPlatformAdmin ? 'admin' : 'operator'}
             createRequested={pixCreateRequested}
             onSavingChange={setPixIsSaving}
           />
         ) : null}
 
-        {activeTab === 'pending' && isAdmin ? <WhitelistPendingPanel isActive /> : null}
+        {activeTab === 'pending' && canApprove ? <WhitelistPendingPanel isActive /> : null}
 
         {activeTab === 'wallets' ? (
           <>
-            {!isAdmin ? <p className="surface__lead">{t('pages.whitelistApproval.operatorWalletHint')}</p> : null}
+            {!isPlatformAdmin ? <p className="surface__lead">{t('pages.whitelistApproval.operatorWalletHint')}</p> : null}
 
             {loadError ? (
               <p className="auth-inline-error" role="alert">
@@ -402,24 +405,24 @@ export function UserWithdrawWhitelistPage() {
                 <table className="user-management-table">
                   <thead>
                     <tr>
-                      {isAdmin ? <th scope="col">{t('pages.withdrawWhitelist.columns.user')}</th> : null}
+                      {isPlatformAdmin ? <th scope="col">{t('pages.withdrawWhitelist.columns.user')}</th> : null}
                       <th scope="col">{t('pages.withdrawWhitelist.columns.address')}</th>
                       <th scope="col">{t('pages.withdrawWhitelist.columns.network')}</th>
                       <th scope="col">{t('pages.withdrawWhitelist.columns.label')}</th>
                       <th scope="col">{t('pages.withdrawWhitelist.columns.memo')}</th>
-                      {!isAdmin ? <th scope="col">{t('pages.whitelistApproval.columns.status')}</th> : null}
+                      {!isPlatformAdmin ? <th scope="col">{t('pages.whitelistApproval.columns.status')}</th> : null}
                       <th scope="col">{t('pages.withdrawWhitelist.columns.actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((row) => (
                       <tr key={row.id}>
-                        {isAdmin ? <td>{row.user_email ?? '—'}</td> : null}
+                        {isPlatformAdmin ? <td>{row.user_email ?? '—'}</td> : null}
                         <td>{row.address}</td>
                         <td>{row.network}</td>
                         <td>{row.label ?? '—'}</td>
                         <td>{row.memo ?? '—'}</td>
-                        {!isAdmin ? (
+                        {!isPlatformAdmin ? (
                           <td>
                             <span className={`whitelist-status whitelist-status--${row.approval_status}`}>
                               {formatApprovalStatus(row.approval_status, t)}
@@ -431,7 +434,7 @@ export function UserWithdrawWhitelistPage() {
                         ) : null}
                         <td>
                           <div className="user-management-actions">
-                            {isAdmin ? (
+                            {isPlatformAdmin ? (
                               <>
                                 <Button type="button" variant="ghost" onClick={() => openEdit(row)}>
                                   {t('pages.userManagement.edit')}
@@ -463,14 +466,14 @@ export function UserWithdrawWhitelistPage() {
             {formMode ? (
               <section className="user-management-form">
                 <h2 className="user-management-form__title">
-                  {isAdmin
+                  {isPlatformAdmin
                     ? formMode === 'create'
                       ? t('pages.withdrawWhitelist.formCreateTitle')
                       : t('pages.withdrawWhitelist.formEditTitle')
                     : t('pages.whitelistApproval.requestWallet')}
                 </h2>
                 <form className="withdraw-whitelist-form" onSubmit={handleSubmit}>
-                  {isAdmin ? (
+                  {isPlatformAdmin ? (
                     <label className="field">
                       <span className="field__label">{t('pages.withdrawWhitelist.userEmail')}</span>
                       <select
@@ -497,7 +500,7 @@ export function UserWithdrawWhitelistPage() {
                     onChange={(e) => setAddress(e.target.value)}
                     placeholder={t('pages.withdrawWhitelist.addressPlaceholder')}
                     required
-                    disabled={isSaving || (isAdmin && formMode === 'edit')}
+                    disabled={isSaving || (isPlatformAdmin && formMode === 'edit')}
                   />
                   <InputField
                     id="whitelist-label"
@@ -520,7 +523,7 @@ export function UserWithdrawWhitelistPage() {
                     <Button type="submit" disabled={isSaving}>
                       {isSaving
                         ? t('pages.userManagement.saving')
-                        : isAdmin
+                        : isPlatformAdmin
                           ? t('pages.userManagement.save')
                           : t('pages.whitelistApproval.submitRequest')}
                     </Button>

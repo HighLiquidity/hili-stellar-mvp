@@ -4,7 +4,7 @@ import { supabase } from '../integrations/supabase/client';
 export interface AccessProfile {
   email: string;
   full_name: string | null;
-  role: 'admin' | 'operator' | 'viewer';
+  role: 'admin' | 'client_admin' | 'operator' | 'viewer';
   is_active: boolean;
 }
 

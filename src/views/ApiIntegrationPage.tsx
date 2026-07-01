@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
-import { isOperatorOrAdminRole } from '@/lib/users/panel-access';
+import { canManageApiKeys } from '@/lib/users/panel-access';
 import { useI18n } from '@/lib/i18n';
 import { ApiActivityPanel } from '@/views/api-integration/ApiActivityPanel';
 import { ApiDocsPanel } from '@/views/api-integration/ApiDocsPanel';
@@ -18,14 +18,14 @@ export function ApiIntegrationPage() {
   const { t } = useI18n();
   const router = useRouter();
   const { profile, isLoading: authLoading, isAuthorized } = useAuth();
-  const isAdmin = profile?.role === 'admin';
-  const canAccess = isOperatorOrAdminRole(profile?.role);
+  const isPlatformAdmin = profile?.role === 'admin';
+  const canAccess = canManageApiKeys(profile?.role);
   const [activeTab, setActiveTab] = useState<ApiIntegrationTab>('keys');
 
   const visibleTabs = useMemo<ApiIntegrationTab[]>(() => {
-    if (isAdmin) return ['overview', 'keys', 'docs', 'activity'];
-    return ['keys', 'docs', 'overview'];
-  }, [isAdmin]);
+    if (isPlatformAdmin) return ['overview', 'keys', 'docs', 'activity'];
+    return ['keys', 'docs'];
+  }, [isPlatformAdmin]);
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
@@ -103,7 +103,7 @@ export function ApiIntegrationPage() {
         </div>
 
         {activeTab === 'overview' ? <ApiIntegrationOverviewPanel /> : null}
-        {activeTab === 'keys' ? <ApiKeysAdminPanel isAdmin={isAdmin} /> : null}
+        {activeTab === 'keys' ? <ApiKeysAdminPanel isPlatformAdmin={isPlatformAdmin} /> : null}
         {activeTab === 'docs' ? <ApiDocsPanel /> : null}
         {activeTab === 'activity' ? <ApiActivityPanel /> : null}
       </article>

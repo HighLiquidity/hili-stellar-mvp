@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 
 import { ApiRateLimitError } from '@/lib/api-keys/errors';
 import type { ApiKeyAuthContext } from '@/lib/api-keys/store';
+import { resolveApiKeyDataScope } from '@/lib/clients/scope';
 import {
   BinanceConfigError,
   BinanceRequestError,
@@ -101,5 +102,6 @@ export function apiKeyActor(ctx: ApiKeyAuthContext) {
     userId: ctx.userId,
     role: 'operator' as const,
     email: ctx.email,
+    dataScope: resolveApiKeyDataScope(ctx),
   };
 }

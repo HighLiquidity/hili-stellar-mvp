@@ -46,6 +46,7 @@ export type OfframpOrderRow = {
   needs_review_reason: string | null;
   created_by_user_id: string | null;
   created_by_email: string | null;
+  client_id?: string | null;
   integrator_external_id: string | null;
   quoted_at: string;
   usdc_received_at: string | null;
@@ -241,18 +242,29 @@ export async function findOfframpOrderByBrhRedemptionExternalId(
 }
 
 export async function findOfframpOrderByIntegratorExternalId(input: {
-  userId: string;
+  clientId?: string;
+  userId?: string;
   externalId: string;
 }): Promise<OfframpOrderRow | null> {
   const admin = createSupabaseAdmin();
   if (!admin) return null;
 
-  const { data, error } = await admin
-    .from(OFFRAMP_ORDERS_TABLE)
-    .select('*')
-    .eq('created_by_user_id', input.userId.trim())
-    .eq('integrator_external_id', input.externalId.trim())
-    .maybeSingle();
+  const externalId = input.externalId.trim();
+  if (!externalId) return null;
+
+  let query = admin.from(OFFRAMP_ORDERS_TABLE).select('*').eq('integrator_external_id', externalId);
+
+  const clientId = input.clientId?.trim();
+  const userId = input.userId?.trim();
+  if (clientId) {
+    query = query.eq('client_id', clientId);
+  } else if (userId) {
+    query = query.eq('created_by_user_id', userId);
+  } else {
+    return null;
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     console.error('[offramp/store] find by integrator external id failed', error.message);
@@ -275,6 +287,7 @@ export async function createQuotedOfframpOrder(input: {
   quoteSpreadBps?: number | null;
   createdByUserId?: string | null;
   createdByEmail?: string | null;
+  clientId?: string | null;
   integratorExternalId?: string | null;
   metadata?: Record<string, unknown> | null;
 }): Promise<{ ok: true; row: OfframpOrderRow } | { ok: false; reason: string }> {
@@ -298,6 +311,7 @@ export async function createQuotedOfframpOrder(input: {
       quote_spread_bps: input.quoteSpreadBps ?? null,
       created_by_user_id: normalizeOptionalString(input.createdByUserId),
       created_by_email: normalizeOptionalString(input.createdByEmail)?.toLowerCase() ?? null,
+      client_id: normalizeOptionalString(input.clientId),
       integrator_external_id: normalizeOptionalString(input.integratorExternalId),
       metadata: input.metadata ?? {},
       quoted_at: now,

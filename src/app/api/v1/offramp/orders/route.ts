@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { listV1OfframpOrdersForUser } from '@/lib/api-keys/v1-list-orders';
+import { listV1OfframpOrdersForClient } from '@/lib/api-keys/v1-list-orders';
 
 import { badRequest, executeV1Route, handleV1OfframpRouteError } from '../../_utils';
 
@@ -32,8 +32,12 @@ export async function GET(request: Request) {
         return badRequest('pageSize cannot exceed 100');
       }
 
-      const result = await listV1OfframpOrdersForUser({
-        userId: ctx.userId,
+      if (!ctx.clientId) {
+        return badRequest('API key is not linked to a client.');
+      }
+
+      const result = await listV1OfframpOrdersForClient({
+        clientId: ctx.clientId,
         page,
         pageSize,
         status,

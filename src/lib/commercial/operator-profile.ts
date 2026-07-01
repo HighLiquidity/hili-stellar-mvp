@@ -20,7 +20,7 @@ function mapCommercialRow(row: CommercialRow | null): OperatorCommercialProfile 
   }
 
   return {
-    spreadBpsOverride: row.spread_bps_override,
+    spreadBpsOverride: null,
     maxAmountBrl: row.max_amount_brl,
   };
 }
