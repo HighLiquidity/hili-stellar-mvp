@@ -8,11 +8,16 @@ import {
   listClientsAction,
   updateClientAction,
 } from '@/app/actions/clients';
+import {
+  getClientComplianceAction,
+  updateClientComplianceAction,
+} from '@/app/actions/client-compliance';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { formatClientTaxId } from '@/lib/clients/format';
+import { KYB_STATUSES, KYC_STATUSES, type KybStatus, type KycStatus } from '@/lib/clients/compliance-types';
 import type { ClientRow, ClientStatus } from '@/lib/clients/types';
 import { CLIENT_STATUSES } from '@/lib/clients/types';
 import { useI18n } from '@/lib/i18n';
@@ -45,6 +50,10 @@ export function ClientsPage() {
   const [status, setStatus] = useState<ClientStatus>('draft');
   const [spreadBpsOverride, setSpreadBpsOverride] = useState('');
   const [maxAmountBrl, setMaxAmountBrl] = useState('');
+  const [kybStatus, setKybStatus] = useState<KybStatus>('not_started');
+  const [kycStatus, setKycStatus] = useState<KycStatus>('not_started');
+  const [complianceNotes, setComplianceNotes] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
@@ -93,6 +102,10 @@ export function ClientsPage() {
     setStatus('draft');
     setSpreadBpsOverride('');
     setMaxAmountBrl('');
+    setKybStatus('not_started');
+    setKycStatus('not_started');
+    setComplianceNotes('');
+    setRejectionReason('');
     setFormError(null);
   };
 
@@ -102,7 +115,7 @@ export function ClientsPage() {
     setSuccessMessage(null);
   };
 
-  const openEdit = (row: ClientRow) => {
+  const openEdit = async (row: ClientRow) => {
     setFormMode('edit');
     setEditingId(row.id);
     setLegalName(row.legal_name);
@@ -112,11 +125,28 @@ export function ClientsPage() {
     setStatus(row.status);
     setSpreadBpsOverride(row.spread_bps_override != null ? String(row.spread_bps_override) : '');
     setMaxAmountBrl(row.max_amount_brl ?? '');
+    setKybStatus(row.kyb_status ?? 'not_started');
+    setKycStatus(row.kyc_status ?? 'not_started');
+    setComplianceNotes('');
+    setRejectionReason('');
     setFormError(null);
     setSuccessMessage(null);
+
+    const token = await getAccessToken();
+    if (token) {
+      const complianceResult = await getClientComplianceAction(token, row.id);
+      if (complianceResult.ok) {
+        setKybStatus(complianceResult.data.kyb_status);
+        setKycStatus(complianceResult.data.kyc_status);
+        setComplianceNotes(complianceResult.data.notes ?? '');
+        setRejectionReason(complianceResult.data.rejection_reason ?? '');
+      }
+    }
   };
 
   const statusLabel = (value: ClientStatus) => t(`pages.clients.status.${value}`);
+  const kybStatusLabel = (value: KybStatus) => t(`pages.clients.compliance.kyb.${value}`);
+  const kycStatusLabel = (value: KycStatus) => t(`pages.clients.compliance.kyc.${value}`);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -155,6 +185,18 @@ export function ClientsPage() {
           setFormError(result.message);
           return;
         }
+
+        const complianceResult = await updateClientComplianceAction(token, editingId, {
+          kybStatus,
+          kycStatus,
+          notes: complianceNotes,
+          rejectionReason,
+        });
+        if (!complianceResult.ok) {
+          setFormError(complianceResult.message);
+          return;
+        }
+
         setSuccessMessage(t('pages.clients.updateSuccess'));
         resetForm();
       }
@@ -291,6 +333,65 @@ export function ClientsPage() {
               />
             </div>
 
+            {formMode === 'edit' ? (
+              <>
+                <h4 className="user-management-form__title">{t('pages.clients.compliance.sectionTitle')}</h4>
+                <p className="surface__lead">{t('pages.clients.compliance.sectionHint')}</p>
+
+                <div className="api-key-form__two-col-row">
+                  <label className="field">
+                    <span className="field__label">{t('pages.clients.compliance.kybStatus')}</span>
+                    <select
+                      className="field__input field__select"
+                      value={kybStatus}
+                      onChange={(e) => setKybStatus(e.target.value as KybStatus)}
+                      disabled={isSaving}
+                    >
+                      {KYB_STATUSES.map((item) => (
+                        <option key={item} value={item}>
+                          {kybStatusLabel(item)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="field">
+                    <span className="field__label">{t('pages.clients.compliance.kycStatus')}</span>
+                    <select
+                      className="field__input field__select"
+                      value={kycStatus}
+                      onChange={(e) => setKycStatus(e.target.value as KycStatus)}
+                      disabled={isSaving}
+                    >
+                      {KYC_STATUSES.map((item) => (
+                        <option key={item} value={item}>
+                          {kycStatusLabel(item)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <InputField
+                  id="client-compliance-notes"
+                  label={t('pages.clients.compliance.notes')}
+                  value={complianceNotes}
+                  onChange={(e) => setComplianceNotes(e.target.value)}
+                  placeholder={t('pages.clients.compliance.notesPlaceholder')}
+                  disabled={isSaving}
+                />
+
+                <InputField
+                  id="client-compliance-rejection"
+                  label={t('pages.clients.compliance.rejectionReason')}
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder={t('pages.clients.compliance.rejectionReasonPlaceholder')}
+                  disabled={isSaving}
+                />
+              </>
+            ) : null}
+
             <div className="user-management-form__actions">
               <Button type="submit" disabled={isSaving}>
                 {isSaving
@@ -313,6 +414,7 @@ export function ClientsPage() {
                 <th>{t('pages.clients.columns.name')}</th>
                 <th>{t('pages.clients.columns.taxId')}</th>
                 <th>{t('pages.clients.columns.status')}</th>
+                <th>{t('pages.clients.columns.kyb')}</th>
                 <th>{t('pages.clients.columns.contact')}</th>
                 <th aria-label={t('pages.clients.columns.actions')} />
               </tr>
@@ -320,11 +422,11 @@ export function ClientsPage() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={5}>{t('pages.clients.loading')}</td>
+                  <td colSpan={6}>{t('pages.clients.loading')}</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>{t('pages.clients.empty')}</td>
+                  <td colSpan={6}>{t('pages.clients.empty')}</td>
                 </tr>
               ) : (
                 rows.map((row) => (
@@ -344,9 +446,24 @@ export function ClientsPage() {
                         {statusLabel(row.status)}
                       </span>
                     </td>
+                    <td>
+                      <span
+                        className={`whitelist-status whitelist-status--${
+                          row.kyb_status === 'approved'
+                            ? 'approved'
+                            : row.kyb_status === 'pending'
+                              ? 'pending'
+                              : row.kyb_status === 'rejected'
+                                ? 'rejected'
+                                : 'pending'
+                        }`}
+                      >
+                        {kybStatusLabel(row.kyb_status ?? 'not_started')}
+                      </span>
+                    </td>
                     <td>{row.contact_email ?? '—'}</td>
                     <td className="user-management-table__actions">
-                      <Button type="button" variant="ghost" disabled={isSaving} onClick={() => openEdit(row)}>
+                      <Button type="button" variant="ghost" disabled={isSaving} onClick={() => void openEdit(row)}>
                         {t('pages.clients.edit')}
                       </Button>
                     </td>

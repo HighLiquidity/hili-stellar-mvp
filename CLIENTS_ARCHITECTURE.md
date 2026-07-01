@@ -473,13 +473,13 @@ insert into public.clients (
 
 **Critério de aceite:** `client_admin` gerencia operadores/viewer, keys e whitelist do tenant; pode operar ramp no painel com termos do cliente (teto completo, sem sub-limite de operador). Não acessa `/app/clients`.
 
-### Fase 3.4 — KYB/KYC
+### Fase 3.4 — KYB/KYC ✅
 
 | Entrega | Detalhe |
 |---------|---------|
-| `client_compliance_profiles` | |
-| UI status compliance | |
-| Gate opcional em quote | Env `CLIENT_KYB_REQUIRED` |
+| `client_compliance_profiles` | Migration `20260617120000_client_compliance_profiles.sql` + backfill Legacy `approved` |
+| UI status compliance | Coluna KYB em `/app/clients`; seção admin no formulário; banner no dashboard do `client_admin` |
+| Gate opcional em quote | Env `CLIENT_KYB_REQUIRED` (`src/lib/commercial/client-gate.ts`) |
 | Upload documentos | Fase 3.5+ |
 
 ## Decisões abertas (validação do time)
@@ -511,10 +511,10 @@ Preencher antes de iniciar Fase 3.0:
 | Item roadmap | Ordem sugerida |
 |--------------|----------------|
 | Smoke E2E piloto (single tenant) | Antes ou em paralelo com 3.0 |
-| Fase 3.0 + 3.1 + 3.2 + 3.3 | **Concluídas** — próximo: 3.4 |
+| Fase 3.0 + 3.1 + 3.2 + 3.3 + 3.4 | **Concluídas** — próximo: 3.5 (upload KYB) |
 | Webhooks outbound | Paralelo a 3.2 |
 | Fase 3.2 | Quando houver 2º cliente real |
-| KYB/KYC | Fase 3.4+ |
+| KYB/KYC (upload docs) | Fase 3.5+ |
 
 ## Referências no repositório
 
@@ -540,4 +540,4 @@ Preencher antes de iniciar Fase 3.0:
 
 ---
 
-**Status:** Fases 3.0–3.3 concluídas — ver migrations até `20260616120000_client_admin_role.sql`. Próximo: Fase 3.4.
+**Status:** Fases 3.0–3.4 concluídas — ver migrations até `20260617120000_client_compliance_profiles.sql`. Próximo: Fase 3.5 (upload de documentos KYB).

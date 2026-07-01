@@ -1,6 +1,7 @@
 'use server';
 
 import { parseMaxAmountBrl, parseSpreadBpsOverride } from '@/lib/commercial/parse';
+import { ensureClientComplianceProfile, loadComplianceByClientIds } from '@/lib/clients/compliance-profile';
 import { normalizeClientTaxId } from '@/lib/clients/normalize';
 import type { ClientInput, ClientRow, ClientStatus, ClientUpdateInput } from '@/lib/clients/types';
 import { CLIENT_STATUSES } from '@/lib/clients/types';
@@ -32,7 +33,23 @@ export async function listClientsAction(accessToken: string): Promise<ClientsAct
       .order('legal_name', { ascending: true });
 
     if (error) return { ok: false, message: error.message };
-    return { ok: true, data: (data ?? []) as ClientRow[] };
+
+    const clients = (data ?? []) as ClientRow[];
+    const complianceByClientId = await loadComplianceByClientIds(
+      admin,
+      clients.map((row) => row.id),
+    );
+
+    const rows = clients.map((row) => {
+      const compliance = complianceByClientId.get(row.id);
+      return {
+        ...row,
+        kyb_status: compliance?.kyb_status ?? 'not_started',
+        kyc_status: compliance?.kyc_status ?? 'not_started',
+      };
+    });
+
+    return { ok: true, data: rows };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
@@ -104,7 +121,10 @@ export async function createClientAction(
       return { ok: false, message: error.message };
     }
 
-    return { ok: true, data: data as ClientRow };
+    const client = data as ClientRow;
+    await ensureClientComplianceProfile(admin, client.id);
+
+    return { ok: true, data: client };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }

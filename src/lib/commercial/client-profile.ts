@@ -1,8 +1,10 @@
 import '@/lib/server/only';
 
+import type { KybStatus, KycStatus } from '@/lib/clients/compliance-types';
 import type { ClientStatus } from '@/lib/clients/types';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
+import { loadClientComplianceProfileByClientId } from '@/lib/clients/compliance-profile';
 import type { CommercialProfileSource } from './types';
 import { EMPTY_COMMERCIAL_PROFILE_SOURCE } from './types';
 
@@ -13,6 +15,8 @@ const COMMERCIAL_COLUMNS = 'id, status, spread_bps_override, max_amount_brl';
 export type ClientCommercialRecord = CommercialProfileSource & {
   clientId: string;
   status: ClientStatus;
+  kybStatus: KybStatus;
+  kycStatus: KycStatus;
 };
 
 export async function loadClientCommercialRecordById(
@@ -41,11 +45,15 @@ export async function loadClientCommercialRecordById(
     max_amount_brl: string | null;
   };
 
+  const compliance = await loadClientComplianceProfileByClientId(admin, row.id);
+
   return {
     clientId: row.id,
     status: row.status,
     spreadBpsOverride: row.spread_bps_override,
     maxAmountBrl: row.max_amount_brl,
+    kybStatus: compliance?.kyb_status ?? 'not_started',
+    kycStatus: compliance?.kyc_status ?? 'not_started',
   };
 }
 

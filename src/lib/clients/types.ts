@@ -1,3 +1,5 @@
+import type { KycStatus, KybStatus } from './compliance-types';
+
 export type ClientStatus = 'draft' | 'active' | 'suspended' | 'archived';
 
 export const CLIENT_STATUSES: ClientStatus[] = ['draft', 'active', 'suspended', 'archived'];
@@ -14,6 +16,8 @@ export type ClientRow = {
   created_at: string;
   updated_at: string;
   created_by_email: string | null;
+  kyb_status?: KybStatus;
+  kyc_status?: KycStatus;
 };
 
 export type ClientInput = {
