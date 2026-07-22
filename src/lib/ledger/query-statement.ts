@@ -36,6 +36,13 @@ export type FetchLedgerPageResult =
   | { ok: false; message: string };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyClientScope(query: any, clientId?: string) {
+  const normalized = clientId?.trim();
+  if (!normalized) return query;
+  return query.eq('client_id', normalized);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applyLedgerFilters(query: any, filters: LedgerQueryFilters) {
   let q = query;
   if (filters.dateFrom?.trim()) {
@@ -139,6 +146,7 @@ async function fetchOnrampStatementRows(
     .limit(STATEMENT_RAMP_FETCH_LIMIT);
 
   query = applyOnrampStatementFilters(query, filters);
+  query = applyClientScope(query, filters.clientId);
 
   const { data, error } = await query;
   if (error) {
@@ -162,6 +170,7 @@ async function fetchOfframpStatementRows(
     .limit(STATEMENT_RAMP_FETCH_LIMIT);
 
   query = applyOfframpStatementFilters(query, filters);
+  query = applyClientScope(query, filters.clientId);
 
   const { data, error } = await query;
   if (error) {

@@ -15,6 +15,10 @@ import {
   PixWhitelistValidationError,
 } from '@/lib/pix-whitelist/normalize';
 import { listActivePixWhitelist, listActivePixWhitelistForUser } from '@/lib/pix-whitelist/store';
+import {
+  cancelPixWhitelistRequest,
+  submitPixWhitelistRequest,
+} from '@/lib/pix-whitelist/submit-request';
 import type { PixWhitelistRow } from '@/lib/pix-whitelist/types';
 
 const PIX_WHITELIST_TABLE = 'user_pix_whitelist';
@@ -281,7 +285,7 @@ export async function submitPixWhitelistRequestAction(
   },
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const { admin, userId, email: actorEmail, role, clientId } = await requireOperatorOrAdminFromAccessToken(accessToken);
+    const { userId, email: actorEmail, role, clientId } = await requireOperatorOrAdminFromAccessToken(accessToken);
     if (!canSubmitOwnWhitelistRequests(role)) {
       return { ok: false, message: 'Only operators and client admins can submit whitelist requests.' };
     }
@@ -290,65 +294,11 @@ export async function submitPixWhitelistRequestAction(
       return { ok: false, message: 'Operator is not linked to a client.' };
     }
 
-    let pixKey: string;
-    try {
-      pixKey = normalizePixWhitelistKey(input.pixKey);
-    } catch (error) {
-      return {
-        ok: false,
-        message: error instanceof PixWhitelistValidationError ? error.message : 'Chave PIX inválida.',
-      };
-    }
-
-    const beneficiaryName = normalizePixWhitelistBeneficiaryName(input.beneficiaryName);
-    const now = new Date().toISOString();
-
-    const { data: existing, error: existingError } = await admin
-      .from(PIX_WHITELIST_TABLE)
-      .select('id, approval_status, is_active')
-      .eq('user_id', userId)
-      .eq('pix_key', pixKey)
-      .maybeSingle();
-
-    if (existingError) return { ok: false, message: existingError.message };
-
-    if (existing?.approval_status === 'approved' && existing.is_active) {
-      return { ok: false, message: 'PIX key already whitelisted.' };
-    }
-    if (existing?.approval_status === 'pending') {
-      return { ok: false, message: 'PIX key request already pending approval.' };
-    }
-
-    const payload = {
-      user_id: userId,
-      client_id: clientId,
-      pix_key: pixKey,
-      beneficiary_name: beneficiaryName,
-      label: input.label?.trim() || null,
-      is_active: false,
-      approval_status: 'pending' as const,
-      reviewed_at: null,
-      reviewed_by_email: null,
-      rejection_reason: null,
-      updated_at: now,
-      created_by_email: actorEmail,
-    };
-
-    if (existing?.id) {
-      const { error } = await admin.from(PIX_WHITELIST_TABLE).update(payload).eq('id', existing.id);
-      if (error) return { ok: false, message: error.message };
-      return { ok: true, data: { id: existing.id } };
-    }
-
-    const { data, error } = await admin
-      .from(PIX_WHITELIST_TABLE)
-      .insert(payload)
-      .select('id')
-      .maybeSingle();
-
-    if (error) return { ok: false, message: error.message };
-    if (!data?.id) return { ok: false, message: 'Failed to create whitelist request.' };
-    return { ok: true, data: { id: data.id } };
+    const row = await submitPixWhitelistRequest(
+      { userId, clientId, email: actorEmail },
+      input,
+    );
+    return { ok: true, data: { id: row.id } };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
@@ -359,29 +309,9 @@ export async function cancelPixWhitelistRequestAction(
   id: string,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const { admin, userId } = await requireOperatorOrAdminFromAccessToken(accessToken);
-    const targetId = id.trim();
-    if (!targetId) {
-      return { ok: false, message: 'ID inválido.' };
-    }
-
-    const { data: row, error: fetchError } = await admin
-      .from(PIX_WHITELIST_TABLE)
-      .select('id, user_id, approval_status')
-      .eq('id', targetId)
-      .maybeSingle();
-
-    if (fetchError) return { ok: false, message: fetchError.message };
-    if (!row || row.user_id !== userId) {
-      return { ok: false, message: 'Request not found.' };
-    }
-    if (row.approval_status !== 'pending') {
-      return { ok: false, message: 'Only pending requests can be cancelled.' };
-    }
-
-    const { error } = await admin.from(PIX_WHITELIST_TABLE).delete().eq('id', targetId);
-    if (error) return { ok: false, message: error.message };
-    return { ok: true, data: { id: targetId } };
+    const { userId } = await requireOperatorOrAdminFromAccessToken(accessToken);
+    const result = await cancelPixWhitelistRequest(userId, id);
+    return { ok: true, data: result };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }

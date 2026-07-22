@@ -12,9 +12,15 @@ import {
 import {
   getOnrampWithdrawNetwork,
   normalizeWithdrawWhitelistAddress,
+  shouldOfferWithdrawWhitelistMemo,
+  WithdrawWhitelistAddressError,
 } from '@/lib/withdraw-whitelist/onramp-network';
 import { normalizeWithdrawWhitelistMemo } from '@/lib/withdraw-whitelist/memo';
 import { listActiveWithdrawWhitelistOnNetwork } from '@/lib/withdraw-whitelist/store';
+import {
+  cancelWithdrawWhitelistRequest,
+  submitWithdrawWhitelistRequest,
+} from '@/lib/withdraw-whitelist/submit-request';
 import type { WithdrawWhitelistNetwork, WithdrawWhitelistRow } from '@/lib/withdraw-whitelist/types';
 
 const WHITELIST_TABLE = 'user_withdraw_whitelist';
@@ -233,10 +239,25 @@ export async function upsertWithdrawWhitelistAction(
   try {
     const { admin, email: actorEmail } = await requireAdminFromAccessToken(accessToken);
     const userEmail = normalizeEmail(input.userEmail);
-    const address = normalizeWithdrawWhitelistAddress(input.address);
+    let address: string;
+    try {
+      address = normalizeWithdrawWhitelistAddress(input.address);
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof WithdrawWhitelistAddressError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : 'Endereço inválido.',
+      };
+    }
     let memo: string | null;
     try {
-      memo = normalizeWithdrawWhitelistMemo(input.memo);
+      memo = shouldOfferWithdrawWhitelistMemo(address)
+        ? normalizeWithdrawWhitelistMemo(input.memo)
+        : null;
     } catch (error) {
       return {
         ok: false,
@@ -381,7 +402,7 @@ export async function submitWithdrawWhitelistRequestAction(
   },
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const { admin, userId, email: actorEmail, role, clientId } = await requireOperatorOrAdminFromAccessToken(accessToken);
+    const { userId, email: actorEmail, role, clientId } = await requireOperatorOrAdminFromAccessToken(accessToken);
     if (!canSubmitOwnWhitelistRequests(role)) {
       return { ok: false, message: 'Only operators and client admins can submit whitelist requests.' };
     }
@@ -390,72 +411,11 @@ export async function submitWithdrawWhitelistRequestAction(
       return { ok: false, message: 'Operator is not linked to a client.' };
     }
 
-    const address = normalizeWithdrawWhitelistAddress(input.address);
-    let memo: string | null;
-    try {
-      memo = normalizeWithdrawWhitelistMemo(input.memo);
-    } catch (error) {
-      return {
-        ok: false,
-        message: error instanceof Error ? error.message : 'Memo inválido.',
-      };
-    }
-
-    if (!address) {
-      return { ok: false, message: 'Endereço é obrigatório.' };
-    }
-
-    const network = getOnrampWithdrawNetwork();
-    const now = new Date().toISOString();
-
-    const { data: existing, error: existingError } = await admin
-      .from(WHITELIST_TABLE)
-      .select('id, approval_status, is_active')
-      .eq('user_id', userId)
-      .eq('address', address)
-      .eq('network', network)
-      .maybeSingle();
-
-    if (existingError) return { ok: false, message: existingError.message };
-
-    if (existing?.approval_status === 'approved' && existing.is_active) {
-      return { ok: false, message: 'Wallet already whitelisted.' };
-    }
-    if (existing?.approval_status === 'pending') {
-      return { ok: false, message: 'Wallet request already pending approval.' };
-    }
-
-    const payload = {
-      user_id: userId,
-      client_id: clientId,
-      address,
-      network,
-      label: input.label?.trim() || null,
-      memo,
-      is_active: false,
-      approval_status: 'pending' as const,
-      reviewed_at: null,
-      reviewed_by_email: null,
-      rejection_reason: null,
-      updated_at: now,
-      created_by_email: actorEmail,
-    };
-
-    if (existing?.id) {
-      const { error } = await admin.from(WHITELIST_TABLE).update(payload).eq('id', existing.id);
-      if (error) return { ok: false, message: error.message };
-      return { ok: true, data: { id: existing.id } };
-    }
-
-    const { data, error } = await admin
-      .from(WHITELIST_TABLE)
-      .insert(payload)
-      .select('id')
-      .maybeSingle();
-
-    if (error) return { ok: false, message: error.message };
-    if (!data?.id) return { ok: false, message: 'Failed to create whitelist request.' };
-    return { ok: true, data: { id: data.id } };
+    const row = await submitWithdrawWhitelistRequest(
+      { userId, clientId, email: actorEmail },
+      input,
+    );
+    return { ok: true, data: { id: row.id } };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
@@ -466,29 +426,9 @@ export async function cancelWithdrawWhitelistRequestAction(
   id: string,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const { admin, userId } = await requireOperatorOrAdminFromAccessToken(accessToken);
-    const targetId = id.trim();
-    if (!targetId) {
-      return { ok: false, message: 'ID inválido.' };
-    }
-
-    const { data: row, error: fetchError } = await admin
-      .from(WHITELIST_TABLE)
-      .select('id, user_id, approval_status')
-      .eq('id', targetId)
-      .maybeSingle();
-
-    if (fetchError) return { ok: false, message: fetchError.message };
-    if (!row || row.user_id !== userId) {
-      return { ok: false, message: 'Request not found.' };
-    }
-    if (row.approval_status !== 'pending') {
-      return { ok: false, message: 'Only pending requests can be cancelled.' };
-    }
-
-    const { error } = await admin.from(WHITELIST_TABLE).delete().eq('id', targetId);
-    if (error) return { ok: false, message: error.message };
-    return { ok: true, data: { id: targetId } };
+    const { userId } = await requireOperatorOrAdminFromAccessToken(accessToken);
+    const result = await cancelWithdrawWhitelistRequest(userId, id);
+    return { ok: true, data: result };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }

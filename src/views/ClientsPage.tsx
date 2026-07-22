@@ -18,8 +18,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { formatClientTaxId } from '@/lib/clients/format';
 import { KYB_STATUSES, KYC_STATUSES, type KybStatus, type KycStatus } from '@/lib/clients/compliance-types';
-import type { ClientRow, ClientStatus } from '@/lib/clients/types';
-import { CLIENT_STATUSES } from '@/lib/clients/types';
+import type { ClientRow, ClientStatus, ClientType } from '@/lib/clients/types';
+import { CLIENT_STATUSES, CLIENT_TYPES } from '@/lib/clients/types';
 import { useI18n } from '@/lib/i18n';
 
 type FormMode = 'create' | 'edit' | null;
@@ -43,6 +43,7 @@ export function ClientsPage() {
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  const [clientType, setClientType] = useState<ClientType>('company');
   const [legalName, setLegalName] = useState('');
   const [tradeName, setTradeName] = useState('');
   const [taxId, setTaxId] = useState('');
@@ -95,6 +96,7 @@ export function ClientsPage() {
   const resetForm = () => {
     setFormMode(null);
     setEditingId(null);
+    setClientType('company');
     setLegalName('');
     setTradeName('');
     setTaxId('');
@@ -118,6 +120,7 @@ export function ClientsPage() {
   const openEdit = async (row: ClientRow) => {
     setFormMode('edit');
     setEditingId(row.id);
+    setClientType(row.client_type);
     setLegalName(row.legal_name);
     setTradeName(row.trade_name ?? '');
     setTaxId(formatClientTaxId(row.tax_id));
@@ -167,6 +170,7 @@ export function ClientsPage() {
         taxId,
         contactEmail,
         status,
+        clientType,
         spreadBpsOverride,
         maxAmountBrl,
       };
@@ -256,6 +260,29 @@ export function ClientsPage() {
               {formMode === 'create' ? t('pages.clients.formCreateTitle') : t('pages.clients.formEditTitle')}
             </h3>
 
+            <fieldset className="field">
+              <legend className="field__label">{t('pages.clients.clientTypeLabel')}</legend>
+              <div className="field__radio-group">
+                {CLIENT_TYPES.map((type) => (
+                  <label key={type} className="field__radio">
+                    <input
+                      type="radio"
+                      name="client-type"
+                      value={type}
+                      checked={clientType === type}
+                      onChange={() => setClientType(type)}
+                      disabled={isSaving || formMode === 'edit'}
+                    />
+                    <span>
+                      {type === 'company'
+                        ? t('pages.clients.clientTypeCompany')
+                        : t('pages.clients.clientTypeIndividual')}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
             <InputField
               id="client-legal-name"
               label={t('pages.clients.legalName')}
@@ -266,14 +293,16 @@ export function ClientsPage() {
               disabled={isSaving}
             />
 
-            <InputField
-              id="client-trade-name"
-              label={t('pages.clients.tradeName')}
-              value={tradeName}
-              onChange={(e) => setTradeName(e.target.value)}
-              placeholder={t('pages.clients.tradeNamePlaceholder')}
-              disabled={isSaving}
-            />
+            {clientType === 'company' ? (
+              <InputField
+                id="client-trade-name"
+                label={t('pages.clients.tradeName')}
+                value={tradeName}
+                onChange={(e) => setTradeName(e.target.value)}
+                placeholder={t('pages.clients.tradeNamePlaceholder')}
+                disabled={isSaving}
+              />
+            ) : null}
 
             <InputField
               id="client-tax-id"

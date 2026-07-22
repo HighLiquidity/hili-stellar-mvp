@@ -4,6 +4,7 @@ import type { ApiKeyAuthContext } from '@/lib/api-keys/store';
 import { OfframpOperationError } from '@/lib/offramp/errors';
 import { OnrampOperationError } from '@/lib/onramp/errors';
 import type { PanelAccessContext } from '@/lib/users/require-panel-role';
+import { isPlatformAdminRole } from '@/lib/users/roles';
 import type { PanelUserRole } from '@/lib/users/types';
 
 export type DataScope =
@@ -16,7 +17,7 @@ export type TenantScopedRow = {
 };
 
 export function resolvePanelDataScope(ctx: PanelAccessContext): DataScope {
-  if (ctx.role === 'admin') {
+  if (isPlatformAdminRole(ctx.role)) {
     return { mode: 'platform' };
   }
 

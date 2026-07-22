@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
 import type { PanelUserRole } from './types';
+import { ALL_PANEL_ROLES } from './roles';
 
 export type PanelAccessContext = {
   admin: NonNullable<ReturnType<typeof createSupabaseAdmin>>;
@@ -103,4 +104,10 @@ export async function requireOperatorOrAdminFromAccessToken(
   accessToken: string,
 ): Promise<PanelAccessContext> {
   return requirePanelRoleFromAccessToken(accessToken, ['admin', 'client_admin', 'operator']);
+}
+
+export async function requirePanelMemberFromAccessToken(
+  accessToken: string,
+): Promise<PanelAccessContext> {
+  return requirePanelRoleFromAccessToken(accessToken, ALL_PANEL_ROLES);
 }

@@ -15,6 +15,7 @@ import { assertGrossUsdcCoversDeliveryFee } from './usdc-delivery-fee';
 import { assertUsdcMeetsBinanceMinWithdraw } from './binance-withdraw-min';
 
 const VALID_STELLAR_ADDRESS = `G${'A'.repeat(55)}`;
+const VALID_CONTRACT_ADDRESS = `C${'A'.repeat(55)}`;
 
 describe('onramp quote helpers', () => {
   it('normalizes CPF/CNPJ digits', () => {
@@ -36,11 +37,17 @@ describe('onramp quote helpers', () => {
     expect(normalizeOnrampDestinationMemo('a'.repeat(40))?.length).toBeLessThanOrEqual(28);
   });
 
-  it('validates Stellar destination format', () => {
+  it('validates Stellar destination format for G and C addresses', () => {
     expect(normalizeOnrampDestinationAddress(VALID_STELLAR_ADDRESS.toLowerCase())).toBe(
       VALID_STELLAR_ADDRESS,
     );
+    expect(normalizeOnrampDestinationAddress(VALID_CONTRACT_ADDRESS.toLowerCase())).toBe(
+      VALID_CONTRACT_ADDRESS,
+    );
     expect(() => normalizeOnrampDestinationAddress('wallet-123')).toThrowError(OnrampValidationError);
+    expect(() => normalizeOnrampDestinationAddress('wallet-123')).toThrowError(
+      /account or contract address/,
+    );
   });
 
   it('applies spread bps over the market rate', () => {

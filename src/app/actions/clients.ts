@@ -9,7 +9,7 @@ import { requireAdminFromAccessToken } from '@/lib/users/require-admin';
 
 const CLIENTS_TABLE = 'clients';
 const CLIENT_COLUMNS =
-  'id, legal_name, trade_name, tax_id, contact_email, status, spread_bps_override, max_amount_brl, created_at, updated_at, created_by_email';
+  'id, legal_name, trade_name, tax_id, contact_email, status, spread_bps_override, max_amount_brl, created_at, updated_at, created_by_email, client_type';
 
 export type ClientsActionResult<T> = { ok: true; data: T } | { ok: false; message: string };
 
@@ -81,13 +81,18 @@ export async function createClientAction(
     const { admin, email: actorEmail } = await requireAdminFromAccessToken(accessToken);
 
     const legalName = input.legalName.trim();
-    if (!legalName) return { ok: false, message: 'Razão social é obrigatória.' };
+    if (!legalName) return { ok: false, message: 'Razão social / nome é obrigatório.' };
+
+    const clientType = input.clientType ?? 'company';
 
     let taxId: string;
     try {
-      taxId = normalizeClientTaxId(input.taxId);
+      taxId = normalizeClientTaxId(input.taxId, clientType);
     } catch (error) {
-      return { ok: false, message: error instanceof Error ? error.message : 'CNPJ inválido.' };
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : clientType === 'individual' ? 'CPF inválido.' : 'CNPJ inválido.',
+      };
     }
 
     const status = input.status ?? 'draft';
@@ -112,12 +117,13 @@ export async function createClientAction(
         ...commercial,
         created_by_email: actorEmail,
         updated_at: now,
+        client_type: clientType,
       })
       .select(CLIENT_COLUMNS)
       .single();
 
     if (error) {
-      if (error.code === '23505') return { ok: false, message: 'CNPJ já cadastrado.' };
+      if (error.code === '23505') return { ok: false, message: 'Documento (CPF/CNPJ) já cadastrado.' };
       return { ok: false, message: error.message };
     }
 
@@ -146,7 +152,7 @@ export async function updateClientAction(
 
     if (input.legalName !== undefined) {
       const legalName = input.legalName.trim();
-      if (!legalName) return { ok: false, message: 'Razão social é obrigatória.' };
+      if (!legalName) return { ok: false, message: 'Razão social / nome é obrigatório.' };
       patch.legal_name = legalName;
     }
 
@@ -158,8 +164,12 @@ export async function updateClientAction(
       try {
         patch.tax_id = normalizeClientTaxId(input.taxId);
       } catch (error) {
-        return { ok: false, message: error instanceof Error ? error.message : 'CNPJ inválido.' };
+        return { ok: false, message: error instanceof Error ? error.message : 'Documento inválido.' };
       }
+    }
+
+    if (input.clientType !== undefined) {
+      patch.client_type = input.clientType;
     }
 
     if (input.contactEmail !== undefined) {
@@ -196,7 +206,7 @@ export async function updateClientAction(
       .maybeSingle();
 
     if (error) {
-      if (error.code === '23505') return { ok: false, message: 'CNPJ já cadastrado.' };
+      if (error.code === '23505') return { ok: false, message: 'Documento (CPF/CNPJ) já cadastrado.' };
       return { ok: false, message: error.message };
     }
     if (!data) return { ok: false, message: 'Cliente não encontrado.' };

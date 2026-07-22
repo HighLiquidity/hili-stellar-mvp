@@ -26,10 +26,16 @@ import {
   DEFAULT_ONRAMP_QUOTE_TTL_SECONDS,
   getOnrampQuoteTtlSeconds,
 } from './ttl';
+import { STELLAR_DESTINATION_PATTERN } from './destination';
 
 export const DEFAULT_ONRAMP_QUOTE_SYMBOL = 'USDCBRL';
 export { DEFAULT_ONRAMP_QUOTE_TTL_SECONDS };
 export const DEFAULT_ONRAMP_QUOTE_SPREAD_BPS = 0;
+export {
+  isSorobanDestinationAddress,
+  resolveOnrampPayoutMethod,
+  STELLAR_DESTINATION_PATTERN,
+} from './destination';
 
 const INTERNAL_DECIMAL_SCALE = BigInt(18);
 const USDC_DECIMALS = BigInt(7);
@@ -38,7 +44,6 @@ const RATE_DECIMALS = BigInt(8);
 const POSITIVE_DECIMAL_PATTERN = /^\d+(?:\.\d+)?$/;
 const BRL_AMOUNT_PATTERN = /^\d+(?:\.\d{1,2})?$/;
 const USDC_AMOUNT_PATTERN = /^\d+(?:\.\d{1,7})?$/;
-const STELLAR_ACCOUNT_PATTERN = /^G[A-Z2-7]{55}$/;
 /** Stellar text memo limit (UTF-8 bytes) for on-chain payouts. */
 const STELLAR_TEXT_MEMO_MAX_BYTES = 28;
 
@@ -252,8 +257,10 @@ export function normalizeOnrampDestinationAddress(destinationAddress: string): s
     throw new OnrampValidationError('destinationAddress is required.');
   }
 
-  if (!STELLAR_ACCOUNT_PATTERN.test(normalized)) {
-    throw new OnrampValidationError('destinationAddress must be a valid Stellar public key.');
+  if (!STELLAR_DESTINATION_PATTERN.test(normalized)) {
+    throw new OnrampValidationError(
+      'destinationAddress must be a valid Stellar account or contract address.',
+    );
   }
 
   return normalized;

@@ -12,7 +12,19 @@ const ONRAMP_QUOTE_CURL = `curl -X POST "$BASE_URL/api/v1/onramp/orders/quote" \
     "externalId": "erp-order-12345",
     "taxId": "12345678901",
     "amountBrl": "1000.00",
-    "destinationAddress": "GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+    "destinationAddress": "GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "destinationMemo": "optional-for-G-only"
+  }'`;
+
+const ONRAMP_QUOTE_CONTRACT_CURL = `curl -X POST "$BASE_URL/api/v1/onramp/orders/quote" \\
+  -H "Authorization: Bearer $API_SECRET" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: quote-$(uuidgen)" \\
+  -d '{
+    "externalId": "erp-order-smart-1",
+    "taxId": "12345678901",
+    "amountBrl": "1000.00",
+    "destinationAddress": "CXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
   }'`;
 
 const ONRAMP_LOCK_CURL = `curl -X POST "$BASE_URL/api/v1/onramp/orders/$ORDER_ID/lock" \\
@@ -50,6 +62,38 @@ const OFFRAMP_LOCK_CURL = `curl -X POST "$BASE_URL/api/v1/offramp/orders/$ORDER_
 const OFFRAMP_LIST_CURL = `curl "$BASE_URL/api/v1/offramp/orders?page=1&status=quoted" \\
   -H "Authorization: Bearer $API_SECRET"`;
 
+const WHITELIST_WALLET_POST_CURL = `curl -X POST "$BASE_URL/api/v1/whitelist/wallets" \\
+  -H "Authorization: Bearer $API_SECRET" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: wallet-$(uuidgen)" \\
+  -d '{
+    "address": "GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "label": "Treasury",
+    "memo": "optional-for-G-only"
+  }'`;
+
+const WHITELIST_WALLET_LIST_CURL = `curl "$BASE_URL/api/v1/whitelist/wallets?status=pending&page=1&pageSize=25" \\
+  -H "Authorization: Bearer $API_SECRET"`;
+
+const WHITELIST_WALLET_DELETE_CURL = `curl -X DELETE "$BASE_URL/api/v1/whitelist/wallets/$REQUEST_ID" \\
+  -H "Authorization: Bearer $API_SECRET"`;
+
+const WHITELIST_PIX_POST_CURL = `curl -X POST "$BASE_URL/api/v1/whitelist/pix-keys" \\
+  -H "Authorization: Bearer $API_SECRET" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: pix-$(uuidgen)" \\
+  -d '{
+    "pixKey": "email@empresa.com",
+    "beneficiaryName": "Empresa Ltda",
+    "label": "Payout principal"
+  }'`;
+
+const WHITELIST_PIX_LIST_CURL = `curl "$BASE_URL/api/v1/whitelist/pix-keys?status=approved" \\
+  -H "Authorization: Bearer $API_SECRET"`;
+
+const WHITELIST_PIX_DELETE_CURL = `curl -X DELETE "$BASE_URL/api/v1/whitelist/pix-keys/$REQUEST_ID" \\
+  -H "Authorization: Bearer $API_SECRET"`;
+
 export function ApiDocsPanel() {
   const { t } = useI18n();
 
@@ -76,7 +120,12 @@ export function ApiDocsPanel() {
       <section className="api-docs-section">
         <h2 className="api-docs-section__title">{t('pages.apiIntegration.docs.onrampTitle')}</h2>
         <p>{t('pages.apiIntegration.docs.onrampLead')}</p>
+        <p>{t('pages.apiIntegration.docs.onrampDestinationHint')}</p>
         <CodeBlock code={ONRAMP_QUOTE_CURL} label={t('pages.apiIntegration.docs.onrampQuote')} />
+        <CodeBlock
+          code={ONRAMP_QUOTE_CONTRACT_CURL}
+          label={t('pages.apiIntegration.docs.onrampQuoteContract')}
+        />
         <CodeBlock code={ONRAMP_LOCK_CURL} label={t('pages.apiIntegration.docs.onrampLock')} />
         <CodeBlock code={ONRAMP_GET_CURL} label={t('pages.apiIntegration.docs.onrampGet')} />
         <CodeBlock code={ONRAMP_LIST_CURL} label={t('pages.apiIntegration.docs.onrampList')} />
@@ -88,6 +137,18 @@ export function ApiDocsPanel() {
         <CodeBlock code={OFFRAMP_QUOTE_CURL} label={t('pages.apiIntegration.docs.offrampQuote')} />
         <CodeBlock code={OFFRAMP_LOCK_CURL} label={t('pages.apiIntegration.docs.offrampLock')} />
         <CodeBlock code={OFFRAMP_LIST_CURL} label={t('pages.apiIntegration.docs.offrampList')} />
+      </section>
+
+      <section className="api-docs-section">
+        <h2 className="api-docs-section__title">{t('pages.apiIntegration.docs.whitelistTitle')}</h2>
+        <p>{t('pages.apiIntegration.docs.whitelistLead')}</p>
+        <p>{t('pages.apiIntegration.docs.whitelistScopesHint')}</p>
+        <CodeBlock code={WHITELIST_WALLET_POST_CURL} label={t('pages.apiIntegration.docs.whitelistWalletPost')} />
+        <CodeBlock code={WHITELIST_WALLET_LIST_CURL} label={t('pages.apiIntegration.docs.whitelistWalletList')} />
+        <CodeBlock code={WHITELIST_WALLET_DELETE_CURL} label={t('pages.apiIntegration.docs.whitelistWalletDelete')} />
+        <CodeBlock code={WHITELIST_PIX_POST_CURL} label={t('pages.apiIntegration.docs.whitelistPixPost')} />
+        <CodeBlock code={WHITELIST_PIX_LIST_CURL} label={t('pages.apiIntegration.docs.whitelistPixList')} />
+        <CodeBlock code={WHITELIST_PIX_DELETE_CURL} label={t('pages.apiIntegration.docs.whitelistPixDelete')} />
       </section>
 
       <section className="api-docs-section">

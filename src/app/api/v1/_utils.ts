@@ -20,6 +20,7 @@ import {
   OnrampOperationError,
   OnrampValidationError,
 } from '@/lib/onramp/errors';
+import { WhitelistRequestError } from '@/lib/whitelist/request-errors';
 
 export { executeV1Route } from '@/lib/api-keys/execute-v1-route';
 
@@ -29,6 +30,35 @@ function jsonError(message: string, status: number, extra?: Record<string, unkno
 
 export function badRequest(message: string) {
   return jsonError(message, 400);
+}
+
+export function handleV1WhitelistRouteError(error: unknown) {
+  if (error instanceof ApiRateLimitError) {
+    return jsonError(error.message, error.status);
+  }
+
+  if (error instanceof WhitelistRequestError) {
+    return jsonError(error.message, error.status);
+  }
+
+  if (error instanceof SyntaxError) {
+    return jsonError('Invalid JSON', 400);
+  }
+
+  console.error('[api/v1/whitelist] unexpected route error', {
+    name: error instanceof Error ? error.name : 'UnknownError',
+    message: error instanceof Error ? error.message : String(error),
+  });
+
+  return jsonError('Internal server error', 500);
+}
+
+export function requireApiKeyClientId(ctx: ApiKeyAuthContext): string {
+  const clientId = ctx.clientId?.trim();
+  if (!clientId) {
+    throw new WhitelistRequestError('API key is not linked to a client.', 403);
+  }
+  return clientId;
 }
 
 export function handleV1OnrampRouteError(error: unknown) {

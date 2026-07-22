@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { assertOnrampOrderInDataScope, rowMatchesDataScope } from './scope';
+import {
+  assertOnrampOrderInDataScope,
+  resolveListClientId,
+  resolvePanelDataScope,
+  rowMatchesDataScope,
+} from './scope';
 
 describe('rowMatchesDataScope', () => {
   it('allows platform admin to access any row', () => {
@@ -36,6 +41,34 @@ describe('rowMatchesDataScope', () => {
         'user-1',
       ),
     ).toBe(true);
+  });
+});
+
+describe('resolvePanelDataScope', () => {
+  it('keeps platform admin cross-tenant even when client_id is set', () => {
+    const scope = resolvePanelDataScope({
+      admin: {} as never,
+      userId: 'user-1',
+      email: 'admin@example.com',
+      role: 'admin',
+      clientId: 'legacy-client-id',
+    });
+
+    expect(scope).toEqual({ mode: 'platform' });
+    expect(resolveListClientId(scope)).toBeUndefined();
+  });
+
+  it('scopes client_admin to their tenant', () => {
+    const scope = resolvePanelDataScope({
+      admin: {} as never,
+      userId: 'user-2',
+      email: 'tenant@example.com',
+      role: 'client_admin',
+      clientId: 'client-a',
+    });
+
+    expect(scope).toEqual({ mode: 'client', clientId: 'client-a' });
+    expect(resolveListClientId(scope)).toBe('client-a');
   });
 });
 

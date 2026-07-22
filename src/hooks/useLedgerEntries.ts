@@ -2,13 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  defaultStatementDateFrom,
-  defaultStatementDateTo,
   type LedgerQueryFilters,
 } from '@/lib/ledger/filters';
-import { fetchLedgerPage } from '@/lib/ledger/query-entries';
+import { fetchLedgerPageFromApi } from '@/lib/ledger/fetch-page-api';
 import type { LedgerTransaction } from '@/lib/ledger/types';
 import {
   FIAT_LEDGER_ENTRIES_TABLE,
@@ -29,23 +28,32 @@ export type UseLedgerEntriesResult = {
   refetch: () => Promise<void>;
 };
 
+/** Dashboard recent activity: no date window — only capped by fetch limit. */
 const DASHBOARD_LEDGER_FILTERS: LedgerQueryFilters = {
-  dateFrom: defaultStatementDateFrom(),
-  dateTo: defaultStatementDateTo(),
   type: 'all',
 };
 
 export function useLedgerEntries(limit = 50): UseLedgerEntriesResult {
+  const { session, isLoading: authLoading, isAuthorized } = useAuth();
+  const accessToken = session?.access_token ?? null;
   const [transactions, setTransactions] = useState<LedgerTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchEntries = useCallback(async () => {
+    if (authLoading) return;
+
+    if (!accessToken || !isAuthorized) {
+      setTransactions([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     try {
       const capped = Math.min(Math.max(limit, 1), 500);
-      const result = await fetchLedgerPage(supabase, DASHBOARD_LEDGER_FILTERS, 1, capped);
+      const result = await fetchLedgerPageFromApi(accessToken, DASHBOARD_LEDGER_FILTERS, 1, capped);
 
       if (!result.ok) {
         throw new Error(result.message);
@@ -58,10 +66,14 @@ export function useLedgerEntries(limit = 50): UseLedgerEntriesResult {
     } finally {
       setIsLoading(false);
     }
-  }, [limit]);
+  }, [accessToken, authLoading, isAuthorized, limit]);
 
   useEffect(() => {
     void fetchEntries();
+  }, [fetchEntries]);
+
+  useEffect(() => {
+    if (!accessToken) return;
 
     const channel = supabase
       .channel('dashboard-ledger-updates')
@@ -98,7 +110,7 @@ export function useLedgerEntries(limit = 50): UseLedgerEntriesResult {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [fetchEntries]);
+  }, [accessToken, fetchEntries]);
 
   const { incomingBrl, outgoingBrl } = sumLedgerVolumes(transactions);
   const { usdcReceived, usdcSent } = sumUsdcVolumes(transactions);

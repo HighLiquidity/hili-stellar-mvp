@@ -18,7 +18,7 @@ import type { ApiKeyRow, ApiKeyScope } from '@/lib/api-keys/types';
 import { useI18n } from '@/lib/i18n';
 import type { PanelUserRow } from '@/lib/users/types';
 
-const SCOPES: ApiKeyScope[] = ['onramp', 'offramp', 'orders:read'];
+const SCOPES: ApiKeyScope[] = ['onramp', 'offramp', 'orders:read', 'whitelist:write', 'whitelist:read'];
 
 type FormMode = 'create' | null;
 

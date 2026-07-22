@@ -23,6 +23,7 @@ import type { WhitelistApprovalStatus } from '@/lib/whitelist/approval';
 import { UserPixWhitelistPanel } from '@/views/UserPixWhitelistPanel';
 import { WhitelistPendingPanel } from '@/views/WhitelistPendingPanel';
 import type { WithdrawWhitelistRow } from '@/lib/withdraw-whitelist/types';
+import { shouldOfferWithdrawWhitelistMemo } from '@/lib/withdraw-whitelist/onramp-network';
 
 type WhitelistTab = 'wallets' | 'pix' | 'pending';
 
@@ -73,6 +74,8 @@ export function UserWithdrawWhitelistPage() {
   const [activeTab, setActiveTab] = useState<WhitelistTab>('wallets');
   const [pixCreateRequested, setPixCreateRequested] = useState(0);
   const [pixIsSaving, setPixIsSaving] = useState(false);
+
+  const showMemoField = shouldOfferWithdrawWhitelistMemo(address);
 
   const visibleTabs = useMemo<WhitelistTab[]>(() => {
     if (isPlatformAdmin) return ['wallets', 'pix', 'pending'];
@@ -209,7 +212,7 @@ export function UserWithdrawWhitelistPage() {
           userEmail,
           address,
           label,
-          memo,
+          memo: showMemoField ? memo : null,
           isActive: true,
         });
 
@@ -227,7 +230,7 @@ export function UserWithdrawWhitelistPage() {
         const result = await submitWithdrawWhitelistRequestAction(token, {
           address,
           label,
-          memo,
+          memo: showMemoField ? memo : null,
         });
 
         if (!result.ok) {
@@ -510,15 +513,19 @@ export function UserWithdrawWhitelistPage() {
                     onChange={(e) => setLabel(e.target.value)}
                     placeholder={t('pages.withdrawWhitelist.labelPlaceholder')}
                   />
-                  <InputField
-                    id="whitelist-memo"
-                    label={t('pages.withdrawWhitelist.memo')}
-                    type="text"
-                    value={memo}
-                    onChange={(e) => setMemo(e.target.value)}
-                    placeholder={t('pages.withdrawWhitelist.memoPlaceholder')}
-                    maxLength={28}
-                  />
+                  {showMemoField ? (
+                    <InputField
+                      id="whitelist-memo"
+                      label={t('pages.withdrawWhitelist.memo')}
+                      type="text"
+                      value={memo}
+                      onChange={(e) => setMemo(e.target.value)}
+                      placeholder={t('pages.withdrawWhitelist.memoPlaceholder')}
+                      maxLength={28}
+                    />
+                  ) : (
+                    <p className="surface__hint">{t('pages.withdrawWhitelist.memoSorobanHint')}</p>
+                  )}
                   <div className="user-management-form__actions">
                     <Button type="submit" disabled={isSaving}>
                       {isSaving

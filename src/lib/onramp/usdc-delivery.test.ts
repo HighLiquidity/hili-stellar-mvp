@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { isOnrampUsdcDeliveryExternalId } from './references';
-import { mapUsdcDeliveryRampStatusToOnrampStatus } from './usdc-delivery';
+import {
+  buildOnrampUsdcDeliveryRampRequest,
+  mapUsdcDeliveryRampStatusToOnrampStatus,
+} from './usdc-delivery';
+
+const VALID_G = `G${'A'.repeat(55)}`;
+const VALID_C = `C${'A'.repeat(55)}`;
 
 describe('onramp USDC delivery helpers', () => {
   it('detects the dedicated external id pattern', () => {
@@ -44,5 +50,33 @@ describe('onramp USDC delivery helpers', () => {
       nextStatus: null,
       failureCode: null,
     });
+  });
+
+  it('builds classic Ramp payload with memo for G destinations', () => {
+    const body = buildOnrampUsdcDeliveryRampRequest({
+      amount: '10.0',
+      externalId: 'onramp:order-1:client-usdc',
+      callbackUrl: 'https://example.com/api/webhooks/ramp',
+      destinationAddress: VALID_G,
+      destinationMemo: 'invoice-1',
+      orderId: 'order-1',
+    });
+    expect(body.payoutMethod).toBe('classic');
+    expect(body.memo).toBe('invoice-1');
+    expect(body.destination).toBe(VALID_G);
+  });
+
+  it('builds soroban Ramp payload without memo for C destinations', () => {
+    const body = buildOnrampUsdcDeliveryRampRequest({
+      amount: '10.0',
+      externalId: 'onramp:order-2:client-usdc',
+      callbackUrl: 'https://example.com/api/webhooks/ramp',
+      destinationAddress: VALID_C,
+      destinationMemo: 'should-be-ignored',
+      orderId: 'order-2',
+    });
+    expect(body.payoutMethod).toBe('soroban');
+    expect(body).not.toHaveProperty('memo');
+    expect(body.destination).toBe(VALID_C);
   });
 });

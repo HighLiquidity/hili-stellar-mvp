@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import {
   defaultStatementDateFrom,
@@ -9,7 +10,7 @@ import {
   type LedgerQueryFilters,
   type StatementPageSize,
 } from '@/lib/ledger/filters';
-import { fetchLedgerPage } from '@/lib/ledger/query-entries';
+import { fetchLedgerPageFromApi } from '@/lib/ledger/fetch-page-api';
 import type { LedgerTransaction } from '@/lib/ledger/types';
 import {
   FIAT_LEDGER_ENTRIES_TABLE,
@@ -33,6 +34,8 @@ export type UseStatementLedgerResult = {
 };
 
 export function useStatementLedger(initialPageSize: StatementPageSize = 25): UseStatementLedgerResult {
+  const { session, isLoading: authLoading, isAuthorized } = useAuth();
+  const accessToken = session?.access_token ?? null;
   const [filters, setFiltersState] = useState<LedgerQueryFilters>({
     dateFrom: defaultStatementDateFrom(),
     dateTo: defaultStatementDateTo(),
@@ -56,10 +59,19 @@ export function useStatementLedger(initialPageSize: StatementPageSize = 25): Use
   }, []);
 
   const fetchPage = useCallback(async () => {
+    if (authLoading) return;
+
+    if (!accessToken || !isAuthorized) {
+      setTransactions([]);
+      setTotal(0);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     try {
-      const result = await fetchLedgerPage(supabase, filters, page, pageSize);
+      const result = await fetchLedgerPageFromApi(accessToken, filters, page, pageSize);
       if (!result.ok) {
         setError(result.message);
         setTransactions([]);
@@ -75,13 +87,15 @@ export function useStatementLedger(initialPageSize: StatementPageSize = 25): Use
     } finally {
       setIsLoading(false);
     }
-  }, [filters, page, pageSize]);
+  }, [accessToken, authLoading, isAuthorized, filters, page, pageSize]);
 
   useEffect(() => {
     void fetchPage();
   }, [fetchPage]);
 
   useEffect(() => {
+    if (!accessToken) return;
+
     const channel = supabase
       .channel('statement-ledger-updates')
       .on(
@@ -117,7 +131,7 @@ export function useStatementLedger(initialPageSize: StatementPageSize = 25): Use
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [fetchPage]);
+  }, [accessToken, fetchPage]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 

@@ -12,7 +12,7 @@ import type { ApiActivityRow, ApiKeyCreateResult, ApiKeyRow, ApiKeyScope } from 
 import { requireApiKeyManagerFromAccessToken } from '@/lib/users/require-delegated-admin';
 import { isPlatformAdminRole } from '@/lib/users/roles';
 
-const SCOPES: ApiKeyScope[] = ['onramp', 'offramp', 'orders:read'];
+const SCOPES: ApiKeyScope[] = ['onramp', 'offramp', 'orders:read', 'whitelist:write', 'whitelist:read'];
 
 export type ApiKeysActionResult<T> = { ok: true; data: T } | { ok: false; message: string };
 

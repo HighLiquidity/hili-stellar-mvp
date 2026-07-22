@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { ChevronDownIcon, DownloadIcon } from '@/components/Icons';
+import { useAuth } from '@/hooks/useAuth';
 import type { LedgerQueryFilters } from '@/lib/ledger/filters';
 import { STATEMENT_EXPORT_MAX_ROWS } from '@/lib/ledger/filters';
-import { fetchLedgerForExport } from '@/lib/ledger/query-entries';
+import { fetchLedgerPageFromApi } from '@/lib/ledger/fetch-page-api';
 import { exportStatement, type StatementExportFormat } from '@/lib/ledger/export-statement';
 import { useI18n } from '@/lib/i18n';
-import { supabase } from '@/integrations/supabase/client';
 
 const EXPORT_FORMATS: { value: StatementExportFormat; label: string }[] = [
   { value: 'csv', label: 'CSV' },
@@ -23,6 +23,8 @@ type StatementExportMenuProps = {
 
 export function StatementExportMenu({ filters, onError }: StatementExportMenuProps) {
   const { t, locale } = useI18n();
+  const { session } = useAuth();
+  const accessToken = session?.access_token ?? null;
   const localeCode = locale === 'pt' ? 'pt-BR' : 'en-US';
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -57,7 +59,17 @@ export function StatementExportMenu({ filters, onError }: StatementExportMenuPro
     setIsExporting(true);
 
     try {
-      const result = await fetchLedgerForExport(supabase, filters, STATEMENT_EXPORT_MAX_ROWS);
+      if (!accessToken) {
+        onError(t('pages.statement.loadError'));
+        return;
+      }
+
+      const result = await fetchLedgerPageFromApi(
+        accessToken,
+        filters,
+        1,
+        STATEMENT_EXPORT_MAX_ROWS,
+      );
       if (!result.ok) {
         onError(result.message);
         return;

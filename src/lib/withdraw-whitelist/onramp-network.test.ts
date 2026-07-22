@@ -3,15 +3,33 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   getOnrampWithdrawNetwork,
   normalizeWithdrawWhitelistAddress,
+  shouldOfferWithdrawWhitelistMemo,
+  WithdrawWhitelistAddressError,
 } from './onramp-network';
+
+const VALID_G = `G${'A'.repeat(55)}`;
+const VALID_C = `C${'A'.repeat(55)}`;
 
 describe('withdraw whitelist on-ramp network helpers', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  it('normalizes Stellar addresses to uppercase', () => {
-    expect(normalizeWithdrawWhitelistAddress('  gabc123  ')).toBe('GABC123');
+  it('normalizes valid Stellar G/C addresses to uppercase', () => {
+    expect(normalizeWithdrawWhitelistAddress(`  ${VALID_G.toLowerCase()}  `)).toBe(VALID_G);
+    expect(normalizeWithdrawWhitelistAddress(`  ${VALID_C.toLowerCase()}  `)).toBe(VALID_C);
+  });
+
+  it('rejects non-Stellar addresses', () => {
+    expect(() => normalizeWithdrawWhitelistAddress('wallet-123')).toThrowError(
+      WithdrawWhitelistAddressError,
+    );
+  });
+
+  it('hides memo for Soroban C destinations', () => {
+    expect(shouldOfferWithdrawWhitelistMemo(VALID_G)).toBe(true);
+    expect(shouldOfferWithdrawWhitelistMemo(VALID_C)).toBe(false);
+    expect(shouldOfferWithdrawWhitelistMemo('')).toBe(true);
   });
 
   it('defaults on-ramp network to STELLAR_TESTNET', () => {

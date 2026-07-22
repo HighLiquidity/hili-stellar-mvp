@@ -11,7 +11,7 @@ export const API_KEYS_TABLE = 'api_keys';
 const API_KEY_COLUMNS =
   'id, label, key_prefix, linked_user_id, client_id, scopes, is_active, revoked_at, last_used_at, spread_bps_override, max_amount_brl, created_at, updated_at, created_by_email';
 
-const SCOPES: ApiKeyScope[] = ['onramp', 'offramp', 'orders:read'];
+const SCOPES: ApiKeyScope[] = ['onramp', 'offramp', 'orders:read', 'whitelist:write', 'whitelist:read'];
 
 type ApiKeyDbRow = {
   id: string;

@@ -1,4 +1,4 @@
-export type ApiKeyScope = 'onramp' | 'offramp' | 'orders:read';
+export type ApiKeyScope = 'onramp' | 'offramp' | 'orders:read' | 'whitelist:write' | 'whitelist:read';
 
 export type ApiEndpointStatus = 'available' | 'comingSoon' | 'internal' | 'planned';
 

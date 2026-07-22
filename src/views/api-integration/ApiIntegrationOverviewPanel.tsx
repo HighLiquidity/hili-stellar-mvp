@@ -23,6 +23,12 @@ const ENDPOINTS: Array<{
   { id: 'offramp-lock', method: 'POST', route: '/api/v1/offramp/orders/:id/lock', status: 'available' },
   { id: 'offramp-list', method: 'GET', route: '/api/v1/offramp/orders', status: 'available' },
   { id: 'offramp-get', method: 'GET', route: '/api/v1/offramp/orders/:id', status: 'available' },
+  { id: 'whitelist-wallets-post', method: 'POST', route: '/api/v1/whitelist/wallets', status: 'available' },
+  { id: 'whitelist-wallets-get', method: 'GET', route: '/api/v1/whitelist/wallets', status: 'available' },
+  { id: 'whitelist-wallets-delete', method: 'DELETE', route: '/api/v1/whitelist/wallets/:id', status: 'available' },
+  { id: 'whitelist-pix-post', method: 'POST', route: '/api/v1/whitelist/pix-keys', status: 'available' },
+  { id: 'whitelist-pix-get', method: 'GET', route: '/api/v1/whitelist/pix-keys', status: 'available' },
+  { id: 'whitelist-pix-delete', method: 'DELETE', route: '/api/v1/whitelist/pix-keys/:id', status: 'available' },
   { id: 'reconcile', method: 'POST', route: '/api/*/orders/:id/reconcile', status: 'internal' },
   { id: 'webhooks-out', method: 'POST', route: 'Integrador (outbound)', status: 'planned' },
 ];
@@ -98,6 +104,7 @@ export function ApiIntegrationOverviewPanel() {
             {t('pages.apiIntegration.overview.prerequisites.pix')}{' '}
             <Link href="/app/withdraw-whitelist">{t('pages.apiIntegration.overview.prerequisites.pixLink')}</Link>
           </li>
+          <li>{t('pages.apiIntegration.overview.prerequisites.approval')}</li>
           <li>
             {t('pages.apiIntegration.overview.prerequisites.users')}{' '}
             <Link href="/app/users">{t('pages.apiIntegration.overview.prerequisites.usersLink')}</Link>

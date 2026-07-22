@@ -6,6 +6,8 @@ export type LedgerQueryFilters = {
   dateFrom?: string;
   dateTo?: string;
   type: LedgerTypeFilter;
+  /** When set, filters tenant-scoped ramp order sources (on-ramp / off-ramp). */
+  clientId?: string;
 };
 
 /** Local calendar date `yyyy-mm-dd` → start of day ISO. */
@@ -24,7 +26,7 @@ export function dateInputToEndIso(dateStr: string): string {
 
 export function defaultStatementDateFrom(): string {
   const d = new Date();
-  d.setDate(d.getDate() - 30);
+  d.setDate(d.getDate() - 180);
   return d.toISOString().slice(0, 10);
 }
 

@@ -31,6 +31,7 @@ import { startOnrampReconciliation } from './reconciliation';
 import { RAMP_ASSET_USDC, RAMP_CATEGORY_CLIENT } from '@/lib/ramp/requests';
 import { calculateNetUsdcDeliveredToClient } from './usdc-delivery-fee';
 import { resolveOnrampUsdcDeliveryMemo } from './usdc-delivery-memo';
+import { resolveOnrampPayoutMethod } from './destination';
 
 function normalizeRampFailureReason(error: unknown): string {
   return error instanceof RampApiError
@@ -91,6 +92,48 @@ export function mapUsdcDeliveryRampStatusToOnrampStatus(status: string): {
   }
 }
 
+/** Builds the Ramp on-ramp create body for USDC client delivery (classic or soroban). */
+export function buildOnrampUsdcDeliveryRampRequest(input: {
+  amount: string;
+  externalId: string;
+  callbackUrl: string;
+  destinationAddress: string;
+  destinationMemo: string | null;
+  orderId: string;
+}): {
+  amount: string;
+  externalId: string;
+  callbackUrl: string;
+  destination: string;
+  memo?: string;
+  assetCode: typeof RAMP_ASSET_USDC;
+  category: typeof RAMP_CATEGORY_CLIENT;
+  payoutMethod: 'classic' | 'soroban';
+} {
+  const payoutMethod = resolveOnrampPayoutMethod(input.destinationAddress);
+  const base = {
+    amount: input.amount,
+    externalId: input.externalId,
+    callbackUrl: input.callbackUrl,
+    destination: input.destinationAddress,
+    assetCode: RAMP_ASSET_USDC,
+    category: RAMP_CATEGORY_CLIENT,
+    payoutMethod,
+  };
+
+  if (payoutMethod === 'soroban') {
+    return base;
+  }
+
+  return {
+    ...base,
+    memo: resolveOnrampUsdcDeliveryMemo({
+      id: input.orderId,
+      destination_memo: input.destinationMemo,
+    }),
+  };
+}
+
 export async function startUsdcDeliveryForOnrampOrder(orderId: string): Promise<void> {
   const normalizedOrderId = orderId.trim();
   if (!normalizedOrderId) {
@@ -114,7 +157,11 @@ export async function startUsdcDeliveryForOnrampOrder(orderId: string): Promise<
   }
 
   const externalId = order.usdc_delivery_external_id ?? buildOnrampUsdcDeliveryExternalId(order.id);
-  const memo = resolveOnrampUsdcDeliveryMemo(order);
+  const payoutMethod = resolveOnrampPayoutMethod(order.destination_address);
+  const memo =
+    payoutMethod === 'classic'
+      ? resolveOnrampUsdcDeliveryMemo(order)
+      : null;
 
   await updateOnrampOrder({
     orderId: order.id,
@@ -176,7 +223,7 @@ export async function startUsdcDeliveryForOnrampOrder(orderId: string): Promise<
       status: 'pending_local',
       amount: rampAmount,
       destination: order.destination_address,
-      memo,
+      memo: memo ?? undefined,
       corpxEventType: order.corpx_event_type ?? undefined,
       corpxProviderTxId: order.corpx_transaction_id ?? order.corpx_txid ?? undefined,
     });
@@ -192,15 +239,16 @@ export async function startUsdcDeliveryForOnrampOrder(orderId: string): Promise<
   }
 
   try {
-    const created = await createOnrampOperation({
-      amount: rampAmount,
-      externalId,
-      callbackUrl,
-      destination: order.destination_address,
-      memo,
-      assetCode: RAMP_ASSET_USDC,
-      category: RAMP_CATEGORY_CLIENT,
-    });
+    const created = await createOnrampOperation(
+      buildOnrampUsdcDeliveryRampRequest({
+        amount: rampAmount,
+        externalId,
+        callbackUrl,
+        destinationAddress: order.destination_address,
+        destinationMemo: order.destination_memo,
+        orderId: order.id,
+      }),
+    );
 
     await updateRampOperationAfterCreate({
       externalId,
