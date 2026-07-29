@@ -3,7 +3,7 @@ import '@/lib/server/only';
 import { getOnrampWithdrawNetwork } from '@/lib/withdraw-whitelist/onramp-network';
 
 /** Circle USDC on Stellar public network. */
-export const STELLAR_PUBLIC_USDC_ISSUER = 'GA5ZSE54GSHWUEVLWLKKSSQRW4JQEYPQZEZGTYQCEOKYYLQWQLK7RUS';
+export const STELLAR_PUBLIC_USDC_ISSUER = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
 
 /** Common Circle/Centre USDC issuer on Stellar testnet. */
 export const STELLAR_TESTNET_USDC_ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
