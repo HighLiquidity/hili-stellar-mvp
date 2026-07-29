@@ -3,8 +3,9 @@ import '@/lib/server/only';
 import { NextResponse } from 'next/server';
 
 import { requireAdminFromAccessToken } from '@/lib/users/require-admin';
+import type { PanelAccessContext } from '@/lib/users/require-panel-role';
 
-function jsonError(message: string, status: number, extra?: Record<string, unknown>) {
+export function jsonError(message: string, status: number, extra?: Record<string, unknown>) {
   return NextResponse.json({ error: message, ...(extra ?? {}) }, { status });
 }
 
@@ -18,18 +19,25 @@ function getBearerToken(request: Request): string | null {
 
 /** Internal admin-only guard for treasury routes. */
 export async function requireTreasuryRouteAdmin(request: Request): Promise<NextResponse | null> {
+  const result = await requireTreasuryAdminContext(request);
+  return result.ok ? null : result.response;
+}
+
+export async function requireTreasuryAdminContext(
+  request: Request,
+): Promise<{ ok: true; ctx: PanelAccessContext } | { ok: false; response: NextResponse }> {
   const accessToken = getBearerToken(request);
   if (!accessToken) {
-    return jsonError('Authorization Bearer token is required', 401);
+    return { ok: false, response: jsonError('Authorization Bearer token is required', 401) };
   }
 
   try {
-    await requireAdminFromAccessToken(accessToken);
-    return null;
+    const ctx = await requireAdminFromAccessToken(accessToken);
+    return { ok: true, ctx };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unauthorized';
     const status = message === 'Acesso restrito a administradores.' ? 403 : 401;
-    return jsonError(message, status);
+    return { ok: false, response: jsonError(message, status) };
   }
 }
 

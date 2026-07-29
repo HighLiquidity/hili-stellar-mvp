@@ -7,6 +7,7 @@ import { fetchHorizonAccountBalances } from '@/lib/stellar/horizon';
 import { resolveTreasuryDepositAddress, resolveTreasuryDepositMemo } from '@/lib/onramp/treasury-deposit';
 
 import { listPendingTreasuryRefills } from './pending-refills';
+import { listTreasuryRuns } from './runs-store';
 import type { TreasuryAssetSpot, TreasuryOverviewResponse, TreasuryPocketResult } from './types';
 
 function pocketError(error: unknown): TreasuryPocketResult<Record<string, never>> {
@@ -53,6 +54,7 @@ async function loadBinancePocket(): Promise<TreasuryOverviewResponse['pockets'][
       ok: true,
       brl: findBinanceSpot(account.balances, 'BRL'),
       usdc: findBinanceSpot(account.balances, 'USDC'),
+      xlm: findBinanceSpot(account.balances, 'XLM'),
     };
   } catch (error) {
     return pocketError(error) as TreasuryOverviewResponse['pockets']['binance'];
@@ -93,12 +95,13 @@ async function loadBrhPocket(): Promise<TreasuryOverviewResponse['pockets']['brh
 
 /** Aggregates proprietary capital balances for the treasury admin overview. */
 export async function buildTreasuryOverview(): Promise<TreasuryOverviewResponse> {
-  const [corpx, binancePocket, distributor, brh, pendingRefills] = await Promise.all([
+  const [corpx, binancePocket, distributor, brh, pendingRefills, recentRuns] = await Promise.all([
     loadCorpXPocket(),
     loadBinancePocket(),
     loadDistributorPocket(),
     loadBrhPocket(),
     listPendingTreasuryRefills(),
+    listTreasuryRuns(10),
   ]);
 
   return {
@@ -110,5 +113,6 @@ export async function buildTreasuryOverview(): Promise<TreasuryOverviewResponse>
       brh,
     },
     pendingRefills,
+    recentRuns,
   };
 }

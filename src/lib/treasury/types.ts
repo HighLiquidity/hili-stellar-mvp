@@ -1,3 +1,5 @@
+import type { TreasuryRunRow } from './run-types';
+
 export type TreasuryPocketOk<T extends Record<string, unknown>> = { ok: true } & T;
 
 export type TreasuryPocketError = {
@@ -37,6 +39,7 @@ export type TreasuryOverviewResponse = {
     binance: TreasuryPocketResult<{
       brl: TreasuryAssetSpot;
       usdc: TreasuryAssetSpot;
+      xlm: TreasuryAssetSpot;
     }>;
     distributor: TreasuryPocketResult<{
       address: string;
@@ -56,4 +59,5 @@ export type TreasuryOverviewResponse = {
     count: number;
     items: TreasuryPendingRefillItem[];
   };
+  recentRuns: TreasuryRunRow[];
 };

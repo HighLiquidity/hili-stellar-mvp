@@ -2282,9 +2282,16 @@ a.user-menu__item {
 
 .treasury-pocket__header--row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.treasury-pocket__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
 }
 
 .treasury-pocket__label {
@@ -2295,17 +2302,44 @@ a.user-menu__item {
   color: var(--text-muted);
 }
 
-.treasury-pocket__explorer-link {
-  flex: 0 0 auto;
-  font-size: 0.7rem;
-  font-weight: 500;
+.treasury-pocket__explorer-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
   color: var(--text-muted);
   text-decoration: none;
-  letter-spacing: 0.01em;
+  transition: background-color 140ms ease, color 140ms ease;
 }
 
-.treasury-pocket__explorer-link:hover {
+.treasury-pocket__explorer-icon:hover {
+  background: color-mix(in srgb, var(--accent-soft) 70%, transparent);
   color: var(--accent-strong);
+}
+
+.treasury-pocket__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+.treasury-pocket__refill-link {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.treasury-pocket__refill-link:hover {
   text-decoration: underline;
 }
 
@@ -2385,6 +2419,148 @@ a.user-menu__item {
   display: grid;
   gap: 12px;
   padding: 16px 18px;
+}
+
+.treasury-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: var(--overlay);
+}
+
+.treasury-modal {
+  width: min(440px, 100%);
+  max-height: min(90vh, 720px);
+  overflow: auto;
+  display: grid;
+  gap: 0;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
+}
+
+.treasury-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 18px 0;
+}
+
+.treasury-modal__heading {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.treasury-modal__title {
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+}
+
+.treasury-modal__lead {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.treasury-modal__close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.treasury-modal__close:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-soft) 70%, transparent);
+  color: var(--accent-strong);
+}
+
+.treasury-modal__close:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.treasury-modal__body {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px 18px;
+}
+
+.treasury-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.treasury-refill-asset {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
+}
+
+.treasury-refill-asset__option {
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.treasury-refill-asset__option.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.treasury-refill-asset__option:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.treasury-refill-plan {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
+}
+
+.treasury-refill-plan__title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.treasury-refill-plan__list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 0.9rem;
 }
 
 @media (max-width: 1100px) {

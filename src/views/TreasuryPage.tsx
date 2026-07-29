@@ -1,13 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { RefreshIcon } from '@/components/Icons';
+import { CloseIcon, ExternalLinkIcon, RefreshIcon } from '@/components/Icons';
+import { Button } from '@/components/ui/Button';
+import { InputField } from '@/components/ui/InputField';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useI18n } from '@/lib/i18n';
 import { buildStellarExpertAccountUrl } from '@/lib/stellar/explorer-url';
+import type { TreasuryRefillAsset, TreasuryRefillPlan } from '@/lib/treasury/run-types';
+import { treasuryAssetFromKind } from '@/lib/treasury/run-types';
 import type { TreasuryOverviewResponse } from '@/lib/treasury/types';
 
 async function getAccessToken(): Promise<string | null> {
@@ -59,6 +63,263 @@ function AssetRow({ ticker, amount, fractionDigits = 2, detail }: AssetRowProps)
   );
 }
 
+type RefillModalProps = {
+  open: boolean;
+  onClose: () => void;
+  suggestedFree: { USDC: string | null; XLM: string | null };
+  onExecuted: () => Promise<void>;
+  busy: boolean;
+};
+
+function RefillModal({ open, onClose, suggestedFree, onExecuted, busy }: RefillModalProps) {
+  const { t } = useI18n();
+  const titleId = useId();
+  const [asset, setAsset] = useState<TreasuryRefillAsset>('USDC');
+  const [refillAmount, setRefillAmount] = useState('');
+  const [refillPlan, setRefillPlan] = useState<TreasuryRefillPlan | null>(null);
+  const [refillError, setRefillError] = useState<string | null>(null);
+  const [refillMessage, setRefillMessage] = useState<string | null>(null);
+  const [isDryRunning, setIsDryRunning] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
+
+  const resetState = useCallback(() => {
+    setAsset('USDC');
+    setRefillAmount('');
+    setRefillPlan(null);
+    setRefillError(null);
+    setRefillMessage(null);
+    setIsDryRunning(false);
+    setIsExecuting(false);
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      resetState();
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isDryRunning && !isExecuting) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose, resetState, isDryRunning, isExecuting]);
+
+  const postRefill = useCallback(
+    async (dryRun: boolean) => {
+      setRefillError(null);
+      setRefillMessage(null);
+      if (dryRun) {
+        setIsDryRunning(true);
+      } else {
+        setIsExecuting(true);
+      }
+
+      try {
+        const token = await getAccessToken();
+        if (!token) {
+          setRefillError(t('pages.treasury.errors.session'));
+          return;
+        }
+
+        const amount = refillAmount.trim();
+        const response = await fetch('/api/treasury/runs', {
+          method: 'POST',
+          cache: 'no-store',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            dryRun,
+            asset,
+            ...(amount
+              ? { amount }
+              : dryRun
+                ? {}
+                : { amount: refillPlan?.amount }),
+          }),
+        });
+
+        const body = (await response.json().catch(() => null)) as
+          | { error?: string; plan?: TreasuryRefillPlan; run?: { id: string; status: string } }
+          | null;
+
+        if (!response.ok) {
+          setRefillError(body?.error?.trim() || t('pages.treasury.refill.errors.failed'));
+          return;
+        }
+
+        if (body?.plan) {
+          setRefillPlan(body.plan);
+          if (!amount) {
+            setRefillAmount(body.plan.amount);
+          }
+        }
+
+        if (dryRun) {
+          setRefillMessage(t('pages.treasury.refill.dryRunSuccess'));
+        } else {
+          setRefillMessage(t('pages.treasury.refill.executeSuccess'));
+          setRefillPlan(null);
+          await onExecuted();
+        }
+      } catch {
+        setRefillError(t('pages.treasury.refill.errors.failed'));
+      } finally {
+        setIsDryRunning(false);
+        setIsExecuting(false);
+      }
+    },
+    [asset, onExecuted, refillAmount, refillPlan?.amount, t],
+  );
+
+  if (!open) return null;
+
+  const freeHint = suggestedFree[asset];
+  const actionsDisabled = isDryRunning || isExecuting || busy;
+
+  return (
+    <div
+      className="treasury-modal-overlay"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !actionsDisabled) onClose();
+      }}
+    >
+      <div
+        className="treasury-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
+        <header className="treasury-modal__header">
+          <div className="treasury-modal__heading">
+            <h2 id={titleId} className="treasury-modal__title">
+              {t('pages.treasury.refill.title')}
+            </h2>
+            <p className="surface__lead treasury-modal__lead">
+              {t('pages.treasury.refill.description')}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="treasury-modal__close"
+            onClick={onClose}
+            disabled={actionsDisabled}
+            aria-label={t('pages.treasury.refill.close')}
+            title={t('pages.treasury.refill.close')}
+          >
+            <CloseIcon width={16} height={16} aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className="treasury-modal__body">
+          <div className="treasury-refill-asset" role="group" aria-label={t('pages.treasury.refill.assetLabel')}>
+            {(['USDC', 'XLM'] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={`treasury-refill-asset__option${asset === option ? ' is-active' : ''}`}
+                disabled={actionsDisabled}
+                onClick={() => {
+                  setAsset(option);
+                  setRefillPlan(null);
+                  setRefillMessage(null);
+                  setRefillError(null);
+                  setRefillAmount('');
+                }}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+
+          <InputField
+            id="treasury-refill-amount"
+            label={`${t('pages.treasury.refill.amountLabel')} (${asset})`}
+            value={refillAmount}
+            onChange={(event) => {
+              setRefillAmount(event.target.value);
+              setRefillPlan(null);
+              setRefillMessage(null);
+            }}
+            placeholder={
+              freeHint
+                ? `${t('pages.treasury.refill.amountPlaceholder')} (${freeHint})`
+                : t('pages.treasury.refill.amountPlaceholder')
+            }
+            inputMode="decimal"
+          />
+
+          <div className="treasury-modal__actions">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={actionsDisabled}
+              onClick={() => void postRefill(true)}
+            >
+              {isDryRunning ? t('pages.treasury.refill.dryRunning') : t('pages.treasury.refill.dryRun')}
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                actionsDisabled || !refillPlan || !refillAmount.trim() || refillPlan.asset !== asset
+              }
+              onClick={() => void postRefill(false)}
+            >
+              {isExecuting
+                ? t('pages.treasury.refill.executing')
+                : t('pages.treasury.refill.execute')}
+            </Button>
+          </div>
+
+          {refillError ? (
+            <p className="auth-inline-error" role="alert">
+              {refillError}
+            </p>
+          ) : null}
+          {refillMessage ? (
+            <p className="form-success-message" role="status">
+              {refillMessage}
+            </p>
+          ) : null}
+
+          {refillPlan ? (
+            <div className="treasury-refill-plan">
+              <p className="treasury-refill-plan__title">{t('pages.treasury.refill.planTitle')}</p>
+              <ul className="treasury-refill-plan__list">
+                <li>
+                  {t('pages.treasury.refill.planAmount')}:{' '}
+                  <strong>
+                    {formatAmount(refillPlan.amount, 4)} {refillPlan.asset}
+                  </strong>
+                </li>
+                <li>
+                  {t('pages.treasury.refill.planFree')}:{' '}
+                  {formatAmount(refillPlan.binanceFree, 4)} {refillPlan.asset}
+                </li>
+                <li>
+                  {t('pages.treasury.refill.planMin')}:{' '}
+                  {formatAmount(refillPlan.minWithdraw, 4)} {refillPlan.asset}
+                </li>
+                <li>
+                  {t('pages.treasury.refill.planNetwork')}: {refillPlan.distributor.network}
+                  {refillPlan.distributor.addressTag
+                    ? ` · memo ${refillPlan.distributor.addressTag}`
+                    : ''}
+                </li>
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TreasuryPage() {
   const { t } = useI18n();
   const router = useRouter();
@@ -68,6 +329,7 @@ export function TreasuryPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refillOpen, setRefillOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
@@ -137,6 +399,7 @@ export function TreasuryPage() {
 
   const pockets = overview?.pockets;
   const pending = overview?.pendingRefills;
+  const recentRuns = overview?.recentRuns ?? [];
   const distributorExplorerUrl =
     pockets?.distributor.ok
       ? buildStellarExpertAccountUrl(
@@ -144,6 +407,11 @@ export function TreasuryPage() {
           pockets.distributor.stellarNetwork,
         )
       : null;
+
+  const suggestedFree = {
+    USDC: pockets?.binance.ok ? pockets.binance.usdc.free : null,
+    XLM: pockets?.binance.ok ? pockets.binance.xlm.free : null,
+  };
 
   return (
     <section className="dashboard-layout treasury-page">
@@ -219,6 +487,12 @@ export function TreasuryPage() {
                     fractionDigits={4}
                     detail={`${t('pages.treasury.locked')}: ${formatAmount(pockets.binance.usdc.locked, 4)}`}
                   />
+                  <AssetRow
+                    ticker="XLM"
+                    amount={pockets.binance.xlm.free}
+                    fractionDigits={4}
+                    detail={`${t('pages.treasury.locked')}: ${formatAmount(pockets.binance.xlm.locked, 4)}`}
+                  />
                 </div>
               ) : (
                 <PocketError
@@ -230,16 +504,20 @@ export function TreasuryPage() {
             <article className="surface treasury-pocket">
               <header className="treasury-pocket__header treasury-pocket__header--row">
                 <span className="treasury-pocket__label">{t('pages.treasury.pockets.distributor')}</span>
-                {distributorExplorerUrl ? (
-                  <a
-                    className="treasury-pocket__explorer-link"
-                    href={distributorExplorerUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {t('pages.treasury.explorerLink')}
-                  </a>
-                ) : null}
+                <div className="treasury-pocket__header-actions">
+                  {distributorExplorerUrl ? (
+                    <a
+                      className="treasury-pocket__explorer-icon"
+                      href={distributorExplorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={t('pages.treasury.explorerLinkAria')}
+                      title={t('pages.treasury.explorerLinkAria')}
+                    >
+                      <ExternalLinkIcon width={14} height={14} aria-hidden="true" />
+                    </a>
+                  ) : null}
+                </div>
               </header>
               {pockets?.distributor.ok ? (
                 <div className="treasury-pocket__assets">
@@ -251,6 +529,15 @@ export function TreasuryPage() {
                   message={pocketErrorMessage(pockets?.distributor, t('pages.treasury.errors.unavailable'))}
                 />
               )}
+              <footer className="treasury-pocket__footer">
+                <button
+                  type="button"
+                  className="treasury-pocket__refill-link"
+                  onClick={() => setRefillOpen(true)}
+                >
+                  {t('pages.treasury.refill.open')}
+                </button>
+              </footer>
             </article>
 
             <article className="surface treasury-pocket treasury-pocket--muted">
@@ -311,8 +598,66 @@ export function TreasuryPage() {
               </div>
             )}
           </section>
+
+          <section className="surface treasury-pending">
+            <div className="dashboard-section-heading">
+              <h2>{t('pages.treasury.runsTitle')}</h2>
+            </div>
+            <p className="surface__lead">{t('pages.treasury.runsHint')}</p>
+
+            {!recentRuns.length ? (
+              <p className="surface__lead">{t('pages.treasury.runsEmpty')}</p>
+            ) : (
+              <div className="user-management-table-wrap">
+                <table className="user-management-table">
+                  <thead>
+                    <tr>
+                      <th>{t('pages.treasury.columns.status')}</th>
+                      <th>{t('pages.treasury.columns.asset')}</th>
+                      <th>{t('pages.treasury.columns.amount')}</th>
+                      <th>{t('pages.treasury.refill.trigger')}</th>
+                      <th>{t('pages.treasury.columns.updatedAt')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentRuns.map((run) => {
+                      const asset = treasuryAssetFromKind(run.kind);
+                      return (
+                        <tr key={run.id}>
+                          <td>
+                            {run.status}
+                            {run.dry_run ? ' (dry-run)' : ''}
+                          </td>
+                          <td>{asset}</td>
+                          <td>
+                            {formatAmount(
+                              run.executed_amount_usdc ?? run.requested_amount_usdc ?? '0',
+                              4,
+                            )}{' '}
+                            {asset}
+                          </td>
+                          <td>{run.trigger}</td>
+                          <td>{new Date(run.created_at).toLocaleString()}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </>
       )}
+
+      <RefillModal
+        open={refillOpen}
+        onClose={() => setRefillOpen(false)}
+        suggestedFree={suggestedFree}
+        busy={isLoading || isRefreshing}
+        onExecuted={async () => {
+          await loadOverview({ silent: true });
+        }}
+      />
     </section>
   );
 }

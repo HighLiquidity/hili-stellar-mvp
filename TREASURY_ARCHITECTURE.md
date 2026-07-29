@@ -118,7 +118,12 @@ USDC+XLM, BRH) e a fila de refills; zero movimento de capital.
 
 ### Fase 4.1 — Refill manual em lote
 
-Dry-run + execução; `treasury_runs`; withdraw consolidado Binance → distributor.
+| Entrega | Detalhe |
+|---------|---------|
+| Schema | `treasury_runs` (auditoria) |
+| API | `POST/GET /api/treasury/runs` |
+| Lógica | Dry-run + withdraw Binance USDC → distributor |
+| UI | Formulário na tesouraria + histórico de runs |
 
 **Critério:** gestor recompõe float sem SSH/curl.
 
@@ -175,3 +180,11 @@ Revisar taxa de 1 USDC na quote; `clientOrderId`; retries; alertas externos.
 - [x] `GET /api/treasury/overview`
 - [x] Página `/app/treasury` + nav + i18n
 - [x] `.env.example` (Horizon / issuer)
+
+## Checklist Fase 4.1
+
+- [x] Migration `treasury_runs`
+- [x] Dry-run + execute Binance USDC refill
+- [x] `POST/GET /api/treasury/runs`
+- [x] UI refill + histórico na tesouraria
+- [x] Testes de resolução de valor
