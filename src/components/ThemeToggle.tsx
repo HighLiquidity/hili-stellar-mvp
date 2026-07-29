@@ -1,7 +1,10 @@
+'use client';
+
 import { MoonIcon, SunIcon } from './Icons';
 import { useTheme } from '../lib/theme';
 import { useI18n } from '@/lib/i18n';
 
+/** Compact theme toggle for auth screens (cycles light ↔ dark). */
 export function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
   const { t } = useI18n();

@@ -252,3 +252,32 @@ export function SettingsIcon(props: SVGProps<SVGSVGElement>) {
     </IconBase>
   );
 }
+
+export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+      <path d="M21 3v6h-6" />
+    </IconBase>
+  );
+}
+
+export function MonitorIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <rect x="3" y="4" width="18" height="13" rx="2" />
+      <path d="M8 21h8" />
+      <path d="M12 17v4" />
+    </IconBase>
+  );
+}
+
+export function TreasuryIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <rect x="3" y="6" width="18" height="13" rx="2" />
+      <path d="M3 10h18" />
+      <path d="M8 14h3" />
+    </IconBase>
+  );
+}

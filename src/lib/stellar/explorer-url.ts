@@ -53,3 +53,33 @@ export function buildStellarExpertTxUrl(txHash: string | null | undefined): stri
   if (!hash) return null;
   return `${getStellarExpertTxBase()}${hash}`;
 }
+
+function resolveStellarExpertExplorerSlug(network?: string | null): 'public' | 'testnet' {
+  const normalized = network?.trim().toUpperCase();
+  if (
+    normalized === 'STELLAR_PUBLIC' ||
+    normalized === 'PUBLIC' ||
+    normalized === 'MAINNET'
+  ) {
+    return 'public';
+  }
+
+  const fromTxBase = getStellarExpertTxBase().toLowerCase();
+  if (fromTxBase.includes('/explorer/public/')) {
+    return 'public';
+  }
+
+  return 'testnet';
+}
+
+/** StellarExpert account page for a classic G… address. */
+export function buildStellarExpertAccountUrl(
+  accountId: string | null | undefined,
+  network?: string | null,
+): string | null {
+  const address = accountId?.trim();
+  if (!address) return null;
+
+  const slug = resolveStellarExpertExplorerSlug(network);
+  return `https://stellar.expert/explorer/${slug}/account/${address}`;
+}

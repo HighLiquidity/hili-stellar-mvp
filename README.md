@@ -158,6 +158,7 @@ Contrato detalhado do on-ramp: [ONRAMP_BACKEND_CONTRACT.md](./ONRAMP_BACKEND_CON
 |---------|----------|
 | [ONRAMP_BACKEND_CONTRACT.md](./ONRAMP_BACKEND_CONTRACT.md) | Estados, rotas e persistência on-ramp |
 | [CLIENTS_ARCHITECTURE.md](./CLIENTS_ARCHITECTURE.md) | Camada multi-tenant (clientes), fases e migração |
+| [TREASURY_ARCHITECTURE.md](./TREASURY_ARCHITECTURE.md) | Tesouraria (capital próprio), overview e rebalanceamento |
 | [CORPX_V2_ROLLOUT_CHECKLIST.md](./CORPX_V2_ROLLOUT_CHECKLIST.md) | Deploy e smoke tests CorpX |
 | [BINANCE_MVP_PLAN.md](./BINANCE_MVP_PLAN.md) | Integração Binance |
 | [ONRAMP_PAGE_PLAN.md](./ONRAMP_PAGE_PLAN.md) | UI on-ramp |
@@ -339,6 +340,7 @@ Detailed on-ramp contract: [ONRAMP_BACKEND_CONTRACT.md](./ONRAMP_BACKEND_CONTRAC
 |------|---------|
 | [ONRAMP_BACKEND_CONTRACT.md](./ONRAMP_BACKEND_CONTRACT.md) | On-ramp states, routes, and persistence |
 | [CORPX_V2_ROLLOUT_CHECKLIST.md](./CORPX_V2_ROLLOUT_CHECKLIST.md) | CorpX deploy and smoke tests |
+| [TREASURY_ARCHITECTURE.md](./TREASURY_ARCHITECTURE.md) | Treasury (proprietary capital), overview and rebalancing |
 | [BINANCE_MVP_PLAN.md](./BINANCE_MVP_PLAN.md) | Binance integration |
 | [ONRAMP_PAGE_PLAN.md](./ONRAMP_PAGE_PLAN.md) | On-ramp UI |
 | [VERSIONS.md](./VERSIONS.md) | Version history (UI) |

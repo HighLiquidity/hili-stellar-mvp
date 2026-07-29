@@ -3,7 +3,7 @@ import { ClientProviders } from './providers';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Fiat Ops MVP',
+  title: 'Hi-Li :: Stellar Anchor',
   description:
     'MVP frontend para operações fiat com depósito PIX, saque PIX, extrato, autenticação, tema e idioma persistentes.',
 };

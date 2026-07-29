@@ -17,6 +17,7 @@ import {
   UsersIcon,
   ApiIntegrationIcon,
   KeyIcon,
+  TreasuryIcon,
   LogoutIcon,
   MenuIcon,
   OnrampIcon,
@@ -25,13 +26,18 @@ import {
   StatementIcon,
   WithdrawIcon,
 } from '../components/Icons';
-import { ThemeToggle } from '../components/ThemeToggle';
-import { LanguageToggle } from '../components/LanguageToggle';
+import { SidebarAppearanceControls } from '../components/SidebarAppearanceControls';
 
 interface NavItem {
   to: string;
   label: string;
   icon: ReactNode;
+}
+
+interface NavGroup {
+  id: string;
+  label: string;
+  items: NavItem[];
 }
 
 function getInitials(name: string, fallbackEmail?: string | null) {
@@ -55,6 +61,10 @@ function navLinkIsActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function groupContainsPath(group: NavGroup, pathname: string) {
+  return group.items.some((item) => navLinkIsActive(pathname, item.to));
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -64,6 +74,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -103,144 +114,204 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const navItems = useMemo<NavItem[]>(
+  const primaryNavItems = useMemo<NavItem[]>(
     () => [
       {
         to: '/app/dashboard',
         label: t('nav.dashboard'),
-        icon: <DashboardIcon width={18} height={18} />,
-      },
-      ...(isOperatorOrAdminRole(profile?.role)
-        ? [
-            {
-              to: '/app/onramp',
-              label: t('nav.onramp'),
-              icon: <OnrampIcon width={18} height={18} />,
-            } satisfies NavItem,
-            {
-              to: '/app/offramp',
-              label: t('nav.offramp'),
-              icon: <OfframpIcon width={18} height={18} />,
-            } satisfies NavItem,
-            {
-              to: '/app/ramp-orders',
-              label: t('nav.rampOrders'),
-              icon: <StatementIcon width={18} height={18} />,
-            } satisfies NavItem,
-          ]
-        : []),
-      {
-        to: '/app/deposit',
-        label: t('nav.deposit'),
-        icon: <DepositIcon width={18} height={18} />,
-      },
-      {
-        to: '/app/withdraw',
-        label: t('nav.withdraw'),
-        icon: <WithdrawIcon width={18} height={18} />,
-      },
-      {
-        to: '/app/statement',
-        label: t('nav.statement'),
-        icon: <StatementIcon width={18} height={18} />,
+        icon: <DashboardIcon width={16} height={16} />,
       },
     ],
-    [profile?.role, t],
+    [t],
   );
 
-  const managementNavItems = useMemo<NavItem[]>(() => {
-    const items: NavItem[] = [];
+  const navGroups = useMemo<NavGroup[]>(() => {
+    const role = profile?.role;
+    const groups: NavGroup[] = [];
 
-    if (profile?.role === 'admin') {
-      items.push(
+    if (isOperatorOrAdminRole(role)) {
+      groups.push({
+        id: 'usdc-ramp',
+        label: t('nav.groups.usdcRamp'),
+        items: [
+          {
+            to: '/app/onramp',
+            label: t('nav.onramp'),
+            icon: <OnrampIcon width={16} height={16} />,
+          },
+          {
+            to: '/app/offramp',
+            label: t('nav.offramp'),
+            icon: <OfframpIcon width={16} height={16} />,
+          },
+          {
+            to: '/app/ramp-orders',
+            label: t('nav.rampOrders'),
+            icon: <StatementIcon width={16} height={16} />,
+          },
+        ],
+      });
+    }
+
+    groups.push({
+      id: 'brh-ramp',
+      label: t('nav.groups.brhRamp'),
+      items: [
+        {
+          to: '/app/deposit',
+          label: t('nav.deposit'),
+          icon: <DepositIcon width={16} height={16} />,
+        },
+        {
+          to: '/app/withdraw',
+          label: t('nav.withdraw'),
+          icon: <WithdrawIcon width={16} height={16} />,
+        },
+        {
+          to: '/app/statement',
+          label: t('nav.statement'),
+          icon: <StatementIcon width={16} height={16} />,
+        },
+      ],
+    });
+
+    const customerItems: NavItem[] = [];
+    if (role === 'admin') {
+      customerItems.push(
         {
           to: '/app/clients',
           label: t('nav.clients'),
-          icon: <ClientsIcon width={18} height={18} />,
+          icon: <ClientsIcon width={16} height={16} />,
         },
         {
           to: '/app/users',
           label: t('nav.users'),
-          icon: <UsersIcon width={18} height={18} />,
-        },
-        {
-          to: '/app/withdraw-whitelist',
-          label: t('nav.withdrawWhitelist'),
-          icon: <KeyIcon width={18} height={18} />,
+          icon: <UsersIcon width={16} height={16} />,
         },
       );
-    }
-
-    if (canManagePanelUsers(profile?.role) && profile?.role === 'client_admin') {
-      items.push({
+    } else if (canManagePanelUsers(role) && role === 'client_admin') {
+      customerItems.push({
         to: '/app/users',
         label: t('nav.users'),
-        icon: <UsersIcon width={18} height={18} />,
+        icon: <UsersIcon width={16} height={16} />,
       });
     }
 
-    if (canApproveWhitelist(profile?.role) && profile?.role === 'client_admin') {
-      items.push({
+    if (customerItems.length > 0) {
+      groups.push({
+        id: 'customers',
+        label: t('nav.groups.customers'),
+        items: customerItems,
+      });
+    }
+
+    const operationsItems: NavItem[] = [];
+    if (role === 'admin') {
+      operationsItems.push({
+        to: '/app/withdraw-whitelist',
+        label: t('nav.withdrawWhitelist'),
+        icon: <KeyIcon width={16} height={16} />,
+      });
+    } else if (
+      (canApproveWhitelist(role) && role === 'client_admin') ||
+      role === 'operator'
+    ) {
+      operationsItems.push({
         to: '/app/withdraw-whitelist',
         label: t('nav.myWhitelist'),
-        icon: <KeyIcon width={18} height={18} />,
+        icon: <KeyIcon width={16} height={16} />,
       });
     }
 
-    if (profile?.role === 'operator') {
-      items.push({
-        to: '/app/withdraw-whitelist',
-        label: t('nav.myWhitelist'),
-        icon: <KeyIcon width={18} height={18} />,
-      });
-    }
-
-    if (canManageApiKeys(profile?.role)) {
-      items.push({
+    if (canManageApiKeys(role)) {
+      operationsItems.push({
         to: '/app/api-integration',
         label: t('nav.apiIntegration'),
-        icon: <ApiIntegrationIcon width={18} height={18} />,
+        icon: <ApiIntegrationIcon width={16} height={16} />,
       });
     }
 
-    if (profile?.role === 'admin') {
-      items.push(
-        {
-          to: '/app/event-logs',
-          label: t('nav.eventLogs'),
-          icon: <EventLogIcon width={18} height={18} />,
-        },
-        {
-          to: '/app/settings',
-          label: t('nav.settings'),
-          icon: <SettingsIcon width={18} height={18} />,
-        },
-      );
+    if (operationsItems.length > 0) {
+      groups.push({
+        id: 'operations',
+        label: t('nav.groups.operations'),
+        items: operationsItems,
+      });
     }
 
-    return items;
+    if (role === 'admin') {
+      groups.push({
+        id: 'platform',
+        label: t('nav.groups.platform'),
+        items: [
+          {
+            to: '/app/treasury',
+            label: t('nav.treasury'),
+            icon: <TreasuryIcon width={16} height={16} />,
+          },
+          {
+            to: '/app/event-logs',
+            label: t('nav.eventLogs'),
+            icon: <EventLogIcon width={16} height={16} />,
+          },
+          {
+            to: '/app/settings',
+            label: t('nav.settings'),
+            icon: <SettingsIcon width={16} height={16} />,
+          },
+        ],
+      });
+    }
+
+    return groups;
   }, [profile?.role, t]);
+
+  const allNavItems = useMemo(
+    () => [...primaryNavItems, ...navGroups.flatMap((group) => group.items)],
+    [navGroups, primaryNavItems],
+  );
+
+  useEffect(() => {
+    setExpandedGroups((current) => {
+      const next = { ...current };
+      let changed = false;
+
+      for (const group of navGroups) {
+        if (next[group.id] === undefined) {
+          next[group.id] = true;
+          changed = true;
+        }
+
+        if (groupContainsPath(group, pathname) && !next[group.id]) {
+          next[group.id] = true;
+          changed = true;
+        }
+      }
+
+      return changed ? next : current;
+    });
+  }, [navGroups, pathname]);
 
   const pageTitle = useMemo(() => {
     if (pathname.startsWith('/app/change-password')) {
       return t('pages.changePassword.title');
     }
-    if (pathname.startsWith('/app/settings')) {
-      return t('pages.settings.title');
-    }
-    if (pathname.startsWith('/app/users')) {
-      return t('pages.userManagement.title');
-    }
-    if (pathname.startsWith('/app/api-integration')) {
-      return t('pages.apiIntegration.title');
-    }
-    if (pathname.startsWith('/app/event-logs')) {
-      return t('pages.eventLogs.title');
+
+    const currentItem = allNavItems.find((item) => navLinkIsActive(pathname, item.to));
+    return currentItem?.label ?? t('app.name');
+  }, [allNavItems, pathname, t]);
+
+  const breadcrumbItems = useMemo(() => {
+    type BreadcrumbItem = { href: string; label: string; current?: boolean };
+    const home: BreadcrumbItem = { href: '/app/dashboard', label: t('shell.home') };
+    const isHome = pathname === '/app/dashboard' || pathname === '/app';
+
+    if (isHome) {
+      return [{ ...home, current: true }];
     }
 
-    const currentItem = [...navItems, ...managementNavItems].find((item) => pathname.startsWith(item.to));
-    return currentItem?.label ?? t('app.name');
-  }, [managementNavItems, navItems, pathname, t]);
+    return [home, { href: pathname, label: pageTitle, current: true }];
+  }, [pageTitle, pathname, t]);
 
   const userDisplayName = profile?.full_name?.trim() || user?.email || t('shell.userFallback');
   const userInitials = getInitials(profile?.full_name ?? '', user?.email);
@@ -260,6 +331,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   };
 
+  const handleToggleGroup = (groupId: string) => {
+    setExpandedGroups((current) => ({
+      ...current,
+      [groupId]: !current[groupId],
+    }));
+  };
+
   const handleOpenChangePassword = () => {
     setIsUserMenuOpen(false);
     router.push('/app/change-password');
@@ -276,6 +354,19 @@ export function AppShell({ children }: { children: ReactNode }) {
     : isSidebarOpen
       ? t('shell.closeSidebar')
       : t('shell.openSidebar');
+
+  const renderNavLink = (item: NavItem) => (
+    <Link
+      key={item.to}
+      href={item.to}
+      onClick={handleNavigation}
+      className={`nav-link${navLinkIsActive(pathname, item.to) ? ' is-active' : ''}`}
+      title={isSidebarCollapsed ? item.label : undefined}
+    >
+      <span className="nav-link__icon">{item.icon}</span>
+      <span className="nav-link__label">{item.label}</span>
+    </Link>
+  );
 
   return (
     <div className="shell">
@@ -306,54 +397,67 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               {isDesktop ? (
                 isSidebarCollapsed ? (
-                  <ChevronRightIcon width={22} height={22} aria-hidden="true" />
+                  <ChevronRightIcon width={18} height={18} aria-hidden="true" />
                 ) : (
-                  <ChevronLeftIcon width={22} height={22} aria-hidden="true" />
+                  <ChevronLeftIcon width={18} height={18} aria-hidden="true" />
                 )
               ) : (
-                <ChevronLeftIcon width={22} height={22} aria-hidden="true" />
+                <ChevronLeftIcon width={18} height={18} aria-hidden="true" />
               )}
             </button>
             <div className="brand-copy">
               <strong>
-                <span className="brand-copy__mark">Hi-Li ::</span> Stellar MVP
+                <span className="brand-copy__mark">Hi-Li ::</span> Stellar Anchor
               </strong>
-              <span>{t('app.demoBadge')}</span>
             </div>
           </div>
 
           <nav className="sidebar__nav" aria-label={t('shell.menu')}>
-            {navItems.map((item) => (
-              <Link
-                key={item.to}
-                href={item.to}
-                onClick={handleNavigation}
-                className={`nav-link${navLinkIsActive(pathname, item.to) ? ' is-active' : ''}`}
-                title={isSidebarCollapsed ? item.label : undefined}
-              >
-                <span className="nav-link__icon">{item.icon}</span>
-                <span className="nav-link__label">{item.label}</span>
-              </Link>
-            ))}
+            <div className="nav-section">{primaryNavItems.map(renderNavLink)}</div>
 
-            {managementNavItems.length > 0 ? (
-              <>
-                <div className="sidebar__nav-divider" aria-hidden="true" />
-                {managementNavItems.map((item) => (
-                  <Link
-                    key={item.to}
-                    href={item.to}
-                    onClick={handleNavigation}
-                    className={`nav-link nav-link--admin${navLinkIsActive(pathname, item.to) ? ' is-active' : ''}`}
-                    title={isSidebarCollapsed ? item.label : undefined}
+            {navGroups.map((group) => {
+              const isExpanded = Boolean(expandedGroups[group.id]);
+              const hasActive = groupContainsPath(group, pathname);
+
+              if (isSidebarCollapsed) {
+                return (
+                  <div key={group.id} className="nav-section nav-section--collapsed">
+                    {group.items.map(renderNavLink)}
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  key={group.id}
+                  className={`nav-group${isExpanded ? ' is-expanded' : ''}${hasActive ? ' has-active' : ''}`}
+                >
+                  <button
+                    type="button"
+                    className="nav-group__toggle"
+                    aria-expanded={isExpanded}
+                    onClick={() => handleToggleGroup(group.id)}
                   >
-                    <span className="nav-link__icon">{item.icon}</span>
-                    <span className="nav-link__label">{item.label}</span>
-                  </Link>
-                ))}
-              </>
-            ) : null}
+                    <span className="nav-group__label">{group.label}</span>
+                    <ChevronDownIcon
+                      className="nav-group__chevron"
+                      width={14}
+                      height={14}
+                      aria-hidden="true"
+                    />
+                  </button>
+
+                  {isExpanded ? (
+                    <div className="nav-group__items">{group.items.map(renderNavLink)}</div>
+                  ) : null}
+                </div>
+              );
+            })}
           </nav>
+        </div>
+
+        <div className="sidebar__footer">
+          <SidebarAppearanceControls collapsed={isDesktop && isSidebarCollapsed} />
         </div>
       </aside>
 
@@ -369,19 +473,38 @@ export function AppShell({ children }: { children: ReactNode }) {
                 aria-controls="app-sidebar"
                 aria-expanded={isSidebarOpen}
               >
-                <MenuIcon width={20} height={20} aria-hidden="true" />
+                <MenuIcon width={18} height={18} aria-hidden="true" />
               </button>
             ) : null}
-            <div>
-              <p className="eyebrow">{t('app.demoBadge')}</p>
-              <h1>{pageTitle}</h1>
-            </div>
+
+            <nav className="breadcrumbs" aria-label={t('shell.breadcrumb')}>
+              <ol className="breadcrumbs__list">
+                {breadcrumbItems.map((item, index) => (
+                  <li key={`${item.href}-${item.label}`} className="breadcrumbs__item">
+                    {index > 0 ? (
+                      <ChevronRightIcon
+                        className="breadcrumbs__separator"
+                        width={14}
+                        height={14}
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                    {item.current ? (
+                      <span className="breadcrumbs__current" aria-current="page">
+                        {item.label}
+                      </span>
+                    ) : (
+                      <Link href={item.href} className="breadcrumbs__link">
+                        {item.label}
+                      </Link>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </nav>
           </div>
 
           <div className="topbar__actions">
-            <LanguageToggle />
-            <ThemeToggle />
-
             <div className="user-menu" ref={userMenuRef}>
               <button
                 type="button"
@@ -394,7 +517,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span className="user-menu__avatar" aria-hidden="true">
                   {userInitials}
                 </span>
-                <ChevronDownIcon width={16} height={16} aria-hidden="true" />
+                <ChevronDownIcon width={14} height={14} aria-hidden="true" />
               </button>
 
               {isUserMenuOpen ? (
