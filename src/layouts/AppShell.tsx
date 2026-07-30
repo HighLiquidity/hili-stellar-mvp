@@ -27,6 +27,7 @@ import {
   WithdrawIcon,
 } from '../components/Icons';
 import { SidebarAppearanceControls } from '../components/SidebarAppearanceControls';
+import { NotificationCenter } from '../components/NotificationCenter';
 
 interface NavItem {
   to: string;
@@ -505,6 +506,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="topbar__actions">
+            <NotificationCenter />
+
             <div className="user-menu" ref={userMenuRef}>
               <button
                 type="button"

@@ -113,6 +113,56 @@ const dictionaries: Record<Locale, TranslationTree> = {
       adminSettings: 'Configurações',
       home: 'Início',
       breadcrumb: 'Navegação estrutural',
+      notifications: {
+        title: 'Notificações',
+        loading: 'Carregando alertas...',
+        empty: 'Nenhum alerta no momento.',
+        error: 'Não foi possível carregar as notificações.',
+        unread: '{count} não lidas',
+        allCaughtUp: 'Tudo em dia',
+        markAllRead: 'Marcar todas como lidas',
+        open: 'Abrir',
+        kinds: {
+          whitelistWalletPending: {
+            title: 'Wallets aguardando aprovação',
+            body: '{count} solicitação(ões) de whitelist de wallet pendente(s).',
+          },
+          whitelistPixPending: {
+            title: 'Chaves PIX aguardando aprovação',
+            body: '{count} solicitação(ões) de whitelist PIX pendente(s).',
+          },
+          whitelistOwnPending: {
+            title: 'Suas solicitações em análise',
+            body: '{count} destino(s) aguardando aprovação.',
+          },
+          kybPendingReview: {
+            title: 'KYB pendente de revisão',
+            body: '{count} cliente(s) aguardando análise de compliance.',
+          },
+          kybStatus: {
+            not_started: {
+              title: 'KYB não iniciado',
+              body: 'Complete a verificação KYB do seu cliente para liberar operações.',
+            },
+            pending: {
+              title: 'KYB em análise',
+              body: 'Sua verificação KYB foi enviada e está em revisão.',
+            },
+            rejected: {
+              title: 'KYB rejeitado',
+              body: 'A verificação KYB foi rejeitada. Revise e reenvie os dados.',
+            },
+          },
+          treasuryPendingRefills: {
+            title: 'Recargas de tesouraria pendentes',
+            body: '{count} ordem(ns) aguardando refill / liquidação FX.',
+          },
+          rampNeedsReview: {
+            title: 'Ordens USDC precisam de atenção',
+            body: '{count} ordem(ns) em needs_review.',
+          },
+        },
+      },
     },
     pages: {
       dashboard: {
@@ -1311,6 +1361,56 @@ const dictionaries: Record<Locale, TranslationTree> = {
       adminSettings: 'Settings',
       home: 'Home',
       breadcrumb: 'Breadcrumb',
+      notifications: {
+        title: 'Notifications',
+        loading: 'Loading alerts...',
+        empty: 'No alerts right now.',
+        error: 'Could not load notifications.',
+        unread: '{count} unread',
+        allCaughtUp: 'All caught up',
+        markAllRead: 'Mark all as read',
+        open: 'Open',
+        kinds: {
+          whitelistWalletPending: {
+            title: 'Wallets awaiting approval',
+            body: '{count} wallet whitelist request(s) pending.',
+          },
+          whitelistPixPending: {
+            title: 'PIX keys awaiting approval',
+            body: '{count} PIX whitelist request(s) pending.',
+          },
+          whitelistOwnPending: {
+            title: 'Your requests under review',
+            body: '{count} destination(s) awaiting approval.',
+          },
+          kybPendingReview: {
+            title: 'KYB pending review',
+            body: '{count} client(s) awaiting compliance review.',
+          },
+          kybStatus: {
+            not_started: {
+              title: 'KYB not started',
+              body: 'Complete your client KYB verification to unlock operations.',
+            },
+            pending: {
+              title: 'KYB under review',
+              body: 'Your KYB verification was submitted and is being reviewed.',
+            },
+            rejected: {
+              title: 'KYB rejected',
+              body: 'KYB verification was rejected. Review and resubmit the details.',
+            },
+          },
+          treasuryPendingRefills: {
+            title: 'Pending treasury refills',
+            body: '{count} order(s) awaiting refill / FX settlement.',
+          },
+          rampNeedsReview: {
+            title: 'USDC orders need attention',
+            body: '{count} order(s) in needs_review.',
+          },
+        },
+      },
     },
     pages: {
       dashboard: {

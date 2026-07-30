@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import {
   cancelWithdrawWhitelistRequestAction,
@@ -50,6 +50,7 @@ function formatApprovalStatus(
 export function UserWithdrawWhitelistPage() {
   const { t } = useI18n();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { profile, isLoading: authLoading, isAuthorized } = useAuth();
   const isPlatformAdmin = profile?.role === 'admin';
   const isClientAdmin = profile?.role === 'client_admin';
@@ -71,7 +72,12 @@ export function UserWithdrawWhitelistPage() {
   const [address, setAddress] = useState('');
   const [label, setLabel] = useState('');
   const [memo, setMemo] = useState('');
-  const [activeTab, setActiveTab] = useState<WhitelistTab>('wallets');
+  const initialTab = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<WhitelistTab>(
+    initialTab === 'pending' || initialTab === 'pix' || initialTab === 'wallets'
+      ? initialTab
+      : 'wallets',
+  );
   const [pixCreateRequested, setPixCreateRequested] = useState(0);
   const [pixIsSaving, setPixIsSaving] = useState(false);
 
