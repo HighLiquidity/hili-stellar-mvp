@@ -614,6 +614,32 @@ describe('CorpXAdapter', () => {
     });
   });
 
+  it('PayPaymentQrEmv_FallsBackToRequestAmountWhenResponseAmountMissing', async () => {
+    await withTestAdapter((req, res) => {
+      expect(req.method).toBe('POST');
+      expect(req.url).toContain('/pix/out/qr-code');
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 202;
+      res.end(
+        JSON.stringify({
+          transactionId: 'txn-qr-no-amount',
+          status: 'APPROVED',
+          endToEndId: 'E2E-QR-1',
+          currency: 'BRL',
+        }),
+      );
+    }, async ({ adapter }) => {
+      const resp = await adapter.pix.payPaymentQrEmv({
+        emv: '00020126890014BR.GOV.BCB.PIX2567api-pix.example/spi/v2/abc520400005303986540510.005802BR5904Gowd6014Belo Horizonte61083038040362070503***6304ABCD',
+        amount: '10.00',
+        idempotencyKey: 'idemp-qr-1',
+      });
+      expect(resp.providerTxId).toBe('txn-qr-no-amount');
+      expect(resp.e2eId).toBe('E2E-QR-1');
+      expect(resp.amount).toBe('10.00');
+    });
+  });
+
   it('InitiatePIXCashOut_InsufficientFunds', async () => {
     await withTestAdapter((_req, res) => {
       res.statusCode = 409;

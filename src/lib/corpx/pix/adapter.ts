@@ -517,7 +517,11 @@ export class CorpXPixAdapter {
       throw new CorpXError(`Failed to parse PIX QR payment response: ${err.message}`, undefined, response.status);
     }
 
-    const amountStr = amountToString(parsed.amount, 'PIX QR payment amount');
+    const amountStr = amountToStringOrFallback(
+      parsed.amount,
+      'PIX QR payment amount',
+      req.amount ?? '',
+    );
 
     return {
       providerTxId: parsed.transactionId ?? '',
