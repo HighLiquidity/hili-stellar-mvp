@@ -106,6 +106,34 @@ export class BinanceClient {
     return this.request<T>('POST', path, params, true);
   }
 
+  /**
+   * Signed POST with JSON body (fiat SAPI style).
+   * Signs only query params (`timestamp`, optional `recvWindow`); business fields go in the JSON body.
+   */
+  async signedPostJson<T>(
+    path: string,
+    body: Record<string, unknown>,
+    query: BinanceRequestParams = {},
+  ): Promise<T> {
+    const config = this.config;
+    assertBinanceCredentials(config);
+
+    const url = new URL(path, `${this.config.baseUrl}/`);
+    const searchParams = serializeBinanceParams(query);
+    if (!searchParams.has('timestamp')) {
+      searchParams.set('timestamp', String(Date.now()));
+    }
+
+    url.search = buildSignedBinancePayload(searchParams, config.apiSecret);
+
+    const headers = new Headers({
+      'X-MBX-APIKEY': config.apiKey,
+      'Content-Type': 'application/json',
+    });
+
+    return this.executeFetch<T>('POST', url, headers, JSON.stringify(body));
+  }
+
   private async request<T>(
     method: BinanceRequestMethod,
     path: string,
@@ -138,6 +166,15 @@ export class BinanceClient {
       url.search = searchParams.toString();
     }
 
+    return this.executeFetch<T>(method, url, headers, body);
+  }
+
+  private async executeFetch<T>(
+    method: BinanceRequestMethod,
+    url: URL,
+    headers: Headers,
+    body?: string,
+  ): Promise<T> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeoutMs);
 

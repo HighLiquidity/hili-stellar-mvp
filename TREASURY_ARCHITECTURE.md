@@ -149,6 +149,11 @@ Revisar taxa de 1 USDC na quote; `clientOrderId`; retries; alertas externos.
 3. Extrato CorpX no painel (além do saldo) — sim/não na 4.1+.
 4. BUY Binance continua por ordem (recomendado: sim).
 5. Taxa na quote: manter 1 USDC até haver dados de lote (modelo C).
+6. **Fiat Binance BRL/PIX:** adapter + rotas admin de smoke prontos
+   (`binance.fiat`, `/api/binance/fiat/*`). UI de envio CorpX→Binance no card
+   CorpX (`kind: corpx_brl_to_binance`). Pendente validar em prod se
+   `get-order-detail` devolve EMV/chave PIX; sem EMV, configure
+   `BINANCE_BRL_DEPOSIT_PIX_KEY` como fallback ou pague o pedido manualmente.
 
 ## Riscos
 

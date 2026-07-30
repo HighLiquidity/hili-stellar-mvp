@@ -190,3 +190,52 @@ export type BinanceWithdrawRecord = {
   txKey?: string;
   completeTime?: string;
 };
+
+/** Envelope used by Binance fiat SAPI endpoints (`code` / `message` / `data`). */
+export type BinanceFiatApiResponse<T = unknown> = {
+  code: string | number;
+  message?: string | null;
+  data: T;
+};
+
+export type BinanceFiatPaymentMethod = 'Pix';
+
+export type BinanceFiatDepositRequest = {
+  currency?: 'BRL';
+  apiPaymentMethod?: BinanceFiatPaymentMethod;
+  /** Fiat amount in major units (e.g. 30 = R$30). */
+  amount: number | string;
+  ext?: Record<string, unknown>;
+  recvWindow?: number;
+};
+
+export type BinanceFiatDepositData = {
+  orderId: string;
+  [key: string]: unknown;
+};
+
+/**
+ * Order detail payload is intentionally permissive so smoke tests can inspect
+ * real PIX/EMV fields returned by Binance (shape not fully documented).
+ */
+export type BinanceFiatOrderDetail = {
+  orderNo?: string;
+  orderId?: string;
+  [key: string]: unknown;
+};
+
+export type BinanceFiatOrdersQuery = {
+  /** 0 = deposit, 1 = withdraw (Binance fiat orders). */
+  transactionType: 0 | 1;
+  beginTime?: number;
+  endTime?: number;
+  page?: number;
+  rows?: number;
+  recvWindow?: number;
+};
+
+export type BinanceFiatOrdersData = {
+  data?: unknown[];
+  total?: number;
+  [key: string]: unknown;
+};

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  BinanceClient,
   buildSignedBinancePayload,
   parseBinanceErrorPayload,
   serializeBinanceParams,
@@ -67,6 +68,67 @@ describe('parseBinanceErrorPayload', () => {
       code: null,
       message: 'Binance request failed with an empty error body',
       details: null,
+    });
+  });
+});
+
+describe('BinanceClient.signedPostJson', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('signs query params only and sends JSON body without mixing HMAC fields', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ code: '000000', message: 'success', data: { orderId: 'ord-1' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new BinanceClient({
+      baseUrl: 'https://api.binance.com',
+      apiKey: 'test-key',
+      apiSecret: 'test-secret',
+      timeoutMs: 5000,
+    });
+
+    const result = await client.signedPostJson<{
+      code: string;
+      data: { orderId: string };
+    }>(
+      '/sapi/v1/fiat/deposit',
+      { currency: 'BRL', apiPaymentMethod: 'Pix', amount: 30 },
+      { timestamp: 1, recvWindow: 5000 },
+    );
+
+    expect(result.data.orderId).toBe('ord-1');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const parsedUrl = new URL(url);
+    expect(parsedUrl.pathname).toBe('/sapi/v1/fiat/deposit');
+    expect(parsedUrl.searchParams.get('timestamp')).toBe('1');
+    expect(parsedUrl.searchParams.get('recvWindow')).toBe('5000');
+    expect(parsedUrl.searchParams.get('signature')).toBe(
+      buildSignedBinancePayload(
+        new URLSearchParams({ timestamp: '1', recvWindow: '5000' }),
+        'test-secret',
+      ).split('signature=')[1],
+    );
+    expect(parsedUrl.searchParams.has('currency')).toBe(false);
+    expect(parsedUrl.searchParams.has('amount')).toBe(false);
+
+    expect(init.method).toBe('POST');
+    expect(init.headers).toBeInstanceOf(Headers);
+    const headers = init.headers as Headers;
+    expect(headers.get('Content-Type')).toBe('application/json');
+    expect(headers.get('X-MBX-APIKEY')).toBe('test-key');
+    expect(JSON.parse(String(init.body))).toEqual({
+      currency: 'BRL',
+      apiPaymentMethod: 'Pix',
+      amount: 30,
     });
   });
 });

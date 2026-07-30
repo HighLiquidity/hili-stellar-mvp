@@ -1,6 +1,10 @@
 export type TreasuryRunTrigger = 'manual' | 'scheduled' | 'threshold';
 export type TreasuryRefillAsset = 'USDC' | 'XLM';
-export type TreasuryRunKind = 'binance_usdc_refill' | 'binance_xlm_refill';
+export type TreasuryRunAsset = 'USDC' | 'XLM' | 'BRL';
+export type TreasuryRunKind =
+  | 'binance_usdc_refill'
+  | 'binance_xlm_refill'
+  | 'corpx_brl_to_binance';
 export type TreasuryRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'dry_run';
 
 export type TreasuryRunStep = {
@@ -16,10 +20,10 @@ export type TreasuryRunRow = {
   kind: TreasuryRunKind;
   status: TreasuryRunStatus;
   dry_run: boolean;
-  /** Historical column name; stores refill amount for USDC or XLM. */
+  /** Historical column name; stores refill/transfer amount for USDC, XLM, or BRL. */
   requested_amount_usdc: string | null;
   executed_amount_usdc: string | null;
-  /** Historical column name; stores Binance free balance for the run asset. */
+  /** Historical column name; free balance context (Binance asset or CorpX available). */
   binance_usdc_free: string | null;
   binance_withdraw_order_id: string | null;
   binance_withdraw_id: string | null;
@@ -36,7 +40,7 @@ export type TreasuryRunRow = {
 };
 
 export type TreasuryRefillPlan = {
-  kind: TreasuryRunKind;
+  kind: 'binance_usdc_refill' | 'binance_xlm_refill';
   asset: TreasuryRefillAsset;
   amount: string;
   binanceFree: string;
@@ -47,6 +51,16 @@ export type TreasuryRefillPlan = {
     addressTag: string | null;
     name: string | null;
   };
+  steps: TreasuryRunStep[];
+};
+
+export type TreasuryBrlTransferPlan = {
+  kind: 'corpx_brl_to_binance';
+  amountBrl: string;
+  corpxAvailable: string;
+  binanceBrlFree: string;
+  /** How execute will attempt to pay Binance (discovered at dry-run when possible). */
+  paymentHint: 'binance_fiat_deposit_then_corpx_pix';
   steps: TreasuryRunStep[];
 };
 
@@ -61,10 +75,25 @@ export type TreasuryRefillRequest = {
   };
 };
 
-export function treasuryKindForAsset(asset: TreasuryRefillAsset): TreasuryRunKind {
+export type TreasuryBrlTransferRequest = {
+  dryRun: boolean;
+  amountBrl?: string | null;
+  trigger?: TreasuryRunTrigger;
+  actor?: {
+    userId?: string | null;
+    email?: string | null;
+  };
+};
+
+export function treasuryKindForAsset(asset: TreasuryRefillAsset): Exclude<
+  TreasuryRunKind,
+  'corpx_brl_to_binance'
+> {
   return asset === 'XLM' ? 'binance_xlm_refill' : 'binance_usdc_refill';
 }
 
-export function treasuryAssetFromKind(kind: TreasuryRunKind): TreasuryRefillAsset {
-  return kind === 'binance_xlm_refill' ? 'XLM' : 'USDC';
+export function treasuryAssetFromKind(kind: TreasuryRunKind): TreasuryRunAsset {
+  if (kind === 'binance_xlm_refill') return 'XLM';
+  if (kind === 'corpx_brl_to_binance') return 'BRL';
+  return 'USDC';
 }

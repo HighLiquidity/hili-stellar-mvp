@@ -2263,7 +2263,8 @@ a.user-menu__item {
 }
 
 .treasury-pocket {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   align-content: start;
   min-height: 0;
@@ -2322,6 +2323,7 @@ a.user-menu__item {
 .treasury-pocket__footer {
   display: flex;
   justify-content: flex-end;
+  margin-top: auto;
   padding-top: 4px;
 }
 

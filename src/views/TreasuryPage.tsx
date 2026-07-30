@@ -10,7 +10,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useI18n } from '@/lib/i18n';
 import { buildStellarExpertAccountUrl } from '@/lib/stellar/explorer-url';
-import type { TreasuryRefillAsset, TreasuryRefillPlan } from '@/lib/treasury/run-types';
+import type {
+  TreasuryBrlTransferPlan,
+  TreasuryRefillAsset,
+  TreasuryRefillPlan,
+} from '@/lib/treasury/run-types';
 import { treasuryAssetFromKind } from '@/lib/treasury/run-types';
 import type { TreasuryOverviewResponse } from '@/lib/treasury/types';
 
@@ -320,6 +324,250 @@ function RefillModal({ open, onClose, suggestedFree, onExecuted, busy }: RefillM
   );
 }
 
+type BrlTransferModalProps = {
+  open: boolean;
+  onClose: () => void;
+  suggestedAvailable: string | null;
+  onExecuted: () => Promise<void>;
+  busy: boolean;
+};
+
+function BrlTransferModal({
+  open,
+  onClose,
+  suggestedAvailable,
+  onExecuted,
+  busy,
+}: BrlTransferModalProps) {
+  const { t } = useI18n();
+  const titleId = useId();
+  const [amount, setAmount] = useState('');
+  const [plan, setPlan] = useState<TreasuryBrlTransferPlan | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [isDryRunning, setIsDryRunning] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
+
+  const resetState = useCallback(() => {
+    setAmount('');
+    setPlan(null);
+    setError(null);
+    setMessage(null);
+    setIsDryRunning(false);
+    setIsExecuting(false);
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      resetState();
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isDryRunning && !isExecuting) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose, resetState, isDryRunning, isExecuting]);
+
+  const postTransfer = useCallback(
+    async (dryRun: boolean) => {
+      setError(null);
+      setMessage(null);
+      if (dryRun) {
+        setIsDryRunning(true);
+      } else {
+        setIsExecuting(true);
+      }
+
+      try {
+        const token = await getAccessToken();
+        if (!token) {
+          setError(t('pages.treasury.errors.session'));
+          return;
+        }
+
+        const trimmed = amount.trim();
+        const response = await fetch('/api/treasury/runs', {
+          method: 'POST',
+          cache: 'no-store',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            dryRun,
+            kind: 'corpx_brl_to_binance',
+            ...(trimmed
+              ? { amountBrl: trimmed }
+              : dryRun
+                ? {}
+                : { amountBrl: plan?.amountBrl }),
+          }),
+        });
+
+        const body = (await response.json().catch(() => null)) as
+          | {
+              error?: string;
+              plan?: TreasuryBrlTransferPlan;
+              run?: { id: string; status: string };
+            }
+          | null;
+
+        if (!response.ok) {
+          setError(body?.error?.trim() || t('pages.treasury.brlTransfer.errors.failed'));
+          return;
+        }
+
+        if (body?.plan) {
+          setPlan(body.plan);
+          if (!trimmed) {
+            setAmount(body.plan.amountBrl);
+          }
+        }
+
+        if (dryRun) {
+          setMessage(t('pages.treasury.brlTransfer.dryRunSuccess'));
+        } else {
+          setMessage(t('pages.treasury.brlTransfer.executeSuccess'));
+          setPlan(null);
+          await onExecuted();
+        }
+      } catch {
+        setError(t('pages.treasury.brlTransfer.errors.failed'));
+      } finally {
+        setIsDryRunning(false);
+        setIsExecuting(false);
+      }
+    },
+    [amount, onExecuted, plan?.amountBrl, t],
+  );
+
+  if (!open) return null;
+
+  const actionsDisabled = isDryRunning || isExecuting || busy;
+
+  return (
+    <div
+      className="treasury-modal-overlay"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !actionsDisabled) onClose();
+      }}
+    >
+      <div
+        className="treasury-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
+        <header className="treasury-modal__header">
+          <div className="treasury-modal__heading">
+            <h2 id={titleId} className="treasury-modal__title">
+              {t('pages.treasury.brlTransfer.title')}
+            </h2>
+            <p className="surface__lead treasury-modal__lead">
+              {t('pages.treasury.brlTransfer.description')}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="treasury-modal__close"
+            onClick={onClose}
+            disabled={actionsDisabled}
+            aria-label={t('pages.treasury.brlTransfer.close')}
+            title={t('pages.treasury.brlTransfer.close')}
+          >
+            <CloseIcon width={16} height={16} aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className="treasury-modal__body">
+          <InputField
+            id="treasury-brl-transfer-amount"
+            label={t('pages.treasury.brlTransfer.amountLabel')}
+            value={amount}
+            onChange={(event) => {
+              setAmount(event.target.value);
+              setPlan(null);
+              setMessage(null);
+            }}
+            placeholder={
+              suggestedAvailable
+                ? `${t('pages.treasury.brlTransfer.amountPlaceholder')} (${suggestedAvailable})`
+                : t('pages.treasury.brlTransfer.amountPlaceholder')
+            }
+            inputMode="decimal"
+          />
+
+          <div className="treasury-modal__actions">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={actionsDisabled}
+              onClick={() => void postTransfer(true)}
+            >
+              {isDryRunning
+                ? t('pages.treasury.brlTransfer.dryRunning')
+                : t('pages.treasury.brlTransfer.dryRun')}
+            </Button>
+            <Button
+              type="button"
+              disabled={actionsDisabled || !plan || !amount.trim()}
+              onClick={() => void postTransfer(false)}
+            >
+              {isExecuting
+                ? t('pages.treasury.brlTransfer.executing')
+                : t('pages.treasury.brlTransfer.execute')}
+            </Button>
+          </div>
+
+          {error ? (
+            <p className="auth-inline-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {message ? (
+            <p className="form-success-message" role="status">
+              {message}
+            </p>
+          ) : null}
+
+          {plan ? (
+            <div className="treasury-refill-plan">
+              <p className="treasury-refill-plan__title">
+                {t('pages.treasury.brlTransfer.planTitle')}
+              </p>
+              <ul className="treasury-refill-plan__list">
+                <li>
+                  {t('pages.treasury.brlTransfer.planAmount')}:{' '}
+                  <strong>{formatAmount(plan.amountBrl)} BRL</strong>
+                </li>
+                <li>
+                  {t('pages.treasury.brlTransfer.planCorpx')}:{' '}
+                  {formatAmount(plan.corpxAvailable)} BRL
+                </li>
+                <li>
+                  {t('pages.treasury.brlTransfer.planBinance')}:{' '}
+                  {plan.binanceBrlFree === 'unavailable'
+                    ? plan.binanceBrlFree
+                    : `${formatAmount(plan.binanceBrlFree)} BRL`}
+                </li>
+                <li>
+                  {t('pages.treasury.brlTransfer.planPayment')}:{' '}
+                  {t('pages.treasury.brlTransfer.planPaymentValue')}
+                </li>
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TreasuryPage() {
   const { t } = useI18n();
   const router = useRouter();
@@ -330,6 +578,7 @@ export function TreasuryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refillOpen, setRefillOpen] = useState(false);
+  const [brlTransferOpen, setBrlTransferOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
@@ -468,6 +717,15 @@ export function TreasuryPage() {
               ) : (
                 <PocketError message={pocketErrorMessage(pockets?.corpx, t('pages.treasury.errors.unavailable'))} />
               )}
+              <footer className="treasury-pocket__footer">
+                <button
+                  type="button"
+                  className="treasury-pocket__refill-link"
+                  onClick={() => setBrlTransferOpen(true)}
+                >
+                  {t('pages.treasury.brlTransfer.open')}
+                </button>
+              </footer>
             </article>
 
             <article className="surface treasury-pocket">
@@ -653,6 +911,16 @@ export function TreasuryPage() {
         open={refillOpen}
         onClose={() => setRefillOpen(false)}
         suggestedFree={suggestedFree}
+        busy={isLoading || isRefreshing}
+        onExecuted={async () => {
+          await loadOverview({ silent: true });
+        }}
+      />
+
+      <BrlTransferModal
+        open={brlTransferOpen}
+        onClose={() => setBrlTransferOpen(false)}
+        suggestedAvailable={pockets?.corpx.ok ? pockets.corpx.available : null}
         busy={isLoading || isRefreshing}
         onExecuted={async () => {
           await loadOverview({ silent: true });

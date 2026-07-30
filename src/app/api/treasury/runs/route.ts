@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 
+import { runTreasuryCorpxBrlToBinance } from '@/lib/treasury/brl-transfer';
 import { runTreasuryBinanceRefill } from '@/lib/treasury/refill';
 import { listTreasuryRuns } from '@/lib/treasury/runs-store';
-import type { TreasuryRefillAsset } from '@/lib/treasury/run-types';
+import type { TreasuryRefillAsset, TreasuryRunKind } from '@/lib/treasury/run-types';
 
 import {
   handleTreasuryRouteError,
@@ -34,6 +35,7 @@ type PostBody = {
   dryRun?: unknown;
   amount?: unknown;
   amountUsdc?: unknown;
+  amountBrl?: unknown;
   asset?: unknown;
   kind?: unknown;
 };
@@ -43,13 +45,27 @@ function parseAsset(raw: unknown): TreasuryRefillAsset | null {
   return null;
 }
 
-function assetFromKind(kind: unknown): TreasuryRefillAsset | null {
-  if (kind === 'binance_usdc_refill') return 'USDC';
-  if (kind === 'binance_xlm_refill') return 'XLM';
+function parseKind(raw: unknown): TreasuryRunKind | null {
+  if (
+    raw === 'binance_usdc_refill' ||
+    raw === 'binance_xlm_refill' ||
+    raw === 'corpx_brl_to_binance'
+  ) {
+    return raw;
+  }
   return null;
 }
 
-/** Dry-run or execute a Binance → distributor refill (admin). */
+function readAmountString(...candidates: unknown[]): string | null {
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
+
+/** Dry-run or execute a treasury capital move (admin). */
 export async function POST(request: Request) {
   const auth = await requireTreasuryAdminContext(request);
   if (!auth.ok) return auth.response;
@@ -66,47 +82,73 @@ export async function POST(request: Request) {
       return jsonError('dryRun (boolean) is required', 400);
     }
 
-    const asset =
-      parseAsset(body.asset) ??
-      assetFromKind(body.kind) ??
-      (body.asset == null && body.kind == null ? 'USDC' : null);
+    const kind =
+      parseKind(body.kind) ??
+      (body.kind == null && body.asset == null
+        ? 'binance_usdc_refill'
+        : body.kind == null && parseAsset(body.asset)
+          ? body.asset === 'XLM'
+            ? 'binance_xlm_refill'
+            : 'binance_usdc_refill'
+          : null);
 
-    if (!asset) {
-      return jsonError('asset must be USDC or XLM', 400);
-    }
-
-    if (
-      body.kind != null &&
-      body.kind !== 'binance_usdc_refill' &&
-      body.kind !== 'binance_xlm_refill'
-    ) {
-      return jsonError('Unsupported treasury run kind', 400);
-    }
-
-    const amountFromBody =
-      typeof body.amount === 'string' && body.amount.trim()
-        ? body.amount.trim()
-        : typeof body.amountUsdc === 'string' && body.amountUsdc.trim()
-          ? body.amountUsdc.trim()
-          : null;
-
-    if (!body.dryRun && !amountFromBody) {
+    if (!kind) {
       return jsonError(
-        'amount is required when dryRun is false (use dry-run preview amount).',
+        'kind must be binance_usdc_refill, binance_xlm_refill, or corpx_brl_to_binance',
         400,
       );
     }
 
+    const actor = {
+      userId: auth.ctx.userId,
+      email: auth.ctx.email,
+    };
+
     try {
+      if (kind === 'corpx_brl_to_binance') {
+        const amountBrl = readAmountString(body.amountBrl, body.amount);
+        if (!body.dryRun && !amountBrl) {
+          return jsonError(
+            'amountBrl (or amount) is required when dryRun is false.',
+            400,
+          );
+        }
+
+        const result = await runTreasuryCorpxBrlToBinance({
+          dryRun: body.dryRun,
+          amountBrl,
+          trigger: 'manual',
+          actor,
+        });
+
+        return NextResponse.json(
+          {
+            dryRun: result.dryRun,
+            plan: result.plan,
+            run: result.run,
+            ...(result.binanceOrder ? { binanceOrder: result.binanceOrder } : {}),
+          },
+          { status: body.dryRun ? 200 : 201 },
+        );
+      }
+
+      const asset: TreasuryRefillAsset =
+        parseAsset(body.asset) ?? (kind === 'binance_xlm_refill' ? 'XLM' : 'USDC');
+
+      const amountFromBody = readAmountString(body.amount, body.amountUsdc);
+      if (!body.dryRun && !amountFromBody) {
+        return jsonError(
+          'amount is required when dryRun is false (use dry-run preview amount).',
+          400,
+        );
+      }
+
       const result = await runTreasuryBinanceRefill({
         dryRun: body.dryRun,
         asset,
         amount: amountFromBody,
         trigger: 'manual',
-        actor: {
-          userId: auth.ctx.userId,
-          email: auth.ctx.email,
-        },
+        actor,
       });
 
       return NextResponse.json(
@@ -120,7 +162,7 @@ export async function POST(request: Request) {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const isValidation =
-        /must be at least|exceeds Binance|must be a positive|required for treasury|Invalid (USDC|XLM)/i.test(
+        /must be at least|exceeds (Binance|CorpX)|must be a positive|required for treasury|Invalid (USDC|XLM|BRL)|2 decimals/i.test(
           message,
         );
       return jsonError(message, isValidation ? 400 : 502);

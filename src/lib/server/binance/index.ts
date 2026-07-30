@@ -48,6 +48,14 @@ import {
   selectCoinConfig,
   selectCoinNetworkConfig,
 } from './withdraw';
+import {
+  buildFiatDepositBody,
+  createFiatDeposit,
+  getFiatOrderDetail,
+  getFiatOrders,
+  normalizeFiatDepositAmount,
+  unwrapFiatApiResponse,
+} from './fiat';
 
 /**
  * Central exports for the server-side Binance integration module.
@@ -57,6 +65,7 @@ import {
  * - signed account reads
  * - signed spot market order execution by quantity or quote notional
  * - signed capital withdraw request/history/config reads
+ * - signed fiat BRL/PIX deposit + order detail/history (smoke / treasury foundation)
  *
  * Current limitations:
  * - no retry/backoff
@@ -64,6 +73,7 @@ import {
  * - no exchange-info driven symbol/lot-size validation
  * - no business-level guardrails before order placement
  * - no travel-rule `/sapi/v1/localentity/*` flows
+ * - fiat deposit PIX EMV shape must be confirmed via smoke (`get-order-detail`)
  */
 export {
   BINANCE_ENV_VARS,
@@ -111,6 +121,14 @@ export {
   selectCoinNetworkConfig,
   filterWithdrawEnabledNetworks,
   buildCryptoWithdrawPayload,
+};
+export {
+  createFiatDeposit,
+  getFiatOrderDetail,
+  getFiatOrders,
+  buildFiatDepositBody,
+  normalizeFiatDepositAmount,
+  unwrapFiatApiResponse,
 };
 export { ping };
 
@@ -165,6 +183,14 @@ export const binance = {
     filterWithdrawEnabledNetworks,
     buildPayload: buildCryptoWithdrawPayload,
   },
+  fiat: {
+    createDeposit: createFiatDeposit,
+    getOrderDetail: getFiatOrderDetail,
+    getOrders: getFiatOrders,
+    buildDepositBody: buildFiatDepositBody,
+    normalizeDepositAmount: normalizeFiatDepositAmount,
+    unwrapResponse: unwrapFiatApiResponse,
+  },
   signer: {
     signMessage: signBinanceMessage,
     signQuery: signBinanceQuery,
@@ -182,6 +208,13 @@ export type {
   BinanceCoinNetworkConfig,
   BinanceCryptoWithdrawRequest,
   BinanceCryptoWithdrawResponse,
+  BinanceFiatApiResponse,
+  BinanceFiatDepositData,
+  BinanceFiatDepositRequest,
+  BinanceFiatOrderDetail,
+  BinanceFiatOrdersData,
+  BinanceFiatOrdersQuery,
+  BinanceFiatPaymentMethod,
   BinanceGetSpotOrderRequest,
   BinanceMarketOrderByQuoteAmountRequest,
   BinanceNonZeroBalance,

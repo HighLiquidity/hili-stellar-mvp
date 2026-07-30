@@ -34,6 +34,11 @@ Server-only integration layer for Binance spot REST endpoints used by the MVP.
   - `getCoinConfig(...)`
   - `getCoinNetworkConfig(...)`
   - `getWithdrawEnabledCoinNetworks(...)`
+- Signed fiat (BRL / PIX) support via:
+  - `createFiatDeposit({ amount, currency?, apiPaymentMethod? })` → `POST /sapi/v1/fiat/deposit`
+  - `getFiatOrderDetail(orderNo)` → `GET /sapi/v1/fiat/get-order-detail`
+  - `getFiatOrders({ transactionType, ... })` → `GET /sapi/v1/fiat/orders`
+  - Client helper `signedPostJson` (query signature + JSON body)
 
 ## Current limitations
 
@@ -47,6 +52,20 @@ Server-only integration layer for Binance spot REST endpoints used by the MVP.
 - Binance withdraw apply only returns an `id`; richer operational state should be fetched through withdraw history
 - This wrapper intentionally requires `network` for withdraws, even though Binance allows omitting it
 - Network support for a coin must be checked through capital config; do not assume assets such as `USDC` are withdrawable on a specific network like Stellar without verifying Binance support first
+- Fiat deposit requires KYC/KYB + fiat services enabled on the Binance account; API key needs TRADE
+- `POST /sapi/v1/fiat/deposit` has a very high UID weight (45000) — call sparingly
+- Fiat deposit create returns an `orderId`; whether PIX EMV/QR is available via `get-order-detail` must be confirmed with a production smoke test (see checklist below)
+
+## Fiat BRL/PIX smoke checklist (admin)
+
+Admin routes (Bearer admin token), preferably from the production IP allowlist:
+
+1. `GET /api/binance/fiat/orders?transactionType=0` — confirms fiat history access
+2. `POST /api/binance/fiat/deposit` with `{ "amount": 30, "confirm": true }` — creates a real deposit order (omit `confirm` to refuse)
+3. `GET /api/binance/fiat/order?orderNo=<id>` — inspect response for PIX fields (`qr`, `emv`, `qrCode`, `pixKey`, `paymentInfo`, …)
+4. Record finding: “PIX utilizável via API?” yes/no → unlocks CorpX→Binance treasury design
+
+Do **not** automate payment from CorpX until step 3 documents a usable PIX payload (or a static PIX key fallback is chosen).
 
 ## Security notes
 
