@@ -5,7 +5,11 @@ import type { CorpXPIXKeyType } from '@/lib/corpx/pix/types';
 import { binance } from '@/lib/server/binance';
 
 import { resolveTreasuryBrlAmount } from './brl-amount';
-import { extractPixEmvFromUnknown } from './pix-emv-extract';
+import {
+  extractPixEmvFromUnknown,
+  extractPixKeyFromUnknown,
+  summarizeFiatOrderDetail,
+} from './pix-emv-extract';
 import { insertTreasuryRun, updateTreasuryRun } from './runs-store';
 import type {
   TreasuryBrlTransferPlan,
@@ -14,7 +18,11 @@ import type {
   TreasuryRunStep,
 } from './run-types';
 
-export { extractPixEmvFromUnknown } from './pix-emv-extract';
+export {
+  extractPixEmvFromUnknown,
+  extractPixKeyFromUnknown,
+  summarizeFiatOrderDetail,
+} from './pix-emv-extract';
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -26,6 +34,55 @@ function step(
   detail?: string,
 ): TreasuryRunStep {
   return { name, status, detail, at: nowIso() };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const ORDER_DETAIL_POLL_ATTEMPTS = 8;
+const ORDER_DETAIL_POLL_MS = 1500;
+
+type ResolvedPixPayment =
+  | { mode: 'emv'; emv: string }
+  | { mode: 'key'; key: string; keyType: CorpXPIXKeyType };
+
+async function waitForBinanceFiatPixPayment(
+  orderId: string,
+): Promise<{ detail: unknown; payment: ResolvedPixPayment | null }> {
+  let detail: unknown = null;
+  for (let attempt = 1; attempt <= ORDER_DETAIL_POLL_ATTEMPTS; attempt += 1) {
+    detail = await binance.fiat.getOrderDetail(orderId);
+
+    if (detail && typeof detail === 'object') {
+      const record = detail as Record<string, unknown>;
+      const errorCode = typeof record.errorCode === 'string' ? record.errorCode.trim() : '';
+      const errorMessage =
+        typeof record.errorMessage === 'string' ? record.errorMessage.trim() : '';
+      if (errorCode && errorCode !== '0' && errorCode !== '000000') {
+        throw new Error(
+          `Binance fiat deposit order ${orderId} failed: errorCode=${errorCode}` +
+            (errorMessage ? ` errorMessage=${errorMessage}` : ''),
+        );
+      }
+    }
+
+    const emv = extractPixEmvFromUnknown(detail);
+    if (emv) {
+      return { detail, payment: { mode: 'emv', emv } };
+    }
+
+    const pixKey = extractPixKeyFromUnknown(detail);
+    if (pixKey) {
+      return { detail, payment: { mode: 'key', key: pixKey, keyType: 'EVP' } };
+    }
+
+    if (attempt < ORDER_DETAIL_POLL_ATTEMPTS) {
+      await sleep(ORDER_DETAIL_POLL_MS);
+    }
+  }
+
+  return { detail, payment: null };
 }
 
 function readFallbackPixKey(): { key: string; keyType: CorpXPIXKeyType } | null {
@@ -141,14 +198,20 @@ export async function runTreasuryCorpxBrlToBinance(
       ],
     });
 
-    const detail = await binance.fiat.getOrderDetail(deposit.orderId);
-    const emv = extractPixEmvFromUnknown(detail);
+    const { detail, payment: polledPayment } = await waitForBinanceFiatPixPayment(deposit.orderId);
     const adapter = await createCorpXAdapterFromEnv();
     const idempotencyKey = `treasury-brl-${run.id}`;
 
-    if (emv) {
+    const payment: ResolvedPixPayment | null =
+      polledPayment ??
+      (() => {
+        const fallback = readFallbackPixKey();
+        return fallback ? { mode: 'key' as const, key: fallback.key, keyType: fallback.keyType } : null;
+      })();
+
+    if (payment?.mode === 'emv') {
       const payout = await adapter.pix.payPaymentQrEmv({
-        emv,
+        emv: payment.emv,
         amount: plan.amountBrl,
         description: `Treasury BRL→Binance ${run.id}`,
         idempotencyKey,
@@ -179,12 +242,11 @@ export async function runTreasuryCorpxBrlToBinance(
       };
     }
 
-    const fallback = readFallbackPixKey();
-    if (fallback) {
+    if (payment?.mode === 'key') {
       const payout = await adapter.pix.initiatePIXCashOut({
         amount: plan.amountBrl,
-        pixKey: fallback.key,
-        pixKeyType: fallback.keyType,
+        pixKey: payment.key,
+        pixKeyType: payment.keyType,
         description: `Treasury BRL→Binance ${run.id}`,
         idempotencyKey,
         correlationId: run.id,
@@ -196,7 +258,11 @@ export async function runTreasuryCorpxBrlToBinance(
         binanceWithdrawId: payout.providerTxId || payout.e2eId || null,
         steps: [
           ...run.steps,
-          step('read_binance_order_detail', 'ok', 'emv_missing_used_fallback_key'),
+          step(
+            'read_binance_order_detail',
+            'ok',
+            polledPayment ? 'pix_key_found' : 'emv_missing_used_fallback_key',
+          ),
           step(
             'corpx_pix_out',
             'ok',
@@ -214,13 +280,10 @@ export async function runTreasuryCorpxBrlToBinance(
       };
     }
 
-    const detailKeys =
-      detail && typeof detail === 'object'
-        ? Object.keys(detail as Record<string, unknown>).join(',')
-        : 'none';
-
     throw new Error(
-      `Binance fiat deposit created (orderId=${deposit.orderId}) but no PIX EMV was found in order detail (keys: ${detailKeys}). Set BINANCE_BRL_DEPOSIT_PIX_KEY as fallback or pay the order manually.`,
+      `Binance fiat deposit created (orderId=${deposit.orderId}) but no PIX EMV/key was found after polling. ` +
+        `${summarizeFiatOrderDetail(detail)}. ` +
+        `Inspect GET /api/binance/fiat/order?orderNo=${deposit.orderId}, set BINANCE_BRL_DEPOSIT_PIX_KEY, or pay the order manually in Binance.`,
     );
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);

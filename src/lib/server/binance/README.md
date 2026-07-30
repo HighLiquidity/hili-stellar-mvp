@@ -62,8 +62,14 @@ Admin routes (Bearer admin token), preferably from the production IP allowlist:
 
 1. `GET /api/binance/fiat/orders?transactionType=0` — confirms fiat history access
 2. `POST /api/binance/fiat/deposit` with `{ "amount": 30, "confirm": true }` — creates a real deposit order (omit `confirm` to refuse)
-3. `GET /api/binance/fiat/order?orderNo=<id>` — inspect response for PIX fields (`qr`, `emv`, `qrCode`, `pixKey`, `paymentInfo`, …)
+3. `GET /api/binance/fiat/order?orderNo=<id>` — inspect response for PIX fields (`qr`, `emv`, `qrCode`, `pixKey`, `ext`, …)
 4. Record finding: “PIX utilizável via API?” yes/no → unlocks CorpX→Binance treasury design
+
+**Known prod finding (2026-07-29):** `get-order-detail` returned
+`orderId, orderStatus, amount, fee, fiatCurrency, errorCode, errorMessage, ext`
+without an EMV/QR. Treasury transfer now polls detail (~8×1.5s) and accepts
+EMV or pix key nested under `ext`; if still empty, set `BINANCE_BRL_DEPOSIT_PIX_KEY`
+or pay the order manually in Binance.
 
 Do **not** automate payment from CorpX until step 3 documents a usable PIX payload (or a static PIX key fallback is chosen).
 
