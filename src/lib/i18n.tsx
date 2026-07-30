@@ -737,6 +737,36 @@ const dictionaries: Record<Locale, TranslationTree> = {
             failed: 'Não foi possível processar o envio BRL para a Binance.',
           },
         },
+        brlReceive: {
+          open: 'Receber BRL ← Binance',
+          close: 'Fechar',
+          title: 'Receber BRL ← Binance',
+          description:
+            'Solicita saque fiat BRL na Binance para a conta bancária CorpX vinculada. Sempre simule antes de executar.',
+          comingSoonTitle: 'Em breve',
+          comingSoonBody:
+            'Este fluxo solicitará saque BRL na Binance (bank transfer) para a conta CorpX já vinculada na exchange. A implementação completa chega em seguida.',
+          amountLabel: 'Valor BRL',
+          amountPlaceholder: 'Ex.: 100 ou deixe vazio no dry-run para usar o BRL livre na Binance',
+          dryRun: 'Simular (dry-run)',
+          dryRunning: 'Simulando…',
+          execute: 'Executar saque',
+          executing: 'Executando…',
+          dryRunSuccess: 'Simulação concluída. Revise o plano e confirme a execução.',
+          executeSuccess: 'Saque Binance solicitado. Confirme o crédito BRL na CorpX.',
+          executeSuccessPending:
+            'Saque Binance aceito, mas o crédito na CorpX ainda não foi confirmado via status da ordem. Atualize os bolsos.',
+          planTitle: 'Plano',
+          planAmount: 'Valor',
+          planBinance: 'BRL livre na Binance',
+          planCorpx: 'Disponível na CorpX',
+          planDestination: 'Destino',
+          planPayment: 'Pagamento',
+          planPaymentValue: 'Saque fiat Binance → conta CorpX',
+          errors: {
+            failed: 'Não foi possível processar o saque BRL da Binance para a CorpX.',
+          },
+        },
         pockets: {
           corpx: 'CorpX',
           binance: 'Binance',
@@ -1902,6 +1932,36 @@ const dictionaries: Record<Locale, TranslationTree> = {
           planPaymentValue: 'Binance fiat deposit + CorpX PIX',
           errors: {
             failed: 'Could not process the BRL transfer to Binance.',
+          },
+        },
+        brlReceive: {
+          open: 'Receive BRL ← Binance',
+          close: 'Close',
+          title: 'Receive BRL ← Binance',
+          description:
+            'Requests a Binance fiat BRL withdraw to the bound CorpX bank account. Always dry-run before execute.',
+          comingSoonTitle: 'Coming soon',
+          comingSoonBody:
+            'This flow will request a Binance BRL bank-transfer withdraw to the CorpX account already bound on the exchange. Full implementation follows next.',
+          amountLabel: 'BRL amount',
+          amountPlaceholder: 'e.g. 100 or leave empty on dry-run to use Binance free BRL',
+          dryRun: 'Simulate (dry-run)',
+          dryRunning: 'Simulating…',
+          execute: 'Execute withdraw',
+          executing: 'Executing…',
+          dryRunSuccess: 'Simulation complete. Review the plan and confirm execution.',
+          executeSuccess: 'Binance withdraw requested. Confirm BRL credited on CorpX.',
+          executeSuccessPending:
+            'Binance accepted the withdraw, but CorpX credit is not confirmed via order status yet. Refresh pockets.',
+          planTitle: 'Plan',
+          planAmount: 'Amount',
+          planBinance: 'BRL free on Binance',
+          planCorpx: 'Available on CorpX',
+          planDestination: 'Destination',
+          planPayment: 'Payment',
+          planPaymentValue: 'Binance fiat withdraw → CorpX bank account',
+          errors: {
+            failed: 'Could not process the BRL withdraw from Binance to CorpX.',
           },
         },
         pockets: {

@@ -9,6 +9,8 @@ import type {
   BinanceFiatOrderDetail,
   BinanceFiatOrdersData,
   BinanceFiatOrdersQuery,
+  BinanceFiatWithdrawData,
+  BinanceFiatWithdrawRequest,
 } from './types';
 
 const FIAT_SUCCESS_CODE = '000000';
@@ -118,6 +120,121 @@ export async function createFiatDeposit(
       200,
       null,
       'Binance fiat deposit response missing orderId',
+      response,
+    );
+  }
+
+  return { ...data, orderId };
+}
+
+/** Alias — withdraw amounts use the same positive decimal rules as deposits. */
+export const normalizeFiatWithdrawAmount = normalizeFiatDepositAmount;
+
+export function buildFiatWithdrawBody(input: BinanceFiatWithdrawRequest): Record<string, unknown> {
+  const currency = (input.currency ?? 'BRL').toUpperCase();
+  if (currency !== 'BRL') {
+    throw new BinanceValidationError('Binance fiat withdraw currently supports currency BRL only');
+  }
+
+  const apiPaymentMethod = input.apiPaymentMethod ?? 'bank_transfer';
+  if (apiPaymentMethod !== 'bank_transfer') {
+    throw new BinanceValidationError(
+      'Binance fiat withdraw currently supports apiPaymentMethod bank_transfer only',
+    );
+  }
+
+  const accountNumber = normalizeRequiredString(
+    input.accountInfo?.accountNumber,
+    'accountInfo.accountNumber',
+  );
+
+  const accountInfo: Record<string, string> = { accountNumber };
+
+  const agency = input.accountInfo.agency?.trim();
+  if (agency) accountInfo.agency = agency;
+
+  const bankCodeForPix = input.accountInfo.bankCodeForPix?.trim();
+  if (bankCodeForPix) accountInfo.bankCodeForPix = bankCodeForPix;
+
+  const accountType = input.accountInfo.accountType?.trim();
+  if (accountType) accountInfo.accountType = accountType;
+
+  const body: Record<string, unknown> = {
+    currency,
+    apiPaymentMethod,
+    amount: normalizeFiatWithdrawAmount(input.amount),
+    accountInfo,
+  };
+
+  if (input.ext && Object.keys(input.ext).length > 0) {
+    body.ext = input.ext;
+  }
+
+  return body;
+}
+
+/**
+ * Reads CorpX bank account fields for Binance fiat withdraw from env.
+ * Account must already be bound on Binance web/app.
+ */
+export function readBinanceBrlWithdrawAccountInfoFromEnv(): BinanceFiatWithdrawRequest['accountInfo'] {
+  const accountNumber = process.env.BINANCE_BRL_WITHDRAW_ACCOUNT_NUMBER?.trim();
+  if (!accountNumber) {
+    throw new BinanceValidationError(
+      'BINANCE_BRL_WITHDRAW_ACCOUNT_NUMBER is required for Binance BRL fiat withdraw',
+    );
+  }
+
+  return {
+    accountNumber,
+    agency: process.env.BINANCE_BRL_WITHDRAW_AGENCY?.trim() || undefined,
+    bankCodeForPix: process.env.BINANCE_BRL_WITHDRAW_BANK_CODE_FOR_PIX?.trim() || undefined,
+    accountType: process.env.BINANCE_BRL_WITHDRAW_ACCOUNT_TYPE?.trim() || 'current',
+  };
+}
+
+/** Masks account number for UI/plan display (keeps last 4 digits). */
+export function maskBankAccountNumber(accountNumber: string): string {
+  const trimmed = accountNumber.trim();
+  if (trimmed.length <= 4) return '****';
+  return `${'*'.repeat(Math.min(trimmed.length - 4, 8))}${trimmed.slice(-4)}`;
+}
+
+/**
+ * Creates a BRL fiat withdraw order via bank_transfer to a pre-bound account.
+ * Caller should poll get-order-detail until success/failure.
+ */
+export async function createFiatWithdraw(
+  input: BinanceFiatWithdrawRequest,
+  client?: BinanceClient,
+): Promise<BinanceFiatWithdrawData> {
+  const resolved = resolveClient(client);
+  const body = buildFiatWithdrawBody(input);
+  const query = input.recvWindow != null ? { recvWindow: input.recvWindow } : {};
+
+  const response = await resolved.signedPostJson<BinanceFiatApiResponse<BinanceFiatWithdrawData>>(
+    '/sapi/v2/fiat/withdraw',
+    body,
+    query,
+  );
+
+  const data = unwrapFiatApiResponse(response);
+  if (!data || typeof data !== 'object') {
+    throw new BinanceRequestError(200, null, 'Binance fiat withdraw returned empty data', response);
+  }
+
+  const orderId =
+    typeof data.orderId === 'string' && data.orderId.trim()
+      ? data.orderId.trim()
+      : typeof (data as Record<string, unknown>).orderNo === 'string'
+        ? String((data as Record<string, unknown>).orderNo).trim()
+        : '';
+
+  if (!orderId) {
+    throw new BinanceRequestError(
+      200,
+      null,
+      'Binance fiat withdraw response missing orderId',
       response,
     );
   }

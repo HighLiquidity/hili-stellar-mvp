@@ -200,6 +200,8 @@ export type BinanceFiatApiResponse<T = unknown> = {
 
 export type BinanceFiatPaymentMethod = 'Pix';
 
+export type BinanceFiatWithdrawPaymentMethod = 'bank_transfer';
+
 export type BinanceFiatDepositRequest = {
   currency?: 'BRL';
   apiPaymentMethod?: BinanceFiatPaymentMethod;
@@ -210,6 +212,28 @@ export type BinanceFiatDepositRequest = {
 };
 
 export type BinanceFiatDepositData = {
+  orderId: string;
+  [key: string]: unknown;
+};
+
+export type BinanceFiatWithdrawAccountInfo = {
+  accountNumber: string;
+  agency?: string;
+  bankCodeForPix?: string;
+  accountType?: string;
+};
+
+export type BinanceFiatWithdrawRequest = {
+  currency?: 'BRL';
+  apiPaymentMethod?: BinanceFiatWithdrawPaymentMethod;
+  /** Fiat amount in major units (e.g. 20 = R$20). */
+  amount: number | string;
+  accountInfo: BinanceFiatWithdrawAccountInfo;
+  ext?: Record<string, unknown>;
+  recvWindow?: number;
+};
+
+export type BinanceFiatWithdrawData = {
   orderId: string;
   [key: string]: unknown;
 };

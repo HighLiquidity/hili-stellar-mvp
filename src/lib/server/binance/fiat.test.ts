@@ -3,9 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { BinanceRequestError, BinanceValidationError } from './errors';
 import {
   buildFiatDepositBody,
+  buildFiatWithdrawBody,
   createFiatDeposit,
+  createFiatWithdraw,
   getFiatOrderDetail,
   getFiatOrders,
+  maskBankAccountNumber,
   normalizeFiatDepositAmount,
   unwrapFiatApiResponse,
 } from './fiat';
@@ -35,6 +38,47 @@ describe('buildFiatDepositBody', () => {
     expect(() => buildFiatDepositBody({ amount: 10, currency: 'USD' as 'BRL' })).toThrow(
       /BRL only/i,
     );
+  });
+});
+
+describe('buildFiatWithdrawBody', () => {
+  it('builds BRL bank_transfer body', () => {
+    expect(
+      buildFiatWithdrawBody({
+        amount: '20',
+        accountInfo: {
+          accountNumber: '1056894222',
+          agency: '1234',
+          bankCodeForPix: '222',
+          accountType: 'current',
+        },
+      }),
+    ).toEqual({
+      currency: 'BRL',
+      apiPaymentMethod: 'bank_transfer',
+      amount: 20,
+      accountInfo: {
+        accountNumber: '1056894222',
+        agency: '1234',
+        bankCodeForPix: '222',
+        accountType: 'current',
+      },
+    });
+  });
+
+  it('requires accountNumber', () => {
+    expect(() =>
+      buildFiatWithdrawBody({
+        amount: 10,
+        accountInfo: { accountNumber: '' },
+      }),
+    ).toThrow(/accountNumber/i);
+  });
+});
+
+describe('maskBankAccountNumber', () => {
+  it('keeps last 4 digits', () => {
+    expect(maskBankAccountNumber('1056894222')).toBe('******4222');
   });
 });
 
@@ -74,6 +118,35 @@ describe('fiat services', () => {
     expect(signedPostJson).toHaveBeenCalledWith(
       '/sapi/v1/fiat/deposit',
       { currency: 'BRL', apiPaymentMethod: 'Pix', amount: 30 },
+      {},
+    );
+  });
+
+  it('createFiatWithdraw posts JSON body and unwraps orderId', async () => {
+    const signedPostJson = vi.fn().mockResolvedValue({
+      code: '000000',
+      message: 'success',
+      data: { orderId: 'wd-04595xxxxxxxxx37' },
+    });
+
+    await expect(
+      createFiatWithdraw(
+        {
+          amount: 20,
+          accountInfo: { accountNumber: '1056894222', accountType: 'current' },
+        },
+        { signedPostJson } as never,
+      ),
+    ).resolves.toEqual({ orderId: 'wd-04595xxxxxxxxx37' });
+
+    expect(signedPostJson).toHaveBeenCalledWith(
+      '/sapi/v2/fiat/withdraw',
+      {
+        currency: 'BRL',
+        apiPaymentMethod: 'bank_transfer',
+        amount: 20,
+        accountInfo: { accountNumber: '1056894222', accountType: 'current' },
+      },
       {},
     );
   });

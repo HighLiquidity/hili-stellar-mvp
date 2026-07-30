@@ -2335,7 +2335,9 @@ a.user-menu__item {
 
 .treasury-pocket__footer {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
   margin-top: auto;
   padding-top: 4px;
 }

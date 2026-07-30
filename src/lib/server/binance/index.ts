@@ -50,10 +50,15 @@ import {
 } from './withdraw';
 import {
   buildFiatDepositBody,
+  buildFiatWithdrawBody,
   createFiatDeposit,
+  createFiatWithdraw,
   getFiatOrderDetail,
   getFiatOrders,
+  maskBankAccountNumber,
   normalizeFiatDepositAmount,
+  normalizeFiatWithdrawAmount,
+  readBinanceBrlWithdrawAccountInfoFromEnv,
   unwrapFiatApiResponse,
 } from './fiat';
 
@@ -65,7 +70,7 @@ import {
  * - signed account reads
  * - signed spot market order execution by quantity or quote notional
  * - signed capital withdraw request/history/config reads
- * - signed fiat BRL/PIX deposit + order detail/history (smoke / treasury foundation)
+ * - signed fiat BRL/PIX deposit + BRL bank_transfer withdraw + order detail/history
  *
  * Current limitations:
  * - no retry/backoff
@@ -124,10 +129,15 @@ export {
 };
 export {
   createFiatDeposit,
+  createFiatWithdraw,
   getFiatOrderDetail,
   getFiatOrders,
   buildFiatDepositBody,
+  buildFiatWithdrawBody,
   normalizeFiatDepositAmount,
+  normalizeFiatWithdrawAmount,
+  readBinanceBrlWithdrawAccountInfoFromEnv,
+  maskBankAccountNumber,
   unwrapFiatApiResponse,
 };
 export { ping };
@@ -185,10 +195,15 @@ export const binance = {
   },
   fiat: {
     createDeposit: createFiatDeposit,
+    createWithdraw: createFiatWithdraw,
     getOrderDetail: getFiatOrderDetail,
     getOrders: getFiatOrders,
     buildDepositBody: buildFiatDepositBody,
+    buildWithdrawBody: buildFiatWithdrawBody,
     normalizeDepositAmount: normalizeFiatDepositAmount,
+    normalizeWithdrawAmount: normalizeFiatWithdrawAmount,
+    readBrlWithdrawAccountInfoFromEnv: readBinanceBrlWithdrawAccountInfoFromEnv,
+    maskBankAccountNumber,
     unwrapResponse: unwrapFiatApiResponse,
   },
   signer: {
@@ -215,6 +230,10 @@ export type {
   BinanceFiatOrdersData,
   BinanceFiatOrdersQuery,
   BinanceFiatPaymentMethod,
+  BinanceFiatWithdrawAccountInfo,
+  BinanceFiatWithdrawData,
+  BinanceFiatWithdrawPaymentMethod,
+  BinanceFiatWithdrawRequest,
   BinanceGetSpotOrderRequest,
   BinanceMarketOrderByQuoteAmountRequest,
   BinanceNonZeroBalance,

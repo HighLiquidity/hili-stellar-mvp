@@ -6,7 +6,33 @@ export function resolveTreasuryBrlAmount(input: {
   requestedAmountBrl?: string | null;
   corpxAvailable: string;
 }): string {
-  const freeNormalized = normalizeBrlAmount(input.corpxAvailable, 'CorpX available balance');
+  return resolveTreasuryBrlAgainstBalance({
+    requestedAmountBrl: input.requestedAmountBrl,
+    available: input.corpxAvailable,
+    availableLabel: 'CorpX available balance',
+  });
+}
+
+/**
+ * Resolves BRL withdraw amount against Binance free BRL.
+ */
+export function resolveTreasuryBinanceBrlWithdrawAmount(input: {
+  requestedAmountBrl?: string | null;
+  binanceBrlFree: string;
+}): string {
+  return resolveTreasuryBrlAgainstBalance({
+    requestedAmountBrl: input.requestedAmountBrl,
+    available: input.binanceBrlFree,
+    availableLabel: 'Binance BRL free balance',
+  });
+}
+
+function resolveTreasuryBrlAgainstBalance(input: {
+  requestedAmountBrl?: string | null;
+  available: string;
+  availableLabel: string;
+}): string {
+  const freeNormalized = normalizeBrlAmount(input.available, input.availableLabel);
   const rawRequested = input.requestedAmountBrl?.trim();
   const amount = rawRequested
     ? normalizeBrlAmount(rawRequested, 'amount')
@@ -19,7 +45,7 @@ export function resolveTreasuryBrlAmount(input: {
   }
   if (amountNum > freeNum) {
     throw new Error(
-      `amount (${amount}) exceeds CorpX available balance (${freeNormalized}).`,
+      `amount (${amount}) exceeds ${input.availableLabel} (${freeNormalized}).`,
     );
   }
   if (amountNum < 1) {

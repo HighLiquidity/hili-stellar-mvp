@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { runTreasuryBinanceBrlToCorpx } from '@/lib/treasury/brl-receive';
 import { runTreasuryCorpxBrlToBinance } from '@/lib/treasury/brl-transfer';
 import { runTreasuryBinanceRefill } from '@/lib/treasury/refill';
 import { listTreasuryRuns } from '@/lib/treasury/runs-store';
@@ -49,7 +50,8 @@ function parseKind(raw: unknown): TreasuryRunKind | null {
   if (
     raw === 'binance_usdc_refill' ||
     raw === 'binance_xlm_refill' ||
-    raw === 'corpx_brl_to_binance'
+    raw === 'corpx_brl_to_binance' ||
+    raw === 'binance_brl_to_corpx'
   ) {
     return raw;
   }
@@ -94,7 +96,7 @@ export async function POST(request: Request) {
 
     if (!kind) {
       return jsonError(
-        'kind must be binance_usdc_refill, binance_xlm_refill, or corpx_brl_to_binance',
+        'kind must be binance_usdc_refill, binance_xlm_refill, corpx_brl_to_binance, or binance_brl_to_corpx',
         400,
       );
     }
@@ -105,12 +107,31 @@ export async function POST(request: Request) {
     };
 
     try {
-      if (kind === 'corpx_brl_to_binance') {
+      if (kind === 'corpx_brl_to_binance' || kind === 'binance_brl_to_corpx') {
         const amountBrl = readAmountString(body.amountBrl, body.amount);
         if (!body.dryRun && !amountBrl) {
           return jsonError(
             'amountBrl (or amount) is required when dryRun is false.',
             400,
+          );
+        }
+
+        if (kind === 'binance_brl_to_corpx') {
+          const result = await runTreasuryBinanceBrlToCorpx({
+            dryRun: body.dryRun,
+            amountBrl,
+            trigger: 'manual',
+            actor,
+          });
+
+          return NextResponse.json(
+            {
+              dryRun: result.dryRun,
+              plan: result.plan,
+              run: result.run,
+              ...(result.binanceOrder ? { binanceOrder: result.binanceOrder } : {}),
+            },
+            { status: body.dryRun ? 200 : 201 },
           );
         }
 
@@ -162,7 +183,7 @@ export async function POST(request: Request) {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const isValidation =
-        /must be at least|exceeds (Binance|CorpX)|must be a positive|required for treasury|Invalid (USDC|XLM|BRL)|2 decimals/i.test(
+        /must be at least|exceeds (Binance|CorpX)|must be a positive|required for treasury|BINANCE_BRL_WITHDRAW|Invalid (USDC|XLM|BRL)|2 decimals/i.test(
           message,
         );
       return jsonError(message, isValidation ? 400 : 502);

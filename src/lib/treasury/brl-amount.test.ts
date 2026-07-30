@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeBrlAmount, resolveTreasuryBrlAmount } from './brl-amount';
+import {
+  normalizeBrlAmount,
+  resolveTreasuryBinanceBrlWithdrawAmount,
+  resolveTreasuryBrlAmount,
+} from './brl-amount';
 
 describe('normalizeBrlAmount', () => {
   it('accepts up to 2 decimals', () => {
@@ -47,5 +51,24 @@ describe('resolveTreasuryBrlAmount', () => {
         corpxAvailable: '250',
       }),
     ).toThrow(/at least 1 BRL/i);
+  });
+});
+
+describe('resolveTreasuryBinanceBrlWithdrawAmount', () => {
+  it('uses Binance free BRL when amount omitted', () => {
+    expect(
+      resolveTreasuryBinanceBrlWithdrawAmount({
+        binanceBrlFree: '80.00',
+      }),
+    ).toBe('80');
+  });
+
+  it('rejects amount above Binance free', () => {
+    expect(() =>
+      resolveTreasuryBinanceBrlWithdrawAmount({
+        requestedAmountBrl: '100',
+        binanceBrlFree: '50',
+      }),
+    ).toThrow(/exceeds Binance BRL free/i);
   });
 });

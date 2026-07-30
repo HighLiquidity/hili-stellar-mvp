@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useI18n } from '@/lib/i18n';
 import { buildStellarExpertAccountUrl } from '@/lib/stellar/explorer-url';
 import type {
+  TreasuryBrlReceivePlan,
   TreasuryBrlTransferPlan,
   TreasuryRefillAsset,
   TreasuryRefillPlan,
@@ -606,6 +607,259 @@ function BrlTransferModal({
   );
 }
 
+type BrlReceiveModalProps = {
+  open: boolean;
+  onClose: () => void;
+  suggestedFree: string | null;
+  onExecuted: () => Promise<void>;
+  busy: boolean;
+};
+
+function BrlReceiveModal({
+  open,
+  onClose,
+  suggestedFree,
+  onExecuted,
+  busy,
+}: BrlReceiveModalProps) {
+  const { t } = useI18n();
+  const titleId = useId();
+  const [amount, setAmount] = useState('');
+  const [plan, setPlan] = useState<TreasuryBrlReceivePlan | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [isDryRunning, setIsDryRunning] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
+
+  const resetState = useCallback(() => {
+    setAmount('');
+    setPlan(null);
+    setError(null);
+    setMessage(null);
+    setIsDryRunning(false);
+    setIsExecuting(false);
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      resetState();
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isDryRunning && !isExecuting) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose, resetState, isDryRunning, isExecuting]);
+
+  const postReceive = useCallback(
+    async (dryRun: boolean) => {
+      setError(null);
+      setMessage(null);
+      if (dryRun) {
+        setIsDryRunning(true);
+      } else {
+        setIsExecuting(true);
+      }
+
+      try {
+        const token = await getAccessToken();
+        if (!token) {
+          setError(t('pages.treasury.errors.session'));
+          return;
+        }
+
+        const trimmed = amount.trim();
+        const response = await fetch('/api/treasury/runs', {
+          method: 'POST',
+          cache: 'no-store',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            dryRun,
+            kind: 'binance_brl_to_corpx',
+            ...(trimmed
+              ? { amountBrl: trimmed }
+              : dryRun
+                ? {}
+                : { amountBrl: plan?.amountBrl }),
+          }),
+        });
+
+        const body = (await response.json().catch(() => null)) as
+          | {
+              error?: string;
+              plan?: TreasuryBrlReceivePlan;
+              run?: { id: string; status: string };
+              binanceOrder?: { settled?: boolean };
+            }
+          | null;
+
+        if (!response.ok) {
+          setError(body?.error?.trim() || t('pages.treasury.brlReceive.errors.failed'));
+          return;
+        }
+
+        if (body?.plan) {
+          setPlan(body.plan);
+          if (!trimmed) {
+            setAmount(body.plan.amountBrl);
+          }
+        }
+
+        if (dryRun) {
+          setMessage(t('pages.treasury.brlReceive.dryRunSuccess'));
+        } else {
+          setMessage(
+            body?.binanceOrder?.settled
+              ? t('pages.treasury.brlReceive.executeSuccess')
+              : t('pages.treasury.brlReceive.executeSuccessPending'),
+          );
+          setPlan(null);
+          await onExecuted();
+        }
+      } catch {
+        setError(t('pages.treasury.brlReceive.errors.failed'));
+      } finally {
+        setIsDryRunning(false);
+        setIsExecuting(false);
+      }
+    },
+    [amount, onExecuted, plan?.amountBrl, t],
+  );
+
+  if (!open) return null;
+
+  const actionsDisabled = isDryRunning || isExecuting || busy;
+
+  return (
+    <div
+      className="treasury-modal-overlay"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !actionsDisabled) onClose();
+      }}
+    >
+      <div
+        className="treasury-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
+        <header className="treasury-modal__header">
+          <div className="treasury-modal__heading">
+            <h2 id={titleId} className="treasury-modal__title">
+              {t('pages.treasury.brlReceive.title')}
+            </h2>
+            <p className="surface__lead treasury-modal__lead">
+              {t('pages.treasury.brlReceive.description')}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="treasury-modal__close"
+            onClick={onClose}
+            disabled={actionsDisabled}
+            aria-label={t('pages.treasury.brlReceive.close')}
+            title={t('pages.treasury.brlReceive.close')}
+          >
+            <CloseIcon width={16} height={16} aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className="treasury-modal__body">
+          <InputField
+            id="treasury-brl-receive-amount"
+            label={t('pages.treasury.brlReceive.amountLabel')}
+            value={amount}
+            onChange={(event) => {
+              setAmount(event.target.value);
+              setPlan(null);
+              setMessage(null);
+            }}
+            placeholder={
+              suggestedFree
+                ? `${t('pages.treasury.brlReceive.amountPlaceholder')} (${suggestedFree})`
+                : t('pages.treasury.brlReceive.amountPlaceholder')
+            }
+            inputMode="decimal"
+          />
+
+          <div className="treasury-modal__actions">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={actionsDisabled}
+              onClick={() => void postReceive(true)}
+            >
+              {isDryRunning
+                ? t('pages.treasury.brlReceive.dryRunning')
+                : t('pages.treasury.brlReceive.dryRun')}
+            </Button>
+            <Button
+              type="button"
+              disabled={actionsDisabled || !plan || !amount.trim()}
+              onClick={() => void postReceive(false)}
+            >
+              {isExecuting
+                ? t('pages.treasury.brlReceive.executing')
+                : t('pages.treasury.brlReceive.execute')}
+            </Button>
+          </div>
+
+          {error ? (
+            <p className="auth-inline-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {message ? (
+            <p className="form-success-message" role="status">
+              {message}
+            </p>
+          ) : null}
+
+          {plan ? (
+            <div className="treasury-refill-plan">
+              <p className="treasury-refill-plan__title">
+                {t('pages.treasury.brlReceive.planTitle')}
+              </p>
+              <ul className="treasury-refill-plan__list">
+                <li>
+                  {t('pages.treasury.brlReceive.planAmount')}:{' '}
+                  <strong>{formatAmount(plan.amountBrl)} BRL</strong>
+                </li>
+                <li>
+                  {t('pages.treasury.brlReceive.planBinance')}:{' '}
+                  {formatAmount(plan.binanceBrlFree)} BRL
+                </li>
+                <li>
+                  {t('pages.treasury.brlReceive.planCorpx')}:{' '}
+                  {plan.corpxAvailable === 'unavailable'
+                    ? plan.corpxAvailable
+                    : `${formatAmount(plan.corpxAvailable)} BRL`}
+                </li>
+                <li>
+                  {t('pages.treasury.brlReceive.planDestination')}:{' '}
+                  <code>{plan.destinationMasked}</code>
+                </li>
+                <li>
+                  {t('pages.treasury.brlReceive.planPayment')}:{' '}
+                  {t('pages.treasury.brlReceive.planPaymentValue')}
+                </li>
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TreasuryPage() {
   const { t } = useI18n();
   const router = useRouter();
@@ -618,6 +872,7 @@ export function TreasuryPage() {
   const [refreshingPocket, setRefreshingPocket] = useState<TreasuryPocketId | null>(null);
   const [refillOpen, setRefillOpen] = useState(false);
   const [brlTransferOpen, setBrlTransferOpen] = useState(false);
+  const [brlReceiveOpen, setBrlReceiveOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
@@ -818,6 +1073,13 @@ export function TreasuryPage() {
                   onClick={() => setBrlTransferOpen(true)}
                 >
                   {t('pages.treasury.brlTransfer.open')}
+                </button>
+                <button
+                  type="button"
+                  className="treasury-pocket__refill-link"
+                  onClick={() => setBrlReceiveOpen(true)}
+                >
+                  {t('pages.treasury.brlReceive.open')}
                 </button>
               </footer>
             </article>
@@ -1036,6 +1298,16 @@ export function TreasuryPage() {
         open={brlTransferOpen}
         onClose={() => setBrlTransferOpen(false)}
         suggestedAvailable={pockets?.corpx.ok ? pockets.corpx.available : null}
+        busy={isLoading || isRefreshing}
+        onExecuted={async () => {
+          await loadOverview({ silent: true });
+        }}
+      />
+
+      <BrlReceiveModal
+        open={brlReceiveOpen}
+        onClose={() => setBrlReceiveOpen(false)}
+        suggestedFree={pockets?.binance.ok ? pockets.binance.brl.free : null}
         busy={isLoading || isRefreshing}
         onExecuted={async () => {
           await loadOverview({ silent: true });
