@@ -8,7 +8,25 @@ import { resolveTreasuryDepositAddress, resolveTreasuryDepositMemo } from '@/lib
 
 import { listPendingTreasuryRefills } from './pending-refills';
 import { listTreasuryRuns } from './runs-store';
-import type { TreasuryAssetSpot, TreasuryOverviewResponse, TreasuryPocketResult } from './types';
+import type {
+  TreasuryAssetSpot,
+  TreasuryOverviewResponse,
+  TreasuryPocketId,
+  TreasuryPocketRefreshResponse,
+  TreasuryPocketResult,
+  TreasuryPockets,
+} from './types';
+
+export const TREASURY_POCKET_IDS: readonly TreasuryPocketId[] = [
+  'corpx',
+  'binance',
+  'distributor',
+  'brh',
+] as const;
+
+export function isTreasuryPocketId(value: string): value is TreasuryPocketId {
+  return (TREASURY_POCKET_IDS as readonly string[]).includes(value);
+}
 
 function pocketError(error: unknown): TreasuryPocketResult<Record<string, never>> {
   return {
@@ -28,7 +46,7 @@ function findBinanceSpot(
   };
 }
 
-async function loadCorpXPocket(): Promise<TreasuryOverviewResponse['pockets']['corpx']> {
+async function loadCorpXPocket(): Promise<TreasuryPockets['corpx']> {
   try {
     const adapter = await createCorpXAdapterFromEnv();
     const balance = await adapter.queryBalance({ accountId: adapter.accountId });
@@ -42,11 +60,11 @@ async function loadCorpXPocket(): Promise<TreasuryOverviewResponse['pockets']['c
       lastUpdated: balance.lastUpdated,
     };
   } catch (error) {
-    return pocketError(error) as TreasuryOverviewResponse['pockets']['corpx'];
+    return pocketError(error) as TreasuryPockets['corpx'];
   }
 }
 
-async function loadBinancePocket(): Promise<TreasuryOverviewResponse['pockets']['binance']> {
+async function loadBinancePocket(): Promise<TreasuryPockets['binance']> {
   try {
     const client = binance.client.create();
     const account = await binance.account.getAccountInfo(client);
@@ -57,11 +75,11 @@ async function loadBinancePocket(): Promise<TreasuryOverviewResponse['pockets'][
       xlm: findBinanceSpot(account.balances, 'XLM'),
     };
   } catch (error) {
-    return pocketError(error) as TreasuryOverviewResponse['pockets']['binance'];
+    return pocketError(error) as TreasuryPockets['binance'];
   }
 }
 
-async function loadDistributorPocket(): Promise<TreasuryOverviewResponse['pockets']['distributor']> {
+async function loadDistributorPocket(): Promise<TreasuryPockets['distributor']> {
   try {
     const address = resolveTreasuryDepositAddress();
     const network = process.env.ONRAMP_USDC_DISTRIBUTOR_NETWORK?.trim().toUpperCase() || 'XLM';
@@ -80,17 +98,38 @@ async function loadDistributorPocket(): Promise<TreasuryOverviewResponse['pocket
       addressTag,
     };
   } catch (error) {
-    return pocketError(error) as TreasuryOverviewResponse['pockets']['distributor'];
+    return pocketError(error) as TreasuryPockets['distributor'];
   }
 }
 
-async function loadBrhPocket(): Promise<TreasuryOverviewResponse['pockets']['brh']> {
+async function loadBrhPocket(): Promise<TreasuryPockets['brh']> {
   try {
     const balance = await readBrhBalanceAdmin();
     return { ok: true, balance };
   } catch (error) {
-    return pocketError(error) as TreasuryOverviewResponse['pockets']['brh'];
+    return pocketError(error) as TreasuryPockets['brh'];
   }
+}
+
+/** Loads a single proprietary capital pocket (card-level refresh). */
+export async function buildTreasuryPocket(
+  pocket: TreasuryPocketId,
+): Promise<TreasuryPocketRefreshResponse> {
+  const loaders: {
+    [K in TreasuryPocketId]: () => Promise<TreasuryPockets[K]>;
+  } = {
+    corpx: loadCorpXPocket,
+    binance: loadBinancePocket,
+    distributor: loadDistributorPocket,
+    brh: loadBrhPocket,
+  };
+
+  const data = await loaders[pocket]();
+  return {
+    generatedAt: new Date().toISOString(),
+    pocket,
+    data,
+  };
 }
 
 /** Aggregates proprietary capital balances for the treasury admin overview. */

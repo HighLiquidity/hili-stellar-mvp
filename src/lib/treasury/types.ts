@@ -25,39 +25,50 @@ export type TreasuryPendingRefillItem = {
   usdcDeliveredAt: string | null;
 };
 
+export type TreasuryPocketId = 'corpx' | 'binance' | 'distributor' | 'brh';
+
+export type TreasuryPockets = {
+  corpx: TreasuryPocketResult<{
+    accountId: string;
+    available: string;
+    reserved: string;
+    total: string;
+    currency: string;
+    lastUpdated: string;
+  }>;
+  binance: TreasuryPocketResult<{
+    brl: TreasuryAssetSpot;
+    usdc: TreasuryAssetSpot;
+    xlm: TreasuryAssetSpot;
+  }>;
+  distributor: TreasuryPocketResult<{
+    address: string;
+    network: string;
+    horizonUrl: string;
+    stellarNetwork: 'STELLAR_PUBLIC' | 'STELLAR_TESTNET';
+    usdc: string;
+    xlm: string;
+    usdcIssuer: string | null;
+    addressTag: string | null;
+  }>;
+  brh: TreasuryPocketResult<{
+    balance: string;
+  }>;
+};
+
 export type TreasuryOverviewResponse = {
   generatedAt: string;
-  pockets: {
-    corpx: TreasuryPocketResult<{
-      accountId: string;
-      available: string;
-      reserved: string;
-      total: string;
-      currency: string;
-      lastUpdated: string;
-    }>;
-    binance: TreasuryPocketResult<{
-      brl: TreasuryAssetSpot;
-      usdc: TreasuryAssetSpot;
-      xlm: TreasuryAssetSpot;
-    }>;
-    distributor: TreasuryPocketResult<{
-      address: string;
-      network: string;
-      horizonUrl: string;
-      stellarNetwork: 'STELLAR_PUBLIC' | 'STELLAR_TESTNET';
-      usdc: string;
-      xlm: string;
-      usdcIssuer: string | null;
-      addressTag: string | null;
-    }>;
-    brh: TreasuryPocketResult<{
-      balance: string;
-    }>;
-  };
+  pockets: TreasuryPockets;
   pendingRefills: {
     count: number;
     items: TreasuryPendingRefillItem[];
   };
   recentRuns: TreasuryRunRow[];
+};
+
+/** Single-pocket refresh payload (`GET /api/treasury/overview?pocket=`). */
+export type TreasuryPocketRefreshResponse<K extends TreasuryPocketId = TreasuryPocketId> = {
+  generatedAt: string;
+  pocket: K;
+  data: TreasuryPockets[K];
 };

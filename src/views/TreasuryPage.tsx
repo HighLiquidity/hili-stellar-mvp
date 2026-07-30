@@ -16,7 +16,11 @@ import type {
   TreasuryRefillPlan,
 } from '@/lib/treasury/run-types';
 import { treasuryAssetFromKind } from '@/lib/treasury/run-types';
-import type { TreasuryOverviewResponse } from '@/lib/treasury/types';
+import type {
+  TreasuryOverviewResponse,
+  TreasuryPocketId,
+  TreasuryPocketRefreshResponse,
+} from '@/lib/treasury/types';
 
 async function getAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
@@ -42,6 +46,35 @@ function pocketErrorMessage(
 
 function PocketError({ message }: { message: string }) {
   return <p className="treasury-pocket__error">{message}</p>;
+}
+
+type PocketRefreshButtonProps = {
+  pocket: TreasuryPocketId;
+  busy: boolean;
+  disabled?: boolean;
+  onRefresh: (pocket: TreasuryPocketId) => void;
+  label: string;
+};
+
+function PocketRefreshButton({
+  pocket,
+  busy,
+  disabled,
+  onRefresh,
+  label,
+}: PocketRefreshButtonProps) {
+  return (
+    <button
+      type="button"
+      className={`treasury-refresh treasury-refresh--pocket${busy ? ' is-busy' : ''}`}
+      disabled={disabled || busy}
+      onClick={() => onRefresh(pocket)}
+      aria-label={label}
+      title={label}
+    >
+      <RefreshIcon width={14} height={14} aria-hidden="true" />
+    </button>
+  );
 }
 
 type AssetRowProps = {
@@ -577,6 +610,7 @@ export function TreasuryPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshingPocket, setRefreshingPocket] = useState<TreasuryPocketId | null>(null);
   const [refillOpen, setRefillOpen] = useState(false);
   const [brlTransferOpen, setBrlTransferOpen] = useState(false);
 
@@ -627,6 +661,51 @@ export function TreasuryPage() {
     }
   }, [t]);
 
+  const refreshPocket = useCallback(
+    async (pocket: TreasuryPocketId) => {
+      setLoadError(null);
+      setRefreshingPocket(pocket);
+
+      try {
+        const token = await getAccessToken();
+        if (!token) {
+          setLoadError(t('pages.treasury.errors.session'));
+          return;
+        }
+
+        const response = await fetch(`/api/treasury/overview?pocket=${pocket}`, {
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as { error?: string } | null;
+          setLoadError(body?.error?.trim() || t('pages.treasury.errors.loadFailed'));
+          return;
+        }
+
+        const json = (await response.json()) as TreasuryPocketRefreshResponse;
+        setOverview((previous) => {
+          if (!previous) {
+            return previous;
+          }
+          return {
+            ...previous,
+            pockets: {
+              ...previous.pockets,
+              [json.pocket]: json.data,
+            } as TreasuryOverviewResponse['pockets'],
+          };
+        });
+      } catch {
+        setLoadError(t('pages.treasury.errors.loadFailed'));
+      } finally {
+        setRefreshingPocket(null);
+      }
+    },
+    [t],
+  );
+
   useEffect(() => {
     if (authLoading || !isAuthorized || profile?.role !== 'admin') return;
     void loadOverview();
@@ -662,6 +741,9 @@ export function TreasuryPage() {
     XLM: pockets?.binance.ok ? pockets.binance.xlm.free : null,
   };
 
+  const pocketRefreshBusy = refreshingPocket != null;
+  const globalBusy = isLoading || isRefreshing || pocketRefreshBusy;
+
   return (
     <section className="dashboard-layout treasury-page">
       <article className="surface treasury-page__intro">
@@ -679,7 +761,7 @@ export function TreasuryPage() {
           <button
             type="button"
             className={`treasury-refresh${isRefreshing ? ' is-busy' : ''}`}
-            disabled={isLoading || isRefreshing}
+            disabled={globalBusy}
             onClick={() => void loadOverview({ silent: true })}
             aria-label={t('pages.treasury.refresh')}
             title={t('pages.treasury.refresh')}
@@ -703,8 +785,15 @@ export function TreasuryPage() {
         <>
           <div className="treasury-summary-grid">
             <article className="surface treasury-pocket">
-              <header className="treasury-pocket__header">
+              <header className="treasury-pocket__header treasury-pocket__header--row">
                 <span className="treasury-pocket__label">{t('pages.treasury.pockets.corpx')}</span>
+                <PocketRefreshButton
+                  pocket="corpx"
+                  busy={refreshingPocket === 'corpx'}
+                  disabled={globalBusy && refreshingPocket !== 'corpx'}
+                  onRefresh={(id) => void refreshPocket(id)}
+                  label={t('pages.treasury.refreshPocket')}
+                />
               </header>
               {pockets?.corpx.ok ? (
                 <div className="treasury-pocket__assets">
@@ -729,8 +818,15 @@ export function TreasuryPage() {
             </article>
 
             <article className="surface treasury-pocket">
-              <header className="treasury-pocket__header">
+              <header className="treasury-pocket__header treasury-pocket__header--row">
                 <span className="treasury-pocket__label">{t('pages.treasury.pockets.binance')}</span>
+                <PocketRefreshButton
+                  pocket="binance"
+                  busy={refreshingPocket === 'binance'}
+                  disabled={globalBusy && refreshingPocket !== 'binance'}
+                  onRefresh={(id) => void refreshPocket(id)}
+                  label={t('pages.treasury.refreshPocket')}
+                />
               </header>
               {pockets?.binance.ok ? (
                 <div className="treasury-pocket__assets">
@@ -761,8 +857,8 @@ export function TreasuryPage() {
 
             <article className="surface treasury-pocket">
               <header className="treasury-pocket__header treasury-pocket__header--row">
-                <span className="treasury-pocket__label">{t('pages.treasury.pockets.distributor')}</span>
-                <div className="treasury-pocket__header-actions">
+                <div className="treasury-pocket__title">
+                  <span className="treasury-pocket__label">{t('pages.treasury.pockets.distributor')}</span>
                   {distributorExplorerUrl ? (
                     <a
                       className="treasury-pocket__explorer-icon"
@@ -776,6 +872,13 @@ export function TreasuryPage() {
                     </a>
                   ) : null}
                 </div>
+                <PocketRefreshButton
+                  pocket="distributor"
+                  busy={refreshingPocket === 'distributor'}
+                  disabled={globalBusy && refreshingPocket !== 'distributor'}
+                  onRefresh={(id) => void refreshPocket(id)}
+                  label={t('pages.treasury.refreshPocket')}
+                />
               </header>
               {pockets?.distributor.ok ? (
                 <div className="treasury-pocket__assets">
@@ -799,10 +902,17 @@ export function TreasuryPage() {
             </article>
 
             <article className="surface treasury-pocket treasury-pocket--muted">
-              <header className="treasury-pocket__header">
+              <header className="treasury-pocket__header treasury-pocket__header--row">
                 <span className="treasury-pocket__label" title={t('pages.treasury.brhHint')}>
                   {t('pages.treasury.pockets.brh')}
                 </span>
+                <PocketRefreshButton
+                  pocket="brh"
+                  busy={refreshingPocket === 'brh'}
+                  disabled={globalBusy && refreshingPocket !== 'brh'}
+                  onRefresh={(id) => void refreshPocket(id)}
+                  label={t('pages.treasury.refreshPocket')}
+                />
               </header>
               {pockets?.brh.ok ? (
                 <div className="treasury-pocket__assets">

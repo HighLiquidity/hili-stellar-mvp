@@ -2250,6 +2250,12 @@ a.user-menu__item {
   animation: treasury-refresh-spin 0.8s linear infinite;
 }
 
+.treasury-refresh--pocket {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+
 @keyframes treasury-refresh-spin {
   to {
     transform: rotate(360deg);
@@ -2286,6 +2292,13 @@ a.user-menu__item {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.treasury-pocket__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
 }
 
 .treasury-pocket__header-actions {
