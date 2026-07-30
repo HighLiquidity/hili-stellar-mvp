@@ -2,14 +2,26 @@ import '@/lib/server/only';
 
 import { createCorpXAdapterFromEnv } from '@/lib/corpx/adapter';
 import type { CorpXPIXKeyType } from '@/lib/corpx/pix/types';
+import { parsePixEmv } from '@/lib/pix/emv-parser';
 import { binance } from '@/lib/server/binance';
 
 import { resolveTreasuryBrlAmount } from './brl-amount';
 import {
-  extractPixEmvFromUnknown,
-  extractPixKeyFromUnknown,
-  summarizeFiatOrderDetail,
-} from './pix-emv-extract';
+  assertCorpXPixOutAccepted,
+  BINANCE_FIAT_PIX_POLL_MAX_MS,
+  BINANCE_FIAT_PIX_POLL_MS,
+  BINANCE_FIAT_SETTLEMENT_POLL_MAX_MS,
+  BINANCE_FIAT_SETTLEMENT_POLL_MS,
+  describeSettlementProbe,
+  formatMissingPixError,
+  isBinanceFiatOrderFailed,
+  isBinanceFiatOrderPaid,
+  readFiatOrderStatus,
+  resolvePixPaymentFromOrderDetail,
+  type ResolvedPixPayment,
+  type SettlementProbeResult,
+} from './brl-transfer-pix';
+import { summarizeFiatOrderDetail } from './pix-emv-extract';
 import { insertTreasuryRun, updateTreasuryRun } from './runs-store';
 import type {
   TreasuryBrlTransferPlan,
@@ -18,10 +30,16 @@ import type {
   TreasuryRunStep,
 } from './run-types';
 
+export { summarizeFiatOrderDetail } from './pix-emv-extract';
+
+export {
+  assertCorpXPixOutAccepted,
+  resolvePixPaymentFromOrderDetail,
+} from './brl-transfer-pix';
+
 export {
   extractPixEmvFromUnknown,
   extractPixKeyFromUnknown,
-  summarizeFiatOrderDetail,
 } from './pix-emv-extract';
 
 function nowIso(): string {
@@ -40,49 +58,64 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const ORDER_DETAIL_POLL_ATTEMPTS = 8;
-const ORDER_DETAIL_POLL_MS = 1500;
-
-type ResolvedPixPayment =
-  | { mode: 'emv'; emv: string }
-  | { mode: 'key'; key: string; keyType: CorpXPIXKeyType };
+function throwIfBinanceOrderFailed(orderId: string, detail: unknown): void {
+  if (!isBinanceFiatOrderFailed(detail)) return;
+  throw new Error(
+    `Binance fiat deposit order ${orderId} failed. ${summarizeFiatOrderDetail(detail)}`,
+  );
+}
 
 async function waitForBinanceFiatPixPayment(
   orderId: string,
 ): Promise<{ detail: unknown; payment: ResolvedPixPayment | null }> {
+  const deadline = Date.now() + BINANCE_FIAT_PIX_POLL_MAX_MS;
   let detail: unknown = null;
-  for (let attempt = 1; attempt <= ORDER_DETAIL_POLL_ATTEMPTS; attempt += 1) {
+
+  while (Date.now() <= deadline) {
     detail = await binance.fiat.getOrderDetail(orderId);
+    throwIfBinanceOrderFailed(orderId, detail);
 
-    if (detail && typeof detail === 'object') {
-      const record = detail as Record<string, unknown>;
-      const errorCode = typeof record.errorCode === 'string' ? record.errorCode.trim() : '';
-      const errorMessage =
-        typeof record.errorMessage === 'string' ? record.errorMessage.trim() : '';
-      if (errorCode && errorCode !== '0' && errorCode !== '000000') {
-        throw new Error(
-          `Binance fiat deposit order ${orderId} failed: errorCode=${errorCode}` +
-            (errorMessage ? ` errorMessage=${errorMessage}` : ''),
-        );
-      }
+    const payment = resolvePixPaymentFromOrderDetail(detail);
+    if (payment) {
+      return { detail, payment };
     }
 
-    const emv = extractPixEmvFromUnknown(detail);
-    if (emv) {
-      return { detail, payment: { mode: 'emv', emv } };
+    if (Date.now() + BINANCE_FIAT_PIX_POLL_MS > deadline) {
+      break;
     }
-
-    const pixKey = extractPixKeyFromUnknown(detail);
-    if (pixKey) {
-      return { detail, payment: { mode: 'key', key: pixKey, keyType: 'EVP' } };
-    }
-
-    if (attempt < ORDER_DETAIL_POLL_ATTEMPTS) {
-      await sleep(ORDER_DETAIL_POLL_MS);
-    }
+    await sleep(BINANCE_FIAT_PIX_POLL_MS);
   }
 
   return { detail, payment: null };
+}
+
+async function probeBinanceFiatSettlement(orderId: string): Promise<SettlementProbeResult> {
+  const deadline = Date.now() + BINANCE_FIAT_SETTLEMENT_POLL_MAX_MS;
+  let detail: unknown = null;
+
+  while (Date.now() <= deadline) {
+    detail = await binance.fiat.getOrderDetail(orderId);
+    throwIfBinanceOrderFailed(orderId, detail);
+
+    if (isBinanceFiatOrderPaid(detail)) {
+      return {
+        detail,
+        paid: true,
+        status: readFiatOrderStatus(detail),
+      };
+    }
+
+    if (Date.now() + BINANCE_FIAT_SETTLEMENT_POLL_MS > deadline) {
+      break;
+    }
+    await sleep(BINANCE_FIAT_SETTLEMENT_POLL_MS);
+  }
+
+  return {
+    detail,
+    paid: false,
+    status: readFiatOrderStatus(detail),
+  };
 }
 
 function readFallbackPixKey(): { key: string; keyType: CorpXPIXKeyType } | null {
@@ -93,6 +126,15 @@ function readFallbackPixKey(): { key: string; keyType: CorpXPIXKeyType } | null 
   const allowed: CorpXPIXKeyType[] = ['CPF', 'CNPJ', 'EMAIL', 'PHONE', 'EVP'];
   const keyType = allowed.includes(rawType) ? rawType : 'EVP';
   return { key, keyType };
+}
+
+/** When EMV already embeds tag 54, omit amount so CorpX does not reject a conflicting body. */
+function amountForEmvPayout(emv: string, plannedAmount: string): string | undefined {
+  const parsed = parsePixEmv(emv);
+  if (parsed.ok && parsed.data.amountBrl) {
+    return undefined;
+  }
+  return plannedAmount;
 }
 
 export async function buildTreasuryBrlTransferPlan(
@@ -141,6 +183,7 @@ export type TreasuryBrlTransferResult = {
     orderId: string;
     detail: unknown;
     emvFound: boolean;
+    settled?: boolean;
   };
 };
 
@@ -212,11 +255,14 @@ export async function runTreasuryCorpxBrlToBinance(
     if (payment?.mode === 'emv') {
       const payout = await adapter.pix.payPaymentQrEmv({
         emv: payment.emv,
-        amount: plan.amountBrl,
+        amount: amountForEmvPayout(payment.emv, plan.amountBrl),
         description: `Treasury BRL→Binance ${run.id}`,
         idempotencyKey,
         correlationId: run.id,
       });
+      assertCorpXPixOutAccepted(payout);
+
+      const settlement = await probeBinanceFiatSettlement(deposit.orderId);
 
       run = await updateTreasuryRun(run.id, {
         status: 'completed',
@@ -224,12 +270,17 @@ export async function runTreasuryCorpxBrlToBinance(
         binanceWithdrawId: payout.providerTxId || payout.e2eId || null,
         steps: [
           ...run.steps,
-          step('read_binance_order_detail', 'ok', 'emv_found'),
+          step(
+            'read_binance_order_detail',
+            'ok',
+            `emv_found status=${readFiatOrderStatus(detail) || 'unknown'}`,
+          ),
           step(
             'corpx_pix_out',
             'ok',
             `providerTxId=${payout.providerTxId} e2e=${payout.e2eId} status=${payout.status}`,
           ),
+          step('binance_settlement_probe', 'ok', describeSettlementProbe(settlement)),
         ],
         error: null,
       });
@@ -238,7 +289,12 @@ export async function runTreasuryCorpxBrlToBinance(
         dryRun: false,
         plan,
         run,
-        binanceOrder: { orderId: deposit.orderId, detail, emvFound: true },
+        binanceOrder: {
+          orderId: deposit.orderId,
+          detail: settlement.detail ?? detail,
+          emvFound: true,
+          settled: settlement.paid,
+        },
       };
     }
 
@@ -251,6 +307,9 @@ export async function runTreasuryCorpxBrlToBinance(
         idempotencyKey,
         correlationId: run.id,
       });
+      assertCorpXPixOutAccepted(payout);
+
+      const settlement = await probeBinanceFiatSettlement(deposit.orderId);
 
       run = await updateTreasuryRun(run.id, {
         status: 'completed',
@@ -268,6 +327,7 @@ export async function runTreasuryCorpxBrlToBinance(
             'ok',
             `providerTxId=${payout.providerTxId} e2e=${payout.e2eId} status=${payout.status}`,
           ),
+          step('binance_settlement_probe', 'ok', describeSettlementProbe(settlement)),
         ],
         error: null,
       });
@@ -276,15 +336,16 @@ export async function runTreasuryCorpxBrlToBinance(
         dryRun: false,
         plan,
         run,
-        binanceOrder: { orderId: deposit.orderId, detail, emvFound: false },
+        binanceOrder: {
+          orderId: deposit.orderId,
+          detail: settlement.detail ?? detail,
+          emvFound: false,
+          settled: settlement.paid,
+        },
       };
     }
 
-    throw new Error(
-      `Binance fiat deposit created (orderId=${deposit.orderId}) but no PIX EMV/key was found after polling. ` +
-        `${summarizeFiatOrderDetail(detail)}. ` +
-        `Inspect GET /api/binance/fiat/order?orderNo=${deposit.orderId}, set BINANCE_BRL_DEPOSIT_PIX_KEY, or pay the order manually in Binance.`,
-    );
+    throw new Error(formatMissingPixError(deposit.orderId, detail));
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     run = await updateTreasuryRun(run.id, {

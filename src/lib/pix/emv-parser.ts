@@ -30,7 +30,7 @@ function parseTlvBlock(payload: string, start: number, end: number): Map<string,
 function extractPixKeyFromMerchantAccount(block: string): string | null {
   const nested = parseTlvBlock(block, 0, block.length);
   const gui = nested.get('00');
-  if (gui !== 'br.gov.bcb.pix') return null;
+  if (gui?.toLowerCase() !== 'br.gov.bcb.pix') return null;
 
   const key = nested.get('01')?.trim();
   if (key) return key;

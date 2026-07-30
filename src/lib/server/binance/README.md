@@ -65,11 +65,12 @@ Admin routes (Bearer admin token), preferably from the production IP allowlist:
 3. `GET /api/binance/fiat/order?orderNo=<id>` — inspect response for PIX fields (`qr`, `emv`, `qrCode`, `pixKey`, `ext`, …)
 4. Record finding: “PIX utilizável via API?” yes/no → unlocks CorpX→Binance treasury design
 
-**Known prod finding (2026-07-29):** `get-order-detail` returned
-`orderId, orderStatus, amount, fee, fiatCurrency, errorCode, errorMessage, ext`
-without an EMV/QR. Treasury transfer now polls detail (~8×1.5s) and accepts
-EMV or pix key nested under `ext`; if still empty, set `BINANCE_BRL_DEPOSIT_PIX_KEY`
-or pay the order manually in Binance.
+**Known prod finding (2026-07-29):** `get-order-detail` may first return
+`ORDER_INITIAL` with empty `ext`, then `ORDER_NEED_ADDITIONAL_ACTION` with
+`ext.qrCode` (uppercase `BR.GOV.BCB.PIX`). Treasury transfer polls up to ~60s for
+EMV/key, omits CorpX `amount` when the EMV already has tag 54, requires CorpX
+`transactionId`/`endToEndId` before marking success, then probes Binance settlement.
+If EMV never appears, set `BINANCE_BRL_DEPOSIT_PIX_KEY` or pay the order manually.
 
 Do **not** automate payment from CorpX until step 3 documents a usable PIX payload (or a static PIX key fallback is chosen).
 

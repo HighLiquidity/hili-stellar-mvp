@@ -724,7 +724,9 @@ const dictionaries: Record<Locale, TranslationTree> = {
           execute: 'Executar envio',
           executing: 'Executando…',
           dryRunSuccess: 'Simulação concluída. Revise o plano e confirme a execução.',
-          executeSuccess: 'Envio CorpX → Binance solicitado. Acompanhe em Execuções recentes.',
+          executeSuccess: 'PIX CorpX enviado. Confirme se o BRL creditou na Binance (pode levar alguns minutos).',
+          executeSuccessPending:
+            'CorpX aceitou o PIX, mas a Binance ainda não confirmou o crédito. Atualize os bolsos e verifique a ordem fiat.',
           planTitle: 'Plano',
           planAmount: 'Valor',
           planCorpx: 'Disponível na CorpX',
@@ -1888,7 +1890,10 @@ const dictionaries: Record<Locale, TranslationTree> = {
           execute: 'Execute transfer',
           executing: 'Executing…',
           dryRunSuccess: 'Simulation complete. Review the plan and confirm execution.',
-          executeSuccess: 'CorpX → Binance transfer requested. Track it under Recent runs.',
+          executeSuccess:
+            'CorpX PIX sent. Confirm BRL credited on Binance (may take a few minutes).',
+          executeSuccessPending:
+            'CorpX accepted the PIX, but Binance has not confirmed credit yet. Refresh pockets and check the fiat order.',
           planTitle: 'Plan',
           planAmount: 'Amount',
           planCorpx: 'Available on CorpX',
