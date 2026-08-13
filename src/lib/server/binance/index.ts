@@ -9,20 +9,24 @@ import {
   getBinanceConfig,
   getBinanceSignedConfig,
   isBinanceConfigured,
+  listBinanceEgressProfiles,
 } from './config';
 import {
   BinanceClient,
   buildSignedBinancePayload,
   createBinanceClient,
   parseBinanceErrorPayload,
+  resetBinanceEgressState,
   serializeBinanceParams,
 } from './client';
 import {
+  BINANCE_IP_RESTRICTION_CODE,
   BinanceConfigError,
   BinanceError,
   BinanceNotImplementedError,
   BinanceRequestError,
   BinanceValidationError,
+  isBinanceIpRestrictionError,
 } from './errors';
 import { ping } from './health';
 import { filterNonZeroBalances, getAccountInfo, getNonZeroBalances } from './account';
@@ -73,7 +77,7 @@ import {
  * - signed fiat BRL/PIX deposit + BRL bank_transfer withdraw + order detail/history
  *
  * Current limitations:
- * - no retry/backoff
+ * - no generic retry/backoff (signed calls retry once on -2015 when a secondary egress profile is configured)
  * - no caching
  * - no exchange-info driven symbol/lot-size validation
  * - no business-level guardrails before order placement
@@ -89,6 +93,7 @@ export {
   getBinanceSignedConfig,
   assertBinanceCredentials,
   isBinanceConfigured,
+  listBinanceEgressProfiles,
 };
 export {
   BinanceClient,
@@ -96,13 +101,16 @@ export {
   serializeBinanceParams,
   buildSignedBinancePayload,
   parseBinanceErrorPayload,
+  resetBinanceEgressState,
 };
 export {
+  BINANCE_IP_RESTRICTION_CODE,
   BinanceError,
   BinanceConfigError,
   BinanceNotImplementedError,
   BinanceRequestError,
   BinanceValidationError,
+  isBinanceIpRestrictionError,
 };
 export { signBinanceMessage, signBinanceQuery, appendBinanceSignature };
 export {
@@ -153,6 +161,7 @@ export const binance = {
     getSigned: getBinanceSignedConfig,
     assertCredentials: assertBinanceCredentials,
     isConfigured: isBinanceConfigured,
+    listEgressProfiles: listBinanceEgressProfiles,
     defaults: {
       baseUrl: DEFAULT_BINANCE_BASE_URL,
       timeoutMs: DEFAULT_BINANCE_TIMEOUT_MS,
@@ -163,6 +172,8 @@ export const binance = {
     serializeParams: serializeBinanceParams,
     buildSignedPayload: buildSignedBinancePayload,
     parseErrorPayload: parseBinanceErrorPayload,
+    resetEgressState: resetBinanceEgressState,
+    isIpRestrictionError: isBinanceIpRestrictionError,
   },
   health: {
     ping,
@@ -214,7 +225,13 @@ export const binance = {
 } as const;
 
 export type BinanceModule = typeof binance;
-export type { BinanceConfig, BinanceSignedConfig } from './config';
+export type {
+  BinanceConfig,
+  BinanceEgressProfile,
+  BinanceEgressProfileId,
+  BinanceSecondaryCredentials,
+  BinanceSignedConfig,
+} from './config';
 export type { BinanceParsedErrorPayload, BinanceRequestParams } from './client';
 export type {
   BinanceAccountBalance,

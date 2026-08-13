@@ -12,6 +12,15 @@ Server-only integration layer for Binance spot REST endpoints used by the MVP.
   - Required for signed endpoints such as account and order routes.
 - `BINANCE_API_SECRET`
   - Required for signed endpoints such as account and order routes.
+- `BINANCE_LOCAL_ADDRESS`
+  - Optional.
+  - Host IPv4/IPv6 used as the TCP source address for Binance requests.
+  - Must be an address assigned to the production NIC.
+- `BINANCE_API_KEY_SECONDARY` / `BINANCE_API_SECRET_SECONDARY`
+  - Optional second API key of the **same** Binance account, bound to the other production egress IP.
+  - Both must be set together. When present, signed calls retry **once** on Binance `-2015` (invalid API-key / IP / permissions) with this profile.
+- `BINANCE_LOCAL_ADDRESS_SECONDARY`
+  - Optional source address for the secondary profile.
 - `BINANCE_TIMEOUT`
   - Optional.
   - Timeout in milliseconds for each Binance request.
@@ -43,7 +52,7 @@ Server-only integration layer for Binance spot REST endpoints used by the MVP.
 
 ## Current limitations
 
-- No retry or backoff for transient upstream failures
+- No generic retry or backoff for transient upstream failures. The only retry is a single signed-call failover on `-2015` when a secondary egress profile is configured. Timeouts, 5xx, and other codes are not retried (fiat SAPI has no client idempotency key).
 - No cache layer for market/account data
 - No exchange-info validation for precision, lot size, min notional, or symbol status
 - No business-level guardrails before order placement
@@ -94,3 +103,4 @@ Do **not** automate Binance→CorpX withdraw until withdraw smoke above succeeds
 - Never expose Binance keys through `NEXT_PUBLIC_*`.
 - Route handlers should avoid returning stack traces or raw upstream payloads.
 - Do not log request payloads that could be correlated with sensitive trading operations unless properly redacted.
+- Dual egress keys must belong to the same Binance account. Failover reuses the original `newClientOrderId` / `withdrawOrderId` and only runs after a `-2015` rejection (request was not authorized).

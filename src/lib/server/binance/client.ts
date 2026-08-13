@@ -1,7 +1,16 @@
 import '@/lib/server/only';
 
-import { assertBinanceCredentials, getBinanceConfig, type BinanceConfig } from './config';
-import { BinanceRequestError } from './errors';
+import { Agent, fetch as undiciFetch } from 'undici';
+
+import {
+  assertBinanceCredentials,
+  getBinanceConfig,
+  listBinanceEgressProfiles,
+  type BinanceConfig,
+  type BinanceEgressProfile,
+  type BinanceEgressProfileId,
+} from './config';
+import { BinanceRequestError, isBinanceIpRestrictionError } from './errors';
 import { signBinanceMessage } from './signer';
 
 type BinanceParamValue = string | number | boolean | null | undefined;
@@ -14,6 +23,28 @@ export type BinanceParsedErrorPayload = {
 };
 
 type BinanceRequestMethod = 'GET' | 'POST';
+
+const agents = new Map<string, Agent>();
+
+let activeEgressProfileId: BinanceEgressProfileId = 'primary';
+
+/** Resets process-level egress sticky state. Used by unit tests. */
+export function resetBinanceEgressState(): void {
+  activeEgressProfileId = 'primary';
+}
+
+function getAgent(localAddress: string | null): Agent {
+  const key = localAddress ?? '';
+  const cached = agents.get(key);
+  if (cached) return cached;
+
+  const options: Agent.Options = localAddress
+    ? { connect: { localAddress } as NonNullable<Agent.Options['connect']> }
+    : {};
+  const agent = new Agent(options);
+  agents.set(key, agent);
+  return agent;
+}
 
 /** Pure serializer used by signed/public request builders and unit tests. */
 export function serializeBinanceParams(params: BinanceRequestParams = {}): URLSearchParams {
@@ -64,7 +95,11 @@ export function parseBinanceErrorPayload(text: string): BinanceParsedErrorPayloa
   }
 }
 
-async function parseJsonResponse<T>(response: Response): Promise<T> {
+async function parseJsonResponse<T>(response: {
+  ok: boolean;
+  status: number;
+  text: () => Promise<string>;
+}): Promise<T> {
   const text = await response.text().catch(() => '');
 
   if (!response.ok) {
@@ -95,15 +130,15 @@ export class BinanceClient {
   }
 
   async publicGet<T>(path: string, params?: BinanceRequestParams): Promise<T> {
-    return this.request<T>('GET', path, params, false);
+    return this.dispatchPublic<T>('GET', path, params ?? {});
   }
 
   async signedGet<T>(path: string, params?: BinanceRequestParams): Promise<T> {
-    return this.request<T>('GET', path, params, true);
+    return this.withEgressFailover((profile) => this.dispatchSigned<T>('GET', path, params ?? {}, profile));
   }
 
   async signedPost<T>(path: string, params?: BinanceRequestParams): Promise<T> {
-    return this.request<T>('POST', path, params, true);
+    return this.withEgressFailover((profile) => this.dispatchSigned<T>('POST', path, params ?? {}, profile));
   }
 
   /**
@@ -115,76 +150,126 @@ export class BinanceClient {
     body: Record<string, unknown>,
     query: BinanceRequestParams = {},
   ): Promise<T> {
-    const config = this.config;
-    assertBinanceCredentials(config);
-
-    const url = new URL(path, `${this.config.baseUrl}/`);
-    const searchParams = serializeBinanceParams(query);
-    if (!searchParams.has('timestamp')) {
-      searchParams.set('timestamp', String(Date.now()));
-    }
-
-    url.search = buildSignedBinancePayload(searchParams, config.apiSecret);
-
-    const headers = new Headers({
-      'X-MBX-APIKEY': config.apiKey,
-      'Content-Type': 'application/json',
-    });
-
-    return this.executeFetch<T>('POST', url, headers, JSON.stringify(body));
+    return this.withEgressFailover((profile) => this.dispatchSignedPostJson<T>(path, body, query, profile));
   }
 
-  private async request<T>(
+  private async withEgressFailover<T>(
+    execute: (profile: BinanceEgressProfile) => Promise<T>,
+  ): Promise<T> {
+    assertBinanceCredentials(this.config);
+    const profiles = listBinanceEgressProfiles(this.config);
+    const first =
+      profiles.find((profile) => profile.id === activeEgressProfileId) ?? profiles[0];
+
+    if (!first) {
+      throw new BinanceRequestError(0, null, 'No Binance egress profile is configured', null);
+    }
+
+    try {
+      const result = await execute(first);
+      activeEgressProfileId = first.id;
+      return result;
+    } catch (error) {
+      if (!isBinanceIpRestrictionError(error)) {
+        throw error;
+      }
+
+      const other = profiles.find((profile) => profile.id !== first.id);
+      if (!other) {
+        throw error;
+      }
+
+      console.warn(
+        `[binance] IP restriction (${String(error.code)}) on egress profile ${first.id}; retrying once with ${other.id}`,
+      );
+
+      const result = await execute(other);
+      activeEgressProfileId = other.id;
+      return result;
+    }
+  }
+
+  private async dispatchPublic<T>(
     method: BinanceRequestMethod,
     path: string,
-    params: BinanceRequestParams = {},
-    signed: boolean,
+    params: BinanceRequestParams,
+  ): Promise<T> {
+    const url = new URL(path, `${this.config.baseUrl}/`);
+    const searchParams = serializeBinanceParams(params);
+    if (searchParams.size > 0) {
+      url.search = searchParams.toString();
+    }
+
+    return this.executeFetch<T>(method, url, new Headers(), undefined, null);
+  }
+
+  private async dispatchSigned<T>(
+    method: BinanceRequestMethod,
+    path: string,
+    params: BinanceRequestParams,
+    profile: BinanceEgressProfile,
   ): Promise<T> {
     const url = new URL(path, `${this.config.baseUrl}/`);
     const headers = new Headers();
     const searchParams = serializeBinanceParams(params);
     let body: string | undefined;
 
-    if (signed) {
-      const config = this.config;
-      assertBinanceCredentials(config);
+    headers.set('X-MBX-APIKEY', profile.apiKey);
 
-      headers.set('X-MBX-APIKEY', config.apiKey);
-
-      if (!searchParams.has('timestamp')) {
-        searchParams.set('timestamp', String(Date.now()));
-      }
-
-      const signedPayload = buildSignedBinancePayload(searchParams, config.apiSecret);
-      if (method === 'GET') {
-        url.search = signedPayload;
-      } else {
-        headers.set('Content-Type', 'application/x-www-form-urlencoded;charset=UTF-8');
-        body = signedPayload;
-      }
-    } else if (searchParams.size > 0) {
-      url.search = searchParams.toString();
+    if (!searchParams.has('timestamp')) {
+      searchParams.set('timestamp', String(Date.now()));
     }
 
-    return this.executeFetch<T>(method, url, headers, body);
+    const signedPayload = buildSignedBinancePayload(searchParams, profile.apiSecret);
+    if (method === 'GET') {
+      url.search = signedPayload;
+    } else {
+      headers.set('Content-Type', 'application/x-www-form-urlencoded;charset=UTF-8');
+      body = signedPayload;
+    }
+
+    return this.executeFetch<T>(method, url, headers, body, profile.localAddress);
+  }
+
+  private async dispatchSignedPostJson<T>(
+    path: string,
+    body: Record<string, unknown>,
+    query: BinanceRequestParams,
+    profile: BinanceEgressProfile,
+  ): Promise<T> {
+    const url = new URL(path, `${this.config.baseUrl}/`);
+    const searchParams = serializeBinanceParams(query);
+    if (!searchParams.has('timestamp')) {
+      searchParams.set('timestamp', String(Date.now()));
+    }
+
+    url.search = buildSignedBinancePayload(searchParams, profile.apiSecret);
+
+    const headers = new Headers({
+      'X-MBX-APIKEY': profile.apiKey,
+      'Content-Type': 'application/json',
+    });
+
+    return this.executeFetch<T>('POST', url, headers, JSON.stringify(body), profile.localAddress);
   }
 
   private async executeFetch<T>(
     method: BinanceRequestMethod,
     url: URL,
     headers: Headers,
-    body?: string,
+    body: string | undefined,
+    localAddress: string | null,
   ): Promise<T> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeoutMs);
 
     try {
-      const response = await fetch(url.toString(), {
+      const response = await undiciFetch(url.toString(), {
         method,
         headers,
         body,
         signal: controller.signal,
-        cache: 'no-store',
+        dispatcher: getAgent(localAddress),
       });
 
       return parseJsonResponse<T>(response);

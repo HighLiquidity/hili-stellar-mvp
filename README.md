@@ -82,7 +82,7 @@ Copie `.env.example` para `.env.local`. Grupos principais:
 | **Site** | `NEXT_PUBLIC_SITE_URL` | Redirects e callbacks |
 | **CorpX** | `CORPX_AUTH_URL`, `CORPX_CLIENT_ID`, `CORPX_CLIENT_SECRET`, `CORPX_TENANT_ID`, `CORPX_API_URL`, `CORPX_ACCOUNT_ID`, `CORPX_PIX_KEY` | PIX dinâmico e webhooks |
 | **Ramp** | `RAMP_API_BASE_URL`, `RAMP_API_KEY`, `RAMP_CALLBACK_SECRET`, `RAMP_CALLBACK_URL` | Operações BRH/USDC on-chain |
-| **Binance** | `BINANCE_API_KEY`, `BINANCE_API_SECRET` | Cotação e operações de mercado |
+| **Binance** | `BINANCE_API_KEY`, `BINANCE_API_SECRET`, `BINANCE_API_KEY_SECONDARY`, `BINANCE_API_SECRET_SECONDARY`, `BINANCE_LOCAL_ADDRESS`, `BINANCE_LOCAL_ADDRESS_SECONDARY` | Cotação e operações de mercado (par de keys/IPs de egress) |
 | **On-ramp** | `ONRAMP_QUOTE_*`, `ONRAMP_WITHDRAW_NETWORK`, `ONRAMP_USDC_DISTRIBUTOR_*` | Cotação, rede Stellar e refill |
 
 Variáveis **sem** prefixo `NEXT_PUBLIC_` são apenas server-side — nunca expor no browser.
@@ -264,7 +264,7 @@ Copy `.env.example` to `.env.local`. Main groups:
 | **Site** | `NEXT_PUBLIC_SITE_URL` | Redirects and callbacks |
 | **CorpX** | `CORPX_AUTH_URL`, `CORPX_CLIENT_ID`, `CORPX_CLIENT_SECRET`, `CORPX_TENANT_ID`, `CORPX_API_URL`, `CORPX_ACCOUNT_ID`, `CORPX_PIX_KEY` | Dynamic PIX and webhooks |
 | **Ramp** | `RAMP_API_BASE_URL`, `RAMP_API_KEY`, `RAMP_CALLBACK_SECRET`, `RAMP_CALLBACK_URL` | On-chain BRH/USDC operations |
-| **Binance** | `BINANCE_API_KEY`, `BINANCE_API_SECRET` | Quotes and market operations |
+| **Binance** | `BINANCE_API_KEY`, `BINANCE_API_SECRET`, `BINANCE_API_KEY_SECONDARY`, `BINANCE_API_SECRET_SECONDARY`, `BINANCE_LOCAL_ADDRESS`, `BINANCE_LOCAL_ADDRESS_SECONDARY` | Quotes and market operations (egress key/IP pair) |
 | **On-ramp** | `ONRAMP_QUOTE_*`, `ONRAMP_WITHDRAW_NETWORK`, `ONRAMP_USDC_DISTRIBUTOR_*` | Quotes, Stellar network, and refill |
 
 Variables **without** the `NEXT_PUBLIC_` prefix are server-only — never expose them in the browser.

@@ -40,6 +40,29 @@ export class BinanceRequestError extends BinanceError {
   }
 }
 
+/** Binance REST code for invalid API-key, IP, or permissions (`-2015`). */
+export const BINANCE_IP_RESTRICTION_CODE = -2015;
+
+/**
+ * True only for a signed-request rejection caused by API-key / IP / permissions.
+ * Timeouts, network errors, and other Binance codes must not match — retrying those
+ * can duplicate orders or fiat deposits.
+ */
+export function isBinanceIpRestrictionError(error: unknown): error is BinanceRequestError {
+  if (!(error instanceof BinanceRequestError) || error.code === null) {
+    return false;
+  }
+
+  const numericCode =
+    typeof error.code === 'number'
+      ? error.code
+      : /^-?\d+$/.test(error.code.trim())
+        ? Number(error.code.trim())
+        : Number.NaN;
+
+  return numericCode === BINANCE_IP_RESTRICTION_CODE;
+}
+
 /** Reserved for endpoints that still need additional implementation details. */
 export class BinanceNotImplementedError extends BinanceError {
   constructor(message = 'Binance integration stub is not implemented yet') {
