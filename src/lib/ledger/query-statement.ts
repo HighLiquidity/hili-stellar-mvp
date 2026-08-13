@@ -1,11 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
+  FIAT_DEPOSIT_CHARGES_TABLE,
   FIAT_LEDGER_ENTRIES_TABLE,
   OFFRAMP_ORDERS_TABLE,
   ONRAMP_ORDERS_TABLE,
   RAMP_OPERATIONS_TABLE,
 } from './db-tables';
+import { corpxTxidFromDepositSourceId, filterCustomerLedgerDeposits } from './customer-deposits';
 
 import { dateInputToEndIso, dateInputToStartIso, type LedgerQueryFilters } from './filters';
 import { mapLedgerRowsToTransactions } from './map-entries';
@@ -180,6 +182,40 @@ async function fetchOfframpStatementRows(
   return (data ?? []) as OfframpStatementRow[];
 }
 
+async function loadCustomerDepositTxids(
+  client: SupabaseClient,
+  rows: FiatLedgerEntryRow[],
+): Promise<Set<string> | null> {
+  const txids = [
+    ...new Set(
+      rows
+        .map((row) =>
+          row.entry_type === 'deposit' ? corpxTxidFromDepositSourceId(row.source_id) : null,
+        )
+        .filter((txid): txid is string => Boolean(txid)),
+    ),
+  ];
+  if (txids.length === 0) return new Set();
+
+  const { data, error } = await client
+    .from(FIAT_DEPOSIT_CHARGES_TABLE)
+    .select('corpx_txid, tax_id')
+    .in('corpx_txid', txids);
+
+  if (error) {
+    console.warn('[ledger/statement] customer charge lookup failed', error.message);
+    return null;
+  }
+
+  const allowed = new Set<string>();
+  for (const row of data ?? []) {
+    const txid = typeof row.corpx_txid === 'string' ? row.corpx_txid.trim() : '';
+    const taxId = typeof row.tax_id === 'string' ? row.tax_id.trim() : '';
+    if (txid && taxId) allowed.add(txid);
+  }
+  return allowed;
+}
+
 export async function fetchStatementPage(
   client: SupabaseClient,
   filters: LedgerQueryFilters,
@@ -197,20 +233,28 @@ export async function fetchStatementPage(
       fetchOfframpStatementRows(client, filters, includeOfframp),
     ]);
 
-    const rampByExternalId = await loadRampHashes(client, ledgerRows);
+    const customerDepositTxids = includeLedger
+      ? await loadCustomerDepositTxids(client, ledgerRows)
+      : new Set<string>();
+    const scopedLedgerRows =
+      customerDepositTxids == null
+        ? ledgerRows
+        : filterCustomerLedgerDeposits(ledgerRows, customerDepositTxids);
+
+    const rampByExternalId = await loadRampHashes(client, scopedLedgerRows);
 
     const ledgerTx =
       filters.type === 'withdraw'
         ? mapLedgerRowsToTransactions(
-            ledgerRows.filter((row) => row.entry_type === 'withdraw'),
+            scopedLedgerRows.filter((row) => row.entry_type === 'withdraw'),
             rampByExternalId,
           )
         : filters.type === 'deposit'
           ? mapLedgerRowsToTransactions(
-              ledgerRows.filter((row) => row.entry_type === 'deposit'),
+              scopedLedgerRows.filter((row) => row.entry_type === 'deposit'),
               rampByExternalId,
             )
-          : mapLedgerRowsToTransactions(ledgerRows, rampByExternalId);
+          : mapLedgerRowsToTransactions(scopedLedgerRows, rampByExternalId);
 
     const merged = sortStatementTransactions([
       ...ledgerTx,

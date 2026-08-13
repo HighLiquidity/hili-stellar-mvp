@@ -174,6 +174,10 @@ export async function runTreasuryBinanceBrlToCorpx(
       apiPaymentMethod: 'bank_transfer',
       amount: plan.amountBrl,
       accountInfo,
+      ext: {
+        hiliTreasuryRunId: run.id,
+        hiliPurpose: 'binance_brl_to_corpx',
+      },
     });
 
     if (!withdraw.orderId?.trim()) {

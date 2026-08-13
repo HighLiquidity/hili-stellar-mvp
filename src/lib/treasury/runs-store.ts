@@ -189,3 +189,29 @@ export async function findTreasuryRunByWithdrawOrderId(
 
   return data ? mapRow(data as Record<string, unknown>) : null;
 }
+
+export async function listRecentTreasuryRunsByKind(input: {
+  kind: TreasuryRunKind;
+  sinceIso: string;
+  limit?: number;
+}): Promise<TreasuryRunRow[]> {
+  const admin = createSupabaseAdmin();
+  if (!admin) return [];
+
+  const { data, error } = await admin
+    .from(TREASURY_RUNS_TABLE)
+    .select(RUN_SELECT)
+    .eq('kind', input.kind)
+    .eq('dry_run', false)
+    .in('status', ['running', 'completed'])
+    .gte('created_at', input.sinceIso)
+    .order('created_at', { ascending: true })
+    .limit(Math.min(Math.max(input.limit ?? 50, 1), 100));
+
+  if (error) {
+    console.error('[treasury/runs] list by kind failed', error.message);
+    return [];
+  }
+
+  return (data ?? []).map((row) => mapRow(row as Record<string, unknown>));
+}

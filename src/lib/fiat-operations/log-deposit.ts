@@ -52,3 +52,33 @@ export async function logFiatDepositQrAttempt(input: {
     },
   });
 }
+
+export const UNMATCHED_INBOUND_PIX_CODE = 'UNMATCHED_INBOUND_PIX';
+
+/** Audit-only: inbound PIX with no pending charge and no on-ramp order. Never credits BRH. */
+export async function logUnmatchedInboundPix(input: {
+  eventType: string;
+  amountBrl?: string | null;
+  providerTxId?: string | null;
+  e2eId?: string | null;
+  taxId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  await insertFiatOperationEvent({
+    operation: 'fiat_deposit',
+    phase: 'unmatched_pix_in',
+    status: 'error',
+    errorCode: UNMATCHED_INBOUND_PIX_CODE,
+    errorMessage:
+      'Inbound PIX did not match a pending deposit charge or locked on-ramp order. BRH was not credited.',
+    taxId: input.taxId ?? null,
+    amountBrl: input.amountBrl ?? null,
+    providerTxId: input.providerTxId ?? null,
+    e2eId: input.e2eId ?? null,
+    metadata: {
+      source: 'deposit/settle-inbound-pix',
+      event_type: input.eventType,
+      ...input.metadata,
+    },
+  });
+}

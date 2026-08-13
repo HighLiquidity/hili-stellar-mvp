@@ -1,7 +1,7 @@
 export type FiatOperationEventRow = {
   id: string;
   created_at: string;
-  operation: 'fiat_deposit' | 'fiat_withdraw' | 'fiat_onramp';
+  operation: 'fiat_deposit' | 'fiat_withdraw' | 'fiat_onramp' | 'treasury_transfer';
   phase: string;
   status: 'success' | 'error';
   error_code: string | null;

@@ -1,6 +1,6 @@
 import '@/lib/server/only';
 
-import { logOnrampEvent } from '@/lib/fiat-operations/log-onramp';
+import { actorFromOnrampOrder, logOnrampEvent } from '@/lib/fiat-operations/log-onramp';
 import { createOnrampOperation, RampApiError } from '@/lib/ramp/client';
 import { getRampCallbackUrl, isRampConfigured } from '@/lib/ramp/config';
 import {
@@ -277,6 +277,7 @@ export async function startUsdcDeliveryForOnrampOrder(orderId: string): Promise<
     await logOnrampEvent({
       phase: 'usdc_delivery_submit',
       status: 'success',
+      actor: actorFromOnrampOrder(order),
       taxId: order.tax_id,
       amountBrl: order.amount_brl,
       correlationId: order.id,
@@ -305,6 +306,7 @@ export async function startUsdcDeliveryForOnrampOrder(orderId: string): Promise<
     await logOnrampEvent({
       phase: 'usdc_delivery_submit',
       status: 'error',
+      actor: actorFromOnrampOrder(order),
       taxId: order.tax_id,
       amountBrl: order.amount_brl,
       correlationId: order.id,
@@ -379,6 +381,7 @@ export async function applyUsdcDeliveryRampCallback(input: {
     await logOnrampEvent({
       phase: 'usdc_delivery_confirmed',
       status: 'success',
+      actor: actorFromOnrampOrder(updated.row),
       taxId: updated.row.tax_id,
       amountBrl: updated.row.amount_brl,
       correlationId: updated.row.id,
@@ -430,6 +433,7 @@ export async function applyUsdcDeliveryRampCallback(input: {
     await logOnrampEvent({
       phase: 'usdc_delivery_callback',
       status: 'error',
+      actor: actorFromOnrampOrder(order),
       taxId: order.tax_id,
       amountBrl: order.amount_brl,
       correlationId: order.id,
@@ -443,6 +447,7 @@ export async function applyUsdcDeliveryRampCallback(input: {
   await logOnrampEvent({
     phase: 'usdc_delivery_callback',
     status: 'error',
+    actor: actorFromOnrampOrder(order),
     taxId: order.tax_id,
     amountBrl: order.amount_brl,
     correlationId: order.id,

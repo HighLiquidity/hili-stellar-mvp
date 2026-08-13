@@ -66,6 +66,18 @@ describe('buildFiatWithdrawBody', () => {
     });
   });
 
+  it('forwards ext on Binance fiat withdraw for treasury correlation', () => {
+    expect(
+      buildFiatWithdrawBody({
+        amount: '60',
+        accountInfo: { accountNumber: '1056894222' },
+        ext: { hiliTreasuryRunId: 'run-1', hiliPurpose: 'binance_brl_to_corpx' },
+      }),
+    ).toMatchObject({
+      ext: { hiliTreasuryRunId: 'run-1', hiliPurpose: 'binance_brl_to_corpx' },
+    });
+  });
+
   it('requires accountNumber', () => {
     expect(() =>
       buildFiatWithdrawBody({

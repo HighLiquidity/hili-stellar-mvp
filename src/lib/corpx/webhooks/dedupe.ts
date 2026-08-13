@@ -4,8 +4,12 @@ import { createClient } from '@supabase/supabase-js';
 
 import { pickString, unwrapWebhookPayload } from './payload-fields';
 
+const INBOUND_PIX_EVENT_TYPES = new Set(['pix_in_received', 'qr_code_paid']);
+
 /**
- * Stable idempotency key: prefers CorpX `Idempotency-Key` / `X-Webhook-ID`, then business ids, then body hash.
+ * Stable idempotency key.
+ * Inbound PIX (`qrcode.paid` + `pix.in.received`) share one business key so the same
+ * settlement cannot credit twice when CorpX sends both events with distinct webhook ids.
  */
 export function buildCorpXWebhookDedupeKey(
   headers: Headers,
@@ -13,14 +17,21 @@ export function buildCorpXWebhookDedupeKey(
   payload: unknown,
   rawBody: string,
 ): string {
+  const data = unwrapWebhookPayload(payload);
+  const e2e = pickString(data, 'endToEndId', 'end_to_end_id', 'e2eId', 'endToEnd');
+  const txid = pickString(data, 'txid', 'txId', 'TXID', 'identifier');
+  const tx = pickString(data, 'transactionId', 'transaction_id');
+
+  if (INBOUND_PIX_EVENT_TYPES.has(eventType)) {
+    if (e2e) return `corpx:inbound:e2e:${e2e}`;
+    if (txid) return `corpx:inbound:txid:${txid}`;
+    if (tx) return `corpx:inbound:tx:${tx}`;
+  }
+
   const idem = headers.get('idempotency-key') ?? headers.get('x-webhook-id');
   if (idem?.trim()) return `corpx:hdr:${idem.trim()}`;
 
-  const data = unwrapWebhookPayload(payload);
-  const txid = pickString(data, 'txid', 'txId');
   if (txid) return `corpx:${eventType}:txid:${txid}`;
-  const tx = pickString(data, 'transactionId', 'transaction_id');
-  const e2e = pickString(data, 'endToEndId', 'end_to_end_id');
   if (tx) return `corpx:${eventType}:tx:${tx}`;
   if (e2e) return `corpx:${eventType}:e2e:${e2e}`;
 

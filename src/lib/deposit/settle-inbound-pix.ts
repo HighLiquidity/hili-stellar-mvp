@@ -2,7 +2,9 @@ import type { WebhookProcessingResult } from '@/lib/corpx/webhooks/types';
 import { incrementBrhBalanceFromPix } from '@/lib/brh/balance-store';
 import { startOnrampAfterPixSettlement } from '@/lib/ramp/start-onramp';
 import { unwrapWebhookPayload, pickString, jsonNumberToAmountString } from '@/lib/corpx/webhooks/payload-fields';
-import { logOnrampEvent } from '@/lib/fiat-operations/log-onramp';
+import { logUnmatchedInboundPix } from '@/lib/fiat-operations/log-deposit';
+import { actorFromOnrampOrder, logOnrampEvent } from '@/lib/fiat-operations/log-onramp';
+import { logTreasuryInboundPix } from '@/lib/fiat-operations/log-treasury';
 import {
   ONRAMP_FAILURE_CODES,
   buildOnrampFailurePatch,
@@ -13,8 +15,16 @@ import {
 } from '@/lib/onramp';
 
 import { insertDepositLedgerEntry } from '@/lib/ledger/insert-entry';
+import {
+  formatTreasuryCorpxInboundStepDetail,
+  pickTreasuryBrlReceiveMatch,
+  TREASURY_BRL_RECEIVE_MATCH_WINDOW_MS,
+  TREASURY_CORPX_INBOUND_STEP,
+} from '@/lib/treasury/match-inbound-pix';
+import { listRecentTreasuryRunsByKind, updateTreasuryRun } from '@/lib/treasury/runs-store';
 
 import { findDepositChargeByTxid, markDepositChargePaid } from './charge-store';
+import { classifyInboundPixSettlement } from './inbound-pix-classification';
 
 export type InboundPixSettlementContext = {
   dedupeKey: string;
@@ -43,8 +53,8 @@ export function resolveCorpXChargeTxid(payload: unknown, result: WebhookProcessi
 }
 
 /**
- * Credits BRH balance and starts on-ramp after a confirmed inbound PIX (QR paid or PIX in).
- * Idempotent per corpx_txid when charge row exists; always dedupes balance via charge paid state.
+ * Settles inbound PIX only when it matches a pending deposit charge or a locked on-ramp order.
+ * Unmatched credits (treasury / PIX avulso) are audited and ignored — they must not mint BRH.
  */
 export async function settleInboundPixFromWebhook(ctx: InboundPixSettlementContext): Promise<void> {
   const { result, eventType, payload, dedupeKey } = ctx;
@@ -76,10 +86,34 @@ export async function settleInboundPixFromWebhook(ctx: InboundPixSettlementConte
     null;
   const endToEndId = pickString(data, 'endToEndId', 'end_to_end_id', 'e2eId') ?? null;
   const onrampOrder = await findOnrampOrderByCorpXTxid(corpxTxid);
-
   const charge = await findDepositChargeByTxid(corpxTxid);
-  if (charge && charge.status === 'paid' && (!onrampOrder || onrampOrder.status === 'pix_received')) {
+  const settlementClass = classifyInboundPixSettlement({
+    onrampOrder,
+    charge: charge ? { status: charge.status } : null,
+  });
+
+  if (settlementClass === 'already_settled') {
     console.info('[deposit/settle] charge already settled', { corpxTxid, eventType });
+    return;
+  }
+
+  if (settlementClass === 'unmatched') {
+    console.warn('[deposit/settle] unmatched inbound PIX — skip BRH credit and Ramp', {
+      corpxTxid,
+      eventType,
+      amount,
+    });
+    await acknowledgeUnmatchedInboundPix({
+      eventType,
+      amountBrl: amount,
+      corpxTxid,
+      transactionId,
+      endToEndId,
+      taxId: pickString(data, 'payerDocument', 'payer_document') ?? null,
+      payerName:
+        pickString(data, 'payerName', 'payer_name') ??
+        (typeof result.updatedFields?.payer_name === 'string' ? result.updatedFields.payer_name : null),
+    });
     return;
   }
 
@@ -93,11 +127,6 @@ export async function settleInboundPixFromWebhook(ctx: InboundPixSettlementConte
         received: webhookAmount,
       });
     }
-  } else if (!charge) {
-    console.warn('[deposit/settle] no pending charge for txid (QR not registered?)', {
-      corpxTxid,
-      eventType,
-    });
   }
 
   const marked = await markDepositChargePaid({
@@ -155,6 +184,7 @@ export async function settleInboundPixFromWebhook(ctx: InboundPixSettlementConte
           await logOnrampEvent({
             phase: 'pix_settlement_late',
             status: 'error',
+            actor: actorFromOnrampOrder(onrampOrder),
             taxId: onrampOrder.tax_id,
             amountBrl: onrampOrder.amount_brl,
             providerTxId: corpxTxid,
@@ -188,6 +218,7 @@ export async function settleInboundPixFromWebhook(ctx: InboundPixSettlementConte
         await logOnrampEvent({
           phase: 'pix_received',
           status: 'error',
+          actor: actorFromOnrampOrder(onrampOrder),
           taxId: onrampOrder.tax_id,
           amountBrl: onrampOrder.amount_brl,
           providerTxId: corpxTxid,
@@ -206,6 +237,7 @@ export async function settleInboundPixFromWebhook(ctx: InboundPixSettlementConte
       await logOnrampEvent({
         phase: 'pix_received',
         status: 'success',
+        actor: actorFromOnrampOrder(onrampOrder),
         taxId: onrampOrder.tax_id,
         amountBrl: onrampOrder.amount_brl,
         providerTxId: corpxTxid,
@@ -224,6 +256,7 @@ export async function settleInboundPixFromWebhook(ctx: InboundPixSettlementConte
       await logOnrampEvent({
         phase: 'pix_settlement_unexpected_status',
         status: 'error',
+        actor: actorFromOnrampOrder(onrampOrder),
         taxId: onrampOrder.tax_id,
         amountBrl: onrampOrder.amount_brl,
         providerTxId: corpxTxid,
@@ -246,6 +279,7 @@ export async function settleInboundPixFromWebhook(ctx: InboundPixSettlementConte
         await logOnrampEvent({
           phase: 'brh_sale_start',
           status: 'error',
+          actor: actorFromOnrampOrder(onrampOrder),
           taxId: onrampOrder.tax_id,
           amountBrl: onrampOrder.amount_brl,
           providerTxId: corpxTxid,
@@ -285,5 +319,83 @@ export async function settleInboundPixFromWebhook(ctx: InboundPixSettlementConte
     providerTxId: transactionId ?? corpxTxid,
     corpxEventType: eventType,
     corpxDedupeKey: dedupeKey,
+  });
+}
+
+async function acknowledgeUnmatchedInboundPix(input: {
+  eventType: string;
+  amountBrl: string;
+  corpxTxid: string;
+  transactionId: string | null;
+  endToEndId: string | null;
+  taxId: string | null;
+  payerName: string | null;
+}): Promise<void> {
+  const sinceIso = new Date(Date.now() - TREASURY_BRL_RECEIVE_MATCH_WINDOW_MS).toISOString();
+  const runs = await listRecentTreasuryRunsByKind({
+    kind: 'binance_brl_to_corpx',
+    sinceIso,
+  });
+  const match = pickTreasuryBrlReceiveMatch(runs, input.amountBrl);
+
+  if (match) {
+    console.info('[deposit/settle] inbound PIX matched treasury Binance→CorpX run', {
+      runId: match.id,
+      corpxTxid: input.corpxTxid,
+      amount: input.amountBrl,
+    });
+    await logTreasuryInboundPix({
+      eventType: input.eventType,
+      amountBrl: input.amountBrl,
+      providerTxId: input.corpxTxid,
+      e2eId: input.endToEndId,
+      correlationId: match.id,
+      actor: {
+        email: match.created_by_email,
+        userId: match.created_by_user_id,
+      },
+      metadata: {
+        corpx_txid: input.corpxTxid,
+        transaction_id: input.transactionId,
+        payer_name: input.payerName,
+        treasury_run_id: match.id,
+      },
+    });
+    try {
+      await updateTreasuryRun(match.id, {
+        steps: [
+          ...match.steps,
+          {
+            name: TREASURY_CORPX_INBOUND_STEP,
+            status: 'ok',
+            detail: formatTreasuryCorpxInboundStepDetail({
+              corpxTxid: input.corpxTxid,
+              e2eId: input.endToEndId,
+              eventType: input.eventType,
+            }),
+            at: new Date().toISOString(),
+          },
+        ],
+      });
+    } catch (error) {
+      console.error('[deposit/settle] failed to mark treasury run as CorpX-matched', {
+        runId: match.id,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return;
+  }
+
+  await logUnmatchedInboundPix({
+    eventType: input.eventType,
+    amountBrl: input.amountBrl,
+    providerTxId: input.corpxTxid,
+    e2eId: input.endToEndId,
+    taxId: input.taxId,
+    metadata: {
+      corpx_txid: input.corpxTxid,
+      transaction_id: input.transactionId,
+      payer_name: input.payerName,
+    },
   });
 }

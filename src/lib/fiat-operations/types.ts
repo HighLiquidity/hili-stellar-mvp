@@ -1,4 +1,4 @@
-export type FiatOperationKind = 'fiat_deposit' | 'fiat_withdraw' | 'fiat_onramp';
+export type FiatOperationKind = 'fiat_deposit' | 'fiat_withdraw' | 'fiat_onramp' | 'treasury_transfer';
 
 export type FiatOperationStatus = 'success' | 'error';
 

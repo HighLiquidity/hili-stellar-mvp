@@ -1,6 +1,6 @@
 import '@/lib/server/only';
 
-import { logOnrampEvent } from '@/lib/fiat-operations/log-onramp';
+import { actorFromOnrampOrder, logOnrampEvent } from '@/lib/fiat-operations/log-onramp';
 import { createOnrampOperation, RampApiError } from '@/lib/ramp/client';
 import { getRampCallbackUrl, isRampConfigured } from '@/lib/ramp/config';
 import { formatRampAmountFromBrl } from '@/lib/ramp/amount';
@@ -219,6 +219,7 @@ export async function startBrhSaleForOnrampOrder(orderId: string): Promise<void>
     await logOnrampEvent({
       phase: 'brh_sale_submit',
       status: 'success',
+      actor: actorFromOnrampOrder(order),
       taxId: order.tax_id,
       amountBrl: order.amount_brl,
       correlationId: order.id,
@@ -247,6 +248,7 @@ export async function startBrhSaleForOnrampOrder(orderId: string): Promise<void>
     await logOnrampEvent({
       phase: 'brh_sale_submit',
       status: 'error',
+      actor: actorFromOnrampOrder(order),
       taxId: order.tax_id,
       amountBrl: order.amount_brl,
       correlationId: order.id,
@@ -323,6 +325,7 @@ export async function applyBrhSaleRampCallback(input: {
     await logOnrampEvent({
       phase: 'brh_sale_confirmed',
       status: 'success',
+      actor: actorFromOnrampOrder(updated.row),
       taxId: updated.row.tax_id,
       amountBrl: updated.row.amount_brl,
       correlationId: updated.row.id,
@@ -364,6 +367,7 @@ export async function applyBrhSaleRampCallback(input: {
     await logOnrampEvent({
       phase: 'brh_sale_callback',
       status: 'error',
+      actor: actorFromOnrampOrder(order),
       taxId: order.tax_id,
       amountBrl: order.amount_brl,
       correlationId: order.id,
@@ -377,6 +381,7 @@ export async function applyBrhSaleRampCallback(input: {
   await logOnrampEvent({
     phase: 'brh_sale_callback',
     status: 'error',
+    actor: actorFromOnrampOrder(order),
     taxId: order.tax_id,
     amountBrl: order.amount_brl,
     correlationId: order.id,

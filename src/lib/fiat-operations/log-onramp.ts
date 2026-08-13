@@ -1,6 +1,16 @@
 import { insertFiatOperationEvent } from './log-event';
 import type { FiatOperationActor, FiatOperationStatus } from './types';
 
+export function actorFromOnrampOrder(order: {
+  created_by_email?: string | null;
+  created_by_user_id?: string | null;
+}): FiatOperationActor {
+  return {
+    email: order.created_by_email,
+    userId: order.created_by_user_id,
+  };
+}
+
 export async function logOnrampEvent(input: {
   phase: string;
   status: FiatOperationStatus;

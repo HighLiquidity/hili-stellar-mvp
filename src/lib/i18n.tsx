@@ -1211,7 +1211,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
         eyebrow: 'Admin',
         title: 'Logs de eventos',
         description:
-          'Histórico de tentativas de depósito, saque e on-ramp (cotações, lock PIX, validações e erros).',
+          'Histórico de tentativas de depósito, saque, on-ramp e movimentação de tesouraria (cotações, lock PIX, PIX Binance→CorpX, validações e erros).',
         loading: 'Carregando eventos…',
         empty: 'Nenhum evento encontrado para os filtros selecionados.',
         refresh: 'Atualizar',
@@ -1228,6 +1228,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
           deposit: 'Depósito fiat',
           withdraw: 'Saque fiat',
           onramp: 'On-ramp',
+          treasury: 'Tesouraria',
         },
         status: {
           success: 'Sucesso',
@@ -2458,7 +2459,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
         eyebrow: 'Admin',
         title: 'Event logs',
         description:
-          'History of fiat deposit, withdrawal, and on-ramp attempts (quotes, PIX lock, validation, errors).',
+          'History of fiat deposit, withdrawal, on-ramp, and treasury movements (quotes, PIX lock, Binance→CorpX PIX, validation, errors).',
         loading: 'Loading events…',
         empty: 'No events found for the selected filters.',
         refresh: 'Refresh',
@@ -2475,6 +2476,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
           deposit: 'Fiat deposit',
           withdraw: 'Fiat withdrawal',
           onramp: 'On-ramp',
+          treasury: 'Treasury',
         },
         status: {
           success: 'Success',
