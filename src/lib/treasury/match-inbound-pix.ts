@@ -1,3 +1,5 @@
+import type { TreasuryRunStep } from './run-types';
+
 export const TREASURY_CORPX_INBOUND_STEP = 'corpx_inbound_matched';
 
 /** Bank PIX from Binance can land after weekends; 5 days covers that without matching stale runs. */
@@ -11,7 +13,9 @@ export type TreasuryBrlReceiveMatchCandidate = {
   requested_amount_usdc: string | null;
   executed_amount_usdc: string | null;
   created_at: string;
-  steps: Array<{ name: string; status: string }>;
+  created_by_email?: string | null;
+  created_by_user_id?: string | null;
+  steps: TreasuryRunStep[];
 };
 
 export function canonicalBrlCents(amount: string): number | null {
