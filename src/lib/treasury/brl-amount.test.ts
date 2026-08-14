@@ -63,6 +63,32 @@ describe('resolveTreasuryBinanceBrlWithdrawAmount', () => {
     ).toBe('80');
   });
 
+  it('accepts Binance spot free with 8 decimals', () => {
+    expect(
+      resolveTreasuryBinanceBrlWithdrawAmount({
+        requestedAmountBrl: '10',
+        binanceBrlFree: '80.00000000',
+      }),
+    ).toBe('10');
+  });
+
+  it('floors extra wallet decimals instead of rounding up', () => {
+    expect(
+      resolveTreasuryBinanceBrlWithdrawAmount({
+        requestedAmountBrl: '12.34',
+        binanceBrlFree: '12.34900000',
+      }),
+    ).toBe('12.34');
+  });
+
+  it('rejects zero Binance free even with 8-decimal padding', () => {
+    expect(() =>
+      resolveTreasuryBinanceBrlWithdrawAmount({
+        binanceBrlFree: '0.00000000',
+      }),
+    ).toThrow(/greater than zero/i);
+  });
+
   it('rejects amount above Binance free', () => {
     expect(() =>
       resolveTreasuryBinanceBrlWithdrawAmount({
