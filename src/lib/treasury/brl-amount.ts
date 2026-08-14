@@ -76,15 +76,15 @@ function parseBrlToCents(value: string, fieldName: string): bigint {
   }
   const [whole, fraction = ''] = normalized.split('.');
   const cents = `${fraction}00`.slice(0, 2);
-  return BigInt(whole) * 100n + BigInt(cents);
+  return BigInt(whole) * BigInt(100) + BigInt(cents);
 }
 
 function formatBrlFromCents(cents: bigint): string {
-  if (cents < 0n) {
+  if (cents < BigInt(0)) {
     throw new Error('BRL amount cannot be negative.');
   }
-  const whole = cents / 100n;
-  const fraction = (cents % 100n).toString().padStart(2, '0').replace(/0+$/, '');
+  const whole = cents / BigInt(100);
+  const fraction = (cents % BigInt(100)).toString().padStart(2, '0').replace(/0+$/, '');
   return fraction ? `${whole.toString()}.${fraction}` : whole.toString();
 }
 
@@ -123,7 +123,7 @@ export function projectBinanceBrlWithdrawBalances(input: {
 
   const freeCents = parseBrlToCents(free, 'Binance BRL free balance');
   const afterBinanceCents = freeCents - amountCents;
-  if (afterBinanceCents < 0n) {
+  if (afterBinanceCents < BigInt(0)) {
     throw new Error(`amount (${amount}) exceeds Binance BRL free balance (${free}).`);
   }
 

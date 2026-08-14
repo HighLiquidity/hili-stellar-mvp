@@ -86,14 +86,14 @@ function parseRefillAmountToScaled(value: string, fieldName: string): bigint {
   }
   const [whole, fraction = ''] = normalized.split('.');
   const padded = fraction.slice(0, REFILL_AMOUNT_SCALE).padEnd(REFILL_AMOUNT_SCALE, '0');
-  return BigInt(whole) * 10n ** BigInt(REFILL_AMOUNT_SCALE) + BigInt(padded || '0');
+  return BigInt(whole) * BigInt(10) ** BigInt(REFILL_AMOUNT_SCALE) + BigInt(padded || '0');
 }
 
 function formatRefillAmountFromScaled(value: bigint): string {
-  if (value < 0n) {
+  if (value < BigInt(0)) {
     throw new Error('amount cannot be negative.');
   }
-  const factor = 10n ** BigInt(REFILL_AMOUNT_SCALE);
+  const factor = BigInt(10) ** BigInt(REFILL_AMOUNT_SCALE);
   const whole = value / factor;
   const fraction = (value % factor).toString().padStart(REFILL_AMOUNT_SCALE, '0').replace(/0+$/, '');
   return fraction ? `${whole.toString()}.${fraction}` : whole.toString();
