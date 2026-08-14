@@ -2,11 +2,11 @@ import '@/lib/server/only';
 
 import { createCorpXAdapterFromEnv } from '@/lib/corpx/adapter';
 import type { CorpXPIXKeyType } from '@/lib/corpx/pix/types';
-import { parsePixEmv } from '@/lib/pix/emv-parser';
 import { binance } from '@/lib/server/binance';
 
 import { resolveTreasuryBrlAmount } from './brl-amount';
 import {
+  amountForEmvPayout,
   assertCorpXPixOutAccepted,
   BINANCE_FIAT_PIX_POLL_MAX_MS,
   BINANCE_FIAT_PIX_POLL_MS,
@@ -128,15 +128,6 @@ function readFallbackPixKey(): { key: string; keyType: CorpXPIXKeyType } | null 
   return { key, keyType };
 }
 
-/** When EMV already embeds tag 54, omit amount so CorpX does not reject a conflicting body. */
-function amountForEmvPayout(emv: string, plannedAmount: string): string | undefined {
-  const parsed = parsePixEmv(emv);
-  if (parsed.ok && parsed.data.amountBrl) {
-    return undefined;
-  }
-  return plannedAmount;
-}
-
 export async function buildTreasuryBrlTransferPlan(
   input: Pick<TreasuryBrlTransferRequest, 'amountBrl'> = {},
 ): Promise<TreasuryBrlTransferPlan> {
@@ -256,6 +247,7 @@ export async function runTreasuryCorpxBrlToBinance(
       const payout = await adapter.pix.payPaymentQrEmv({
         emv: payment.emv,
         amount: amountForEmvPayout(payment.emv, plan.amountBrl),
+        amountHint: plan.amountBrl,
         description: `Treasury BRL→Binance ${run.id}`,
         idempotencyKey,
         correlationId: run.id,

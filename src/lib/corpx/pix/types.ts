@@ -70,8 +70,13 @@ export type DecodedPaymentQr = {
 
 export type PayPaymentQrRequest = {
   emv: string;
-  /** Required when the EMV has no fixed amount (static QR). */
+  /** Sent to CorpX only when the EMV has no fixed amount (static QR). */
   amount?: string;
+  /**
+   * Never sent upstream. Used to map a 2xx CorpX body that omits `amount`
+   * (Binance fiat QRs embed tag 54, so treasury omits `amount` on purpose).
+   */
+  amountHint?: string;
   description?: string;
   idempotencyKey: string;
   correlationId?: string;

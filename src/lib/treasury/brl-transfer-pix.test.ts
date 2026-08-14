@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  amountForEmvPayout,
   assertCorpXPixOutAccepted,
   isBinanceFiatOrderFailed,
   isBinanceFiatOrderInitializing,
@@ -78,5 +79,17 @@ describe('assertCorpXPixOutAccepted', () => {
         fee: '0',
       }),
     ).not.toThrow();
+  });
+});
+
+describe('amountForEmvPayout', () => {
+  it('omits amount when Binance EMV already has tag 54', () => {
+    expect(amountForEmvPayout(BINANCE_EMV, '10')).toBeUndefined();
+  });
+
+  it('keeps planned amount when EMV has no tag 54', () => {
+    const staticEmv =
+      '00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-4266141740005204000053039865802BR5910NOME TESTE6008BRASILIA62070503***6304ABCD';
+    expect(amountForEmvPayout(staticEmv, '10')).toBe('10');
   });
 });

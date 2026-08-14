@@ -640,6 +640,41 @@ describe('CorpXAdapter', () => {
     });
   });
 
+  it('PayPaymentQrEmv_FallsBackToEmvTag54WhenAmountOmittedFromRequestAndResponse', async () => {
+    const binanceEmv =
+      '00020126890014BR.GOV.BCB.PIX2567api-pix.bancobs2.com.br/spi/v2/d18d6517-2dfe-4ab5-9fd0-2779b627a9cf520400005303986540510.005802BR5904Gowd6014Belo Horizonte61083038040362070503***63042928';
+    let postedBody = '';
+
+    await withTestAdapter((req, res) => {
+      void (async () => {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) chunks.push(chunk as Buffer);
+        postedBody = Buffer.concat(chunks).toString('utf8');
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 202;
+        res.end(
+          JSON.stringify({
+            transactionId: 'txn-qr-emv-amount',
+            status: 'APPROVED',
+            endToEndId: 'E2E-QR-EMV',
+            currency: 'BRL',
+          }),
+        );
+      })();
+    }, async ({ adapter }) => {
+      const resp = await adapter.pix.payPaymentQrEmv({
+        emv: binanceEmv,
+        amountHint: '10',
+        idempotencyKey: 'idemp-qr-emv',
+      });
+      const posted = JSON.parse(postedBody) as { amount?: unknown; emv?: string };
+      expect(posted.amount).toBeUndefined();
+      expect(posted.emv).toBe(binanceEmv);
+      expect(resp.providerTxId).toBe('txn-qr-emv-amount');
+      expect(resp.amount).toBe('10.00');
+    });
+  });
+
   it('InitiatePIXCashOut_InsufficientFunds', async () => {
     await withTestAdapter((_req, res) => {
       res.statusCode = 409;

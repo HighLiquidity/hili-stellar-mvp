@@ -12,6 +12,7 @@ import {
   parseCorpXErrorJson,
   throwStatusError,
 } from '../errors';
+import { parsePixEmv } from '@/lib/pix/emv-parser';
 import { brlStringToJsonNumber } from './brl';
 import type {
   CashOutTransactionStatus,
@@ -68,6 +69,7 @@ type CashOutApiResponse = {
   status?: string;
   endToEndId?: string;
   amount?: number | string;
+  value?: number | string;
   currency?: string;
 };
 
@@ -517,11 +519,12 @@ export class CorpXPixAdapter {
       throw new CorpXError(`Failed to parse PIX QR payment response: ${err.message}`, undefined, response.status);
     }
 
-    const amountStr = amountToStringOrFallback(
-      parsed.amount,
-      'PIX QR payment amount',
-      req.amount ?? '',
-    );
+    const amountStr = resolveQrPaymentAmount({
+      parsed,
+      requestAmount: req.amount,
+      amountHint: req.amountHint,
+      emv: req.emv,
+    });
 
     return {
       providerTxId: parsed.transactionId ?? '',
@@ -686,6 +689,54 @@ function amountToStringOrFallback(value: unknown, label: string, fallback: strin
     }
     throw new CorpXError(`Failed to parse ${label}`);
   }
+}
+
+function amountFromEmvTag54(emv: string): string {
+  const parsed = parsePixEmv(emv);
+  if (parsed.ok && parsed.data.amountBrl) {
+    return parsed.data.amountBrl;
+  }
+  return '';
+}
+
+function pickCashOutAmount(parsed: CashOutApiResponse): unknown {
+  if (parsed.amount != null) return parsed.amount;
+  if (parsed.value != null) return parsed.value;
+  return undefined;
+}
+
+/**
+ * CorpX often omits `amount` on PIX QR-out 2xx when the EMV already has tag 54.
+ * Throwing here used to fail treasury after the payment was already accepted.
+ */
+function resolveQrPaymentAmount(input: {
+  parsed: CashOutApiResponse;
+  requestAmount?: string;
+  amountHint?: string;
+  emv: string;
+}): string {
+  const candidates: unknown[] = [
+    pickCashOutAmount(input.parsed),
+    input.requestAmount,
+    amountFromEmvTag54(input.emv),
+    input.amountHint,
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      return amountToString(candidate, 'PIX QR payment amount');
+    } catch {
+      // try next source
+    }
+  }
+
+  const hasIds = Boolean(
+    input.parsed.transactionId?.trim() || input.parsed.endToEndId?.trim(),
+  );
+  if (hasIds) {
+    return '0';
+  }
+  throw new CorpXError('Failed to parse PIX QR payment amount');
 }
 
 export function createCorpXPixAdapterFromEnv(): CorpXPixAdapter {

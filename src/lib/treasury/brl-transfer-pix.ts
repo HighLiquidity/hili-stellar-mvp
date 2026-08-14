@@ -1,5 +1,6 @@
 import type { CashOutTransactionStatus, CorpXPIXKeyType } from '@/lib/corpx/pix/types';
 import type { PIXCashOutResponse } from '@/lib/corpx/pix/types';
+import { parsePixEmv } from '@/lib/pix/emv-parser';
 
 import {
   extractPixEmvFromUnknown,
@@ -82,6 +83,15 @@ export function resolvePixPaymentFromOrderDetail(detail: unknown): ResolvedPixPa
   const pixKey = extractPixKeyFromUnknown(detail);
   if (pixKey) return { mode: 'key', key: pixKey, keyType: 'EVP' };
   return null;
+}
+
+/** When EMV already embeds tag 54, omit amount so CorpX does not reject a conflicting body. */
+export function amountForEmvPayout(emv: string, plannedAmount: string): string | undefined {
+  const parsed = parsePixEmv(emv);
+  if (parsed.ok && parsed.data.amountBrl) {
+    return undefined;
+  }
+  return plannedAmount;
 }
 
 /**
