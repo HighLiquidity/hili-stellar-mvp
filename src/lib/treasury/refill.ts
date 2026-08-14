@@ -3,9 +3,14 @@ import '@/lib/server/only';
 import { binance } from '@/lib/server/binance';
 import { buildBinanceClientOrderId } from '@/lib/server/binance/client-order-id';
 import { BinanceRequestError } from '@/lib/server/binance/errors';
+import { fetchHorizonAccountBalances } from '@/lib/stellar/horizon';
 
 import { readTreasuryDistributorConfig } from './distributor-config';
-import { getTreasuryMinWithdraw, resolveTreasuryRefillAmount } from './refill-amount';
+import {
+  getTreasuryMinWithdraw,
+  projectTreasuryRefillBalances,
+  resolveTreasuryRefillAmount,
+} from './refill-amount';
 import { insertTreasuryRun, updateTreasuryRun } from './runs-store';
 import type {
   TreasuryRefillAsset,
@@ -58,6 +63,21 @@ export async function buildTreasuryRefillPlan(
   const minWithdraw = getTreasuryMinWithdraw(asset);
   const kind = treasuryKindForAsset(asset);
 
+  let distributorBalance = 'unavailable';
+  try {
+    const stellar = await fetchHorizonAccountBalances(distributor.address);
+    distributorBalance = asset === 'XLM' ? stellar.xlm : stellar.usdc;
+  } catch {
+    distributorBalance = 'unavailable';
+  }
+
+  const projection = projectTreasuryRefillBalances({
+    asset,
+    amount,
+    binanceFree,
+    distributorBalance,
+  });
+
   const steps: TreasuryRunStep[] = [
     step(`read_binance_${asset.toLowerCase()}`, 'planned', `free=${binanceFree}`),
     step('normalize_amount', 'planned', `amount=${amount} min=${minWithdraw}`),
@@ -73,6 +93,9 @@ export async function buildTreasuryRefillPlan(
     asset,
     amount,
     binanceFree,
+    binanceAfter: projection.binanceAfter,
+    distributorBalance,
+    distributorAfter: projection.distributorAfter,
     minWithdraw,
     distributor: {
       address: distributor.address,

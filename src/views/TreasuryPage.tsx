@@ -37,6 +37,58 @@ function formatAmount(value: string, fractionDigits = 2): string {
   });
 }
 
+function formatBrl(value: string): string {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return value;
+  return n.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatPlanAmount(value: string, unit: string): string {
+  return unit === 'BRL' ? formatBrl(value) : formatAmount(value, 7);
+}
+
+type PlanAfterRow = {
+  label: string;
+  current: string;
+  after: string;
+  unit: string;
+  hint?: string;
+};
+
+function PlanAfterBalances({
+  title,
+  unavailableLabel,
+  rows,
+}: {
+  title: string;
+  unavailableLabel: string;
+  rows: PlanAfterRow[];
+}) {
+  return (
+    <>
+      <p className="treasury-refill-plan__after-title">{title}</p>
+      <ul className="treasury-refill-plan__list">
+        {rows.map((row) => {
+          const unavailable = row.current === 'unavailable' || row.after === 'unavailable';
+          return (
+            <li key={row.label}>
+              {row.label}:{' '}
+              <strong>
+                {unavailable
+                  ? row.hint ?? unavailableLabel
+                  : `${formatPlanAmount(row.current, row.unit)} → ${formatPlanAmount(row.after, row.unit)} ${row.unit}`}
+              </strong>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
+
 function pocketErrorMessage(
   pocket: { ok: true } | { ok: false; error: string } | undefined,
   fallback: string,
@@ -336,10 +388,6 @@ function RefillModal({ open, onClose, suggestedFree, onExecuted, busy }: RefillM
                   </strong>
                 </li>
                 <li>
-                  {t('pages.treasury.refill.planFree')}:{' '}
-                  {formatAmount(refillPlan.binanceFree, 4)} {refillPlan.asset}
-                </li>
-                <li>
                   {t('pages.treasury.refill.planMin')}:{' '}
                   {formatAmount(refillPlan.minWithdraw, 4)} {refillPlan.asset}
                 </li>
@@ -350,6 +398,32 @@ function RefillModal({ open, onClose, suggestedFree, onExecuted, busy }: RefillM
                     : ''}
                 </li>
               </ul>
+              <p className="treasury-refill-plan__note">
+                {t('pages.treasury.refill.planAfterNote')}
+              </p>
+              <PlanAfterBalances
+                title={t('pages.treasury.refill.planAfterTitle')}
+                unavailableLabel={t('pages.treasury.refill.planAfterUnavailable')}
+                rows={[
+                  {
+                    label: t('pages.treasury.refill.planAfterBinance'),
+                    current: refillPlan.binanceFree,
+                    after: refillPlan.binanceAfter,
+                    unit: refillPlan.asset,
+                  },
+                  {
+                    label: t('pages.treasury.refill.planAfterDistributor'),
+                    current: refillPlan.distributorBalance,
+                    after: refillPlan.distributorAfter,
+                    unit: refillPlan.asset,
+                    hint:
+                      refillPlan.distributorBalance === 'unavailable' ||
+                      refillPlan.distributorAfter === 'unavailable'
+                        ? `${t('pages.treasury.refill.planAfterUnavailable')} (+${formatAmount(refillPlan.amount, 4)} ${refillPlan.asset})`
+                        : undefined,
+                  },
+                ]}
+              />
             </div>
           ) : null}
         </div>
@@ -584,23 +658,35 @@ function BrlTransferModal({
               <ul className="treasury-refill-plan__list">
                 <li>
                   {t('pages.treasury.brlTransfer.planAmount')}:{' '}
-                  <strong>{formatAmount(plan.amountBrl)} BRL</strong>
-                </li>
-                <li>
-                  {t('pages.treasury.brlTransfer.planCorpx')}:{' '}
-                  {formatAmount(plan.corpxAvailable)} BRL
-                </li>
-                <li>
-                  {t('pages.treasury.brlTransfer.planBinance')}:{' '}
-                  {plan.binanceBrlFree === 'unavailable'
-                    ? plan.binanceBrlFree
-                    : `${formatAmount(plan.binanceBrlFree)} BRL`}
+                  <strong>{formatBrl(plan.amountBrl)} BRL</strong>
                 </li>
                 <li>
                   {t('pages.treasury.brlTransfer.planPayment')}:{' '}
                   {t('pages.treasury.brlTransfer.planPaymentValue')}
                 </li>
               </ul>
+              <PlanAfterBalances
+                title={t('pages.treasury.brlTransfer.planAfterTitle')}
+                unavailableLabel={t('pages.treasury.brlTransfer.planAfterUnavailable')}
+                rows={[
+                  {
+                    label: t('pages.treasury.brlTransfer.planAfterCorpx'),
+                    current: plan.corpxAvailable,
+                    after: plan.corpxBrlAfter,
+                    unit: 'BRL',
+                  },
+                  {
+                    label: t('pages.treasury.brlTransfer.planAfterBinance'),
+                    current: plan.binanceBrlFree,
+                    after: plan.binanceBrlAfter,
+                    unit: 'BRL',
+                    hint:
+                      plan.binanceBrlFree === 'unavailable' || plan.binanceBrlAfter === 'unavailable'
+                        ? `${t('pages.treasury.brlTransfer.planAfterUnavailable')} (+${formatBrl(plan.amountBrl)} BRL)`
+                        : undefined,
+                  },
+                ]}
+              />
             </div>
           ) : null}
         </div>
@@ -833,17 +919,15 @@ function BrlReceiveModal({
               <ul className="treasury-refill-plan__list">
                 <li>
                   {t('pages.treasury.brlReceive.planAmount')}:{' '}
-                  <strong>{formatAmount(plan.amountBrl)} BRL</strong>
+                  <strong>{formatBrl(plan.amountBrl)} BRL</strong>
+                </li>
+                <li className="treasury-refill-plan__fee">
+                  {t('pages.treasury.brlReceive.planFee')}:{' '}
+                  <strong>{formatBrl(plan.withdrawFeeBrl)} BRL</strong>
                 </li>
                 <li>
-                  {t('pages.treasury.brlReceive.planBinance')}:{' '}
-                  {formatAmount(plan.binanceBrlFree)} BRL
-                </li>
-                <li>
-                  {t('pages.treasury.brlReceive.planCorpx')}:{' '}
-                  {plan.corpxAvailable === 'unavailable'
-                    ? plan.corpxAvailable
-                    : `${formatAmount(plan.corpxAvailable)} BRL`}
+                  {t('pages.treasury.brlReceive.planNet')}:{' '}
+                  <strong>{formatBrl(plan.amountNetBrl)} BRL</strong>
                 </li>
                 <li>
                   {t('pages.treasury.brlReceive.planDestination')}:{' '}
@@ -854,6 +938,31 @@ function BrlReceiveModal({
                   {t('pages.treasury.brlReceive.planPaymentValue')}
                 </li>
               </ul>
+              <p className="treasury-refill-plan__note">
+                {t('pages.treasury.brlReceive.planFeeNote')}
+              </p>
+              <PlanAfterBalances
+                title={t('pages.treasury.brlReceive.planAfterTitle')}
+                unavailableLabel={t('pages.treasury.brlReceive.planAfterUnavailable')}
+                rows={[
+                  {
+                    label: t('pages.treasury.brlReceive.planAfterBinance'),
+                    current: plan.binanceBrlFree,
+                    after: plan.binanceBrlAfter,
+                    unit: 'BRL',
+                  },
+                  {
+                    label: t('pages.treasury.brlReceive.planAfterCorpx'),
+                    current: plan.corpxAvailable,
+                    after: plan.corpxBrlAfter,
+                    unit: 'BRL',
+                    hint:
+                      plan.corpxAvailable === 'unavailable' || plan.corpxBrlAfter === 'unavailable'
+                        ? `${t('pages.treasury.brlReceive.planAfterUnavailable')} (+${formatBrl(plan.amountNetBrl)} BRL)`
+                        : undefined,
+                  },
+                ]}
+              />
             </div>
           ) : null}
         </div>

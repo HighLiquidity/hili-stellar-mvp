@@ -77,6 +77,72 @@ export function resolveTreasuryRefillAmount(input: {
   return amount;
 }
 
+const REFILL_AMOUNT_SCALE = 8;
+
+function parseRefillAmountToScaled(value: string, fieldName: string): bigint {
+  const normalized = value.trim().replace(',', '.');
+  if (!/^\d+(?:\.\d+)?$/.test(normalized)) {
+    throw new Error(`${fieldName} must be a positive decimal string.`);
+  }
+  const [whole, fraction = ''] = normalized.split('.');
+  const padded = fraction.slice(0, REFILL_AMOUNT_SCALE).padEnd(REFILL_AMOUNT_SCALE, '0');
+  return BigInt(whole) * 10n ** BigInt(REFILL_AMOUNT_SCALE) + BigInt(padded || '0');
+}
+
+function formatRefillAmountFromScaled(value: bigint): string {
+  if (value < 0n) {
+    throw new Error('amount cannot be negative.');
+  }
+  const factor = 10n ** BigInt(REFILL_AMOUNT_SCALE);
+  const whole = value / factor;
+  const fraction = (value % factor).toString().padStart(REFILL_AMOUNT_SCALE, '0').replace(/0+$/, '');
+  return fraction ? `${whole.toString()}.${fraction}` : whole.toString();
+}
+
+export type TreasuryRefillBalanceProjection = {
+  binanceAfter: string;
+  distributorAfter: string;
+};
+
+/**
+ * Binance debit = requested amount; distributor is credited the same amount.
+ * Network fee is not included (Binance may take extra from remaining free).
+ */
+export function projectTreasuryRefillBalances(input: {
+  amount: string;
+  binanceFree: string;
+  distributorBalance: string;
+  asset: TreasuryRefillAsset;
+}): TreasuryRefillBalanceProjection {
+  const amount = normalizeBinanceUsdcAmount(input.amount, 'amount');
+  const free = normalizeBinanceUsdcAmount(
+    input.binanceFree,
+    `binance ${input.asset} free balance`,
+  );
+  const amountScaled = parseRefillAmountToScaled(amount, 'amount');
+  const freeScaled = parseRefillAmountToScaled(free, `binance ${input.asset} free balance`);
+  if (freeScaled < amountScaled) {
+    throw new Error(
+      `amount (${amount}) exceeds Binance ${input.asset} free balance (${free}).`,
+    );
+  }
+
+  let distributorAfter = 'unavailable';
+  const currentDistributor = input.distributorBalance.trim();
+  if (currentDistributor && currentDistributor !== 'unavailable') {
+    const nowScaled = parseRefillAmountToScaled(
+      currentDistributor,
+      `distributor ${input.asset} balance`,
+    );
+    distributorAfter = formatRefillAmountFromScaled(nowScaled + amountScaled);
+  }
+
+  return {
+    binanceAfter: formatRefillAmountFromScaled(freeScaled - amountScaled),
+    distributorAfter,
+  };
+}
+
 /** @deprecated Prefer resolveTreasuryRefillAmount with asset USDC. */
 export function resolveTreasuryRefillAmountUsdc(input: {
   requestedAmountUsdc?: string | null;

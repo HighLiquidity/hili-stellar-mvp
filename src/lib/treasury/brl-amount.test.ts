@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   normalizeBrlAmount,
+  projectBinanceBrlWithdrawBalances,
+  projectCorpxBrlToBinanceBalances,
   resolveTreasuryBinanceBrlWithdrawAmount,
   resolveTreasuryBrlAmount,
 } from './brl-amount';
@@ -96,5 +98,75 @@ describe('resolveTreasuryBinanceBrlWithdrawAmount', () => {
         binanceBrlFree: '50',
       }),
     ).toThrow(/exceeds Binance BRL free/i);
+  });
+});
+
+describe('projectBinanceBrlWithdrawBalances', () => {
+  it('subtracts the 3.50 fee from the amount credited to CorpX', () => {
+    expect(
+      projectBinanceBrlWithdrawBalances({
+        amountBrl: '100',
+        binanceBrlFree: '180.00000000',
+        corpxAvailable: '20.00',
+      }),
+    ).toEqual({
+      withdrawFeeBrl: '3.5',
+      amountNetBrl: '96.5',
+      binanceBrlAfter: '80',
+      corpxBrlAfter: '116.5',
+    });
+  });
+
+  it('allows Binance to go to zero and keeps CorpX unavailable', () => {
+    expect(
+      projectBinanceBrlWithdrawBalances({
+        amountBrl: '10',
+        binanceBrlFree: '10',
+        corpxAvailable: 'unavailable',
+      }),
+    ).toEqual({
+      withdrawFeeBrl: '3.5',
+      amountNetBrl: '6.5',
+      binanceBrlAfter: '0',
+      corpxBrlAfter: 'unavailable',
+    });
+  });
+
+  it('rejects amount that does not cover the fee', () => {
+    expect(() =>
+      projectBinanceBrlWithdrawBalances({
+        amountBrl: '3.5',
+        binanceBrlFree: '80',
+        corpxAvailable: '10',
+      }),
+    ).toThrow(/greater than the Binance BRL withdraw fee/i);
+  });
+});
+
+describe('projectCorpxBrlToBinanceBalances', () => {
+  it('moves the amount from CorpX to Binance', () => {
+    expect(
+      projectCorpxBrlToBinanceBalances({
+        amountBrl: '40',
+        corpxAvailable: '100.00',
+        binanceBrlFree: '12.00000000',
+      }),
+    ).toEqual({
+      corpxBrlAfter: '60',
+      binanceBrlAfter: '52',
+    });
+  });
+
+  it('allows CorpX to go to zero and keeps Binance unavailable', () => {
+    expect(
+      projectCorpxBrlToBinanceBalances({
+        amountBrl: '25',
+        corpxAvailable: '25',
+        binanceBrlFree: 'unavailable',
+      }),
+    ).toEqual({
+      corpxBrlAfter: '0',
+      binanceBrlAfter: 'unavailable',
+    });
   });
 });

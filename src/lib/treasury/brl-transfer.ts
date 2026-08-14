@@ -6,7 +6,7 @@ import { normalizeCorpXPixIdentifier } from '@/lib/corpx/pix/identifier';
 import type { CorpXPIXKeyType, PIXCashOutResponse, TransferStatus } from '@/lib/corpx/pix/types';
 import { binance } from '@/lib/server/binance';
 
-import { resolveTreasuryBrlAmount } from './brl-amount';
+import { projectCorpxBrlToBinanceBalances, resolveTreasuryBrlAmount } from './brl-amount';
 import {
   amountForEmvPayout,
   assertCorpXPixOutAccepted,
@@ -274,6 +274,12 @@ export async function buildTreasuryBrlTransferPlan(
     binanceBrlFree = 'unavailable';
   }
 
+  const projection = projectCorpxBrlToBinanceBalances({
+    amountBrl,
+    corpxAvailable: balance.available,
+    binanceBrlFree,
+  });
+
   const steps: TreasuryRunStep[] = [
     step('read_corpx_brl', 'planned', `available=${balance.available}`),
     step('normalize_amount', 'planned', `amount=${amountBrl}`),
@@ -286,6 +292,8 @@ export async function buildTreasuryBrlTransferPlan(
     amountBrl,
     corpxAvailable: balance.available,
     binanceBrlFree,
+    corpxBrlAfter: projection.corpxBrlAfter,
+    binanceBrlAfter: projection.binanceBrlAfter,
     paymentHint: 'binance_fiat_deposit_then_corpx_pix',
     steps,
   };

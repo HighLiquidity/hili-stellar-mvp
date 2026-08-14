@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveTreasuryRefillAmount, resolveTreasuryRefillAmountUsdc } from './refill-amount';
+import {
+  projectTreasuryRefillBalances,
+  resolveTreasuryRefillAmount,
+  resolveTreasuryRefillAmountUsdc,
+} from './refill-amount';
 
 describe('resolveTreasuryRefillAmount', () => {
   it('uses full free balance when amount is omitted (USDC)', () => {
@@ -70,5 +74,35 @@ describe('resolveTreasuryRefillAmountUsdc (compat)', () => {
         binanceUsdcFree: '25.5',
       }),
     ).toBe('10');
+  });
+});
+
+describe('projectTreasuryRefillBalances', () => {
+  it('moves USDC from Binance to the distributor', () => {
+    expect(
+      projectTreasuryRefillBalances({
+        asset: 'USDC',
+        amount: '10',
+        binanceFree: '25.50000000',
+        distributorBalance: '3.25',
+      }),
+    ).toEqual({
+      binanceAfter: '15.5',
+      distributorAfter: '13.25',
+    });
+  });
+
+  it('allows Binance to go to zero and keeps distributor unavailable', () => {
+    expect(
+      projectTreasuryRefillBalances({
+        asset: 'XLM',
+        amount: '12',
+        binanceFree: '12',
+        distributorBalance: 'unavailable',
+      }),
+    ).toEqual({
+      binanceAfter: '0',
+      distributorAfter: 'unavailable',
+    });
   });
 });

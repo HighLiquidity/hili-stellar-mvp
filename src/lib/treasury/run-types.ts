@@ -45,6 +45,9 @@ export type TreasuryRefillPlan = {
   asset: TreasuryRefillAsset;
   amount: string;
   binanceFree: string;
+  binanceAfter: string;
+  distributorBalance: string;
+  distributorAfter: string;
   minWithdraw: string;
   distributor: {
     address: string;
@@ -60,6 +63,8 @@ export type TreasuryBrlTransferPlan = {
   amountBrl: string;
   corpxAvailable: string;
   binanceBrlFree: string;
+  corpxBrlAfter: string;
+  binanceBrlAfter: string;
   /** How execute will attempt to pay Binance (discovered at dry-run when possible). */
   paymentHint: 'binance_fiat_deposit_then_corpx_pix';
   steps: TreasuryRunStep[];
@@ -68,8 +73,14 @@ export type TreasuryBrlTransferPlan = {
 export type TreasuryBrlReceivePlan = {
   kind: 'binance_brl_to_corpx';
   amountBrl: string;
+  /** Requested amount minus the Binance fiat withdraw fee (credited to CorpX). */
+  amountNetBrl: string;
+  withdrawFeeBrl: string;
   corpxAvailable: string;
   binanceBrlFree: string;
+  binanceBrlAfter: string;
+  /** Estimated CorpX available after the net credit, or `unavailable`. */
+  corpxBrlAfter: string;
   destinationMasked: string;
   paymentHint: 'binance_fiat_withdraw_bank_transfer';
   steps: TreasuryRunStep[];
