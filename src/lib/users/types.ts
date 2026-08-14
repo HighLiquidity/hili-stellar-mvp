@@ -6,6 +6,7 @@ export type PanelUserRow = AccessProfile & {
   client_id?: string | null;
   client_name?: string | null;
   max_amount_brl?: string | null;
+  totp_enabled?: boolean;
   created_at?: string;
   updated_at?: string;
 };

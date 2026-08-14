@@ -262,6 +262,17 @@ button:disabled {
   transition: color 160ms ease, border-color 160ms ease;
 }
 
+button.auth-text-link {
+  display: inline;
+  padding: 0;
+  border-top: 0;
+  border-left: 0;
+  border-right: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
 .auth-text-link:hover {
   color: var(--accent);
   border-bottom-color: var(--accent);
@@ -1752,7 +1763,7 @@ a.user-menu__item {
 
 .user-management-table {
   width: 100%;
-  min-width: 640px;
+  min-width: 760px;
   border-collapse: collapse;
   font-size: 0.9rem;
 }
@@ -2157,6 +2168,50 @@ a.user-menu__item {
 
 .password-page__actions {
   width: 100%;
+}
+
+.security-status {
+  margin: 0;
+  font-weight: 600;
+}
+
+.security-status.is-on {
+  color: var(--accent-strong);
+}
+
+.security-status.is-off {
+  color: var(--text-muted);
+}
+
+.security-qr {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  color: #111;
+  text-align: center;
+}
+
+.security-qr img {
+  width: 180px;
+  height: 180px;
+}
+
+.security-secret {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+  letter-spacing: 0.06em;
+  word-break: break-all;
+}
+
+.security-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .deposit-form-card__header,

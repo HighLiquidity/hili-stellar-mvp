@@ -23,6 +23,7 @@ import {
   OnrampIcon,
   OfframpIcon,
   SettingsIcon,
+  ShieldIcon,
   StatementIcon,
   WithdrawIcon,
 } from '../components/Icons';
@@ -298,6 +299,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       return t('pages.changePassword.title');
     }
 
+    if (pathname.startsWith('/app/security')) {
+      return t('pages.security.title');
+    }
+
     const currentItem = allNavItems.find((item) => navLinkIsActive(pathname, item.to));
     return currentItem?.label ?? t('app.name');
   }, [allNavItems, pathname, t]);
@@ -342,6 +347,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const handleOpenChangePassword = () => {
     setIsUserMenuOpen(false);
     router.push('/app/change-password');
+  };
+
+  const handleOpenSecurity = () => {
+    setIsUserMenuOpen(false);
+    router.push('/app/security');
   };
 
   const handleLogout = async () => {
@@ -538,6 +548,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                   >
                     <KeyIcon width={16} height={16} />
                     <span>{t('shell.changePassword')}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="user-menu__item"
+                    role="menuitem"
+                    onClick={handleOpenSecurity}
+                  >
+                    <ShieldIcon width={16} height={16} />
+                    <span>{t('shell.security')}</span>
                   </button>
 
                   <button

@@ -11,10 +11,12 @@ import {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../integrations/supabase/client';
+import { sessionNeedsMfaChallenge } from '../lib/auth/aal';
 import {
   getAuthErrorMessage,
   getAuthorizedAccessProfile,
   getCurrentSession,
+  getMfaAssurance,
   signOutUser,
   type AccessProfile,
 } from '../lib/authService';
@@ -25,6 +27,7 @@ interface AuthContextValue {
   profile: AccessProfile | null;
   isAuthenticated: boolean;
   isAuthorized: boolean;
+  needsMfa: boolean;
   isLoading: boolean;
   authError: string | null;
   clearAuthError: () => void;
@@ -36,6 +39,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<AccessProfile | null>(null);
+  const [needsMfa, setNeedsMfa] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const keepNextSignedOutErrorRef = useRef(false);
@@ -51,6 +55,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (!nextSession?.user.email) {
         setSession(null);
         setProfile(null);
+        setNeedsMfa(false);
         if (!keepNextSignedOutErrorRef.current) {
           setAuthError(null);
         }
@@ -66,6 +71,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
         if (!accessProfile || !accessProfile.is_active) {
           setProfile(null);
+          setNeedsMfa(false);
           setAuthError('access_denied');
           keepNextSignedOutErrorRef.current = true;
           await signOutUser();
@@ -77,11 +83,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
           return;
         }
 
+        let pendingMfa = false;
+        try {
+          const assurance = await getMfaAssurance();
+          pendingMfa = sessionNeedsMfaChallenge(assurance.currentLevel, assurance.nextLevel);
+        } catch {
+          pendingMfa = false;
+        }
+
         if (!isMounted) {
           return;
         }
 
         setProfile(accessProfile);
+        setNeedsMfa(pendingMfa);
         setAuthError(null);
       } catch (error) {
         if (!isMounted) {
@@ -89,6 +104,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
 
         setProfile(null);
+        setNeedsMfa(false);
         setAuthError(getAuthErrorMessage(error));
       } finally {
         if (isMounted) {
@@ -112,20 +128,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
     initializeAuth();
 
     const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      if (event === 'SIGNED_OUT') {
-        if (isMounted) {
-          setSession(null);
-          setProfile(null);
-          if (!keepNextSignedOutErrorRef.current) {
-            setAuthError(null);
+      window.setTimeout(() => {
+        if (event === 'SIGNED_OUT') {
+          if (isMounted) {
+            setSession(null);
+            setProfile(null);
+            setNeedsMfa(false);
+            if (!keepNextSignedOutErrorRef.current) {
+              setAuthError(null);
+            }
+            keepNextSignedOutErrorRef.current = false;
+            setIsLoading(false);
           }
-          keepNextSignedOutErrorRef.current = false;
-          setIsLoading(false);
+          return;
         }
-        return;
-      }
 
-      void syncSession(nextSession);
+        void syncSession(nextSession);
+      }, 0);
     });
 
     return () => {
@@ -140,7 +159,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       user: session?.user ?? null,
       profile,
       isAuthenticated: Boolean(session),
-      isAuthorized: Boolean(session && profile?.is_active),
+      isAuthorized: Boolean(session && profile?.is_active && !needsMfa),
+      needsMfa,
       isLoading,
       authError,
       clearAuthError: () => {
@@ -153,13 +173,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
           await signOutUser();
           setSession(null);
           setProfile(null);
+          setNeedsMfa(false);
           setAuthError(null);
         } catch (error) {
           setAuthError(getAuthErrorMessage(error));
         }
       },
     }),
-    [authError, isLoading, profile, session],
+    [authError, isLoading, needsMfa, profile, session],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

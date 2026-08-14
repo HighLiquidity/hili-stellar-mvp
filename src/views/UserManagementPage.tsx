@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import {
   createPanelUserAction,
   deletePanelUserAction,
+  disableTotpForPanelUserAction,
   getManagedClientCeilingAction,
   listPanelUsersAction,
   updatePanelUserAction,
@@ -239,6 +240,36 @@ export function UserManagementPage() {
     }
   };
 
+  const handleDisableTotp = async (row: PanelUserRow) => {
+    const confirmed = window.confirm(
+      t('pages.userManagement.disableTotpConfirm').replace('{{email}}', row.email),
+    );
+    if (!confirmed) return;
+
+    setFormError(null);
+    setSuccessMessage(null);
+    setIsSaving(true);
+
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        setFormError(t('pages.userManagement.errors.session'));
+        return;
+      }
+
+      const result = await disableTotpForPanelUserAction(token, row.email);
+      if (!result.ok) {
+        setFormError(result.message);
+        return;
+      }
+
+      setSuccessMessage(t('pages.userManagement.disableTotpSuccess').replace('{{email}}', row.email));
+      await loadUsers();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const roleLabel = (value: PanelUserRole) => t(`pages.userManagement.roles.${value}`);
 
   if (authLoading || !canManageUsers) {
@@ -441,17 +472,18 @@ export function UserManagementPage() {
                 <th>{t('pages.userManagement.role')}</th>
                 <th>{t('pages.userManagement.operatorMaxAmount')}</th>
                 <th>{t('pages.userManagement.status')}</th>
+                <th>{t('pages.userManagement.totp')}</th>
                 <th aria-label={t('pages.userManagement.actions')} />
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={7}>{t('pages.userManagement.loading')}</td>
+                  <td colSpan={8}>{t('pages.userManagement.loading')}</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>{t('pages.userManagement.empty')}</td>
+                  <td colSpan={8}>{t('pages.userManagement.empty')}</td>
                 </tr>
               ) : (
                 rows.map((row) => (
@@ -470,6 +502,15 @@ export function UserManagementPage() {
                           : t('pages.userManagement.statusInactive')}
                       </span>
                     </td>
+                    <td>
+                      <span
+                        className={`user-management-status${row.totp_enabled ? ' is-active' : ' is-inactive'}`}
+                      >
+                        {row.totp_enabled
+                          ? t('pages.userManagement.totpOn')
+                          : t('pages.userManagement.totpOff')}
+                      </span>
+                    </td>
                     <td className="user-management-table__actions">
                       <Button
                         type="button"
@@ -479,6 +520,16 @@ export function UserManagementPage() {
                       >
                         {t('pages.userManagement.edit')}
                       </Button>
+                      {row.totp_enabled ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          disabled={isSaving}
+                          onClick={() => void handleDisableTotp(row)}
+                        >
+                          {t('pages.userManagement.disableTotp')}
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="ghost"

@@ -8,20 +8,30 @@ import { ThemeToggle } from '../components/ThemeToggle';
 import { Button } from '../components/ui/Button';
 import { InputField } from '../components/ui/InputField';
 import { useAuth } from '../hooks/useAuth';
-import { getAuthErrorMessage, signInUser } from '../lib/authService';
+import { sessionNeedsMfaChallenge } from '../lib/auth/aal';
+import {
+  completeTotpChallenge,
+  getAuthErrorMessage,
+  getMfaAssurance,
+  signInUser,
+} from '../lib/authService';
 import { useI18n } from '@/lib/i18n';
 
 export function LoginPage() {
   const searchParams = useSearchParams();
-  const { authError, clearAuthError } = useAuth();
+  const { authError, clearAuthError, logout, needsMfa } = useAuth();
   const { t } = useI18n();
   const resetSuccess = searchParams.get('reset') === 'success';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [totpStep, setTotpStep] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const showMfa = totpStep || needsMfa;
+
+  const handlePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
     setLocalError(null);
@@ -29,6 +39,45 @@ export function LoginPage() {
 
     try {
       await signInUser({ email, password });
+      try {
+        const assurance = await getMfaAssurance();
+        if (sessionNeedsMfaChallenge(assurance.currentLevel, assurance.nextLevel)) {
+          setTotpStep(true);
+        }
+      } catch {
+        setTotpStep(false);
+      }
+    } catch (error) {
+      setLocalError(getAuthErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleTotpSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setLocalError(null);
+    clearAuthError();
+
+    try {
+      await completeTotpChallenge(totpCode);
+      setTotpStep(false);
+      setTotpCode('');
+    } catch (error) {
+      setLocalError(getAuthErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleBackToPassword = async () => {
+    setIsSubmitting(true);
+    setLocalError(null);
+    try {
+      await logout();
+      setTotpStep(false);
+      setTotpCode('');
     } catch (error) {
       setLocalError(getAuthErrorMessage(error));
     } finally {
@@ -50,44 +99,78 @@ export function LoginPage() {
         </header>
 
         <div className="auth-layout__form-region">
-          <section className="auth-panel" aria-label={t('auth.title')}>
-            {resetSuccess ? (
+          <section className="auth-panel" aria-label={showMfa ? t('auth.mfaTitle') : t('auth.title')}>
+            {!showMfa && resetSuccess ? (
               <p className="form-success-message">{t('auth.loginAfterResetMessage')}</p>
             ) : null}
 
             {errorMessage ? <p className="auth-inline-error">{errorMessage}</p> : null}
 
-            <form className="auth-form" onSubmit={handleSubmit}>
-              <InputField
-                id="email"
-                label={t('auth.email')}
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder={t('auth.emailPlaceholder')}
-                autoComplete="email"
-                required
-              />
-              <InputField
-                id="password"
-                label={t('auth.password')}
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder={t('auth.passwordPlaceholder')}
-                autoComplete="current-password"
-                required
-              />
-              <Button type="submit" fullWidth disabled={isSubmitting}>
-                {isSubmitting ? t('auth.loading') : t('auth.submit')}
-              </Button>
-            </form>
+            {showMfa ? (
+              <form className="auth-form" onSubmit={handleTotpSubmit}>
+                <p className="auth-panel__subtitle">{t('auth.mfaLead')}</p>
+                <InputField
+                  id="totp-code"
+                  label={t('auth.mfaCode')}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]*"
+                  maxLength={8}
+                  value={totpCode}
+                  onChange={(event) => setTotpCode(event.target.value)}
+                  placeholder={t('auth.mfaCodePlaceholder')}
+                  required
+                />
+                <Button type="submit" fullWidth disabled={isSubmitting}>
+                  {isSubmitting ? t('auth.mfaVerifying') : t('auth.mfaSubmit')}
+                </Button>
+                <p className="auth-panel__footer">
+                  <button
+                    type="button"
+                    className="auth-text-link"
+                    onClick={() => void handleBackToPassword()}
+                    disabled={isSubmitting}
+                  >
+                    {t('auth.mfaBack')}
+                  </button>
+                </p>
+              </form>
+            ) : (
+              <>
+                <form className="auth-form" onSubmit={handlePasswordSubmit}>
+                  <InputField
+                    id="email"
+                    label={t('auth.email')}
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder={t('auth.emailPlaceholder')}
+                    autoComplete="email"
+                    required
+                  />
+                  <InputField
+                    id="password"
+                    label={t('auth.password')}
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder={t('auth.passwordPlaceholder')}
+                    autoComplete="current-password"
+                    required
+                  />
+                  <Button type="submit" fullWidth disabled={isSubmitting}>
+                    {isSubmitting ? t('auth.loading') : t('auth.submit')}
+                  </Button>
+                </form>
 
-            <p className="auth-panel__footer">
-              <Link href="/forgot-password" className="auth-text-link">
-                {t('auth.forgotPassword')}
-              </Link>
-            </p>
+                <p className="auth-panel__footer">
+                  <Link href="/forgot-password" className="auth-text-link">
+                    {t('auth.forgotPassword')}
+                  </Link>
+                </p>
+              </>
+            )}
           </section>
         </div>
       </div>

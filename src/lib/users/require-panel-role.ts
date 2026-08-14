@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
+import { getAalFromAccessToken, mfaSessionIsInsufficient } from '@/lib/auth/aal';
+import { adminUserHasVerifiedTotp } from '@/lib/auth/admin-mfa';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 
 import type { PanelUserRole } from './types';
@@ -85,6 +87,12 @@ export async function requirePanelRoleFromAccessToken(
 
   if (!profile?.is_active || !roles.includes(profile.role as PanelUserRole)) {
     throw new Error(buildAccessDeniedMessage(roles));
+  }
+
+  const aal = getAalFromAccessToken(trimmedToken);
+  const hasVerifiedTotp = await adminUserHasVerifiedTotp(admin, userData.user.id);
+  if (mfaSessionIsInsufficient(aal, hasVerifiedTotp)) {
+    throw new Error('Complete a autenticação em duas etapas para continuar.');
   }
 
   return {

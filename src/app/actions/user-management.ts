@@ -1,5 +1,6 @@
 'use server';
 
+import { adminDeleteVerifiedTotpFactors, adminUserHasVerifiedTotp } from '@/lib/auth/admin-mfa';
 import { assertOperatorMaxWithinClientCeiling } from '@/lib/commercial/operator-limits';
 import { parseMaxAmountBrl } from '@/lib/commercial/parse';
 import {
@@ -160,6 +161,32 @@ async function findAuthUserIdByEmail(
   return null;
 }
 
+async function listAuthUserIdsByEmail(
+  admin: PanelAccessContext['admin'],
+): Promise<Map<string, string>> {
+  const ids = new Map<string, string>();
+  let page = 1;
+  const perPage = 200;
+
+  while (page <= 10) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    for (const user of data.users) {
+      if (user.email && user.id) {
+        ids.set(user.email.toLowerCase(), user.id);
+      }
+    }
+
+    if (data.users.length < perPage) break;
+    page += 1;
+  }
+
+  return ids;
+}
+
 export type UserManagementActionResult<T> =
   | { ok: true; data: T }
   | { ok: false; message: string };
@@ -261,7 +288,26 @@ export async function listPanelUsersAction(
       client_name: row.client_id ? clientNameById.get(row.client_id) ?? null : null,
     }));
 
-    return { ok: true, data: rows };
+    const authIds = await listAuthUserIdsByEmail(ctx.admin);
+    const totpFlags = await Promise.all(
+      rows.map(async (row) => {
+        const userId = authIds.get(row.email);
+        if (!userId) {
+          return [row.email, false] as const;
+        }
+        const enabled = await adminUserHasVerifiedTotp(ctx.admin, userId);
+        return [row.email, enabled] as const;
+      }),
+    );
+    const totpByEmail = new Map(totpFlags);
+
+    return {
+      ok: true,
+      data: rows.map((row) => ({
+        ...row,
+        totp_enabled: totpByEmail.get(row.email) ?? false,
+      })),
+    };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
@@ -517,6 +563,49 @@ export async function deletePanelUserAction(
 
     console.info('[users/delete] panel user removed', { email, by: ctx.email });
     return { ok: true, data: { email } };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function disableTotpForPanelUserAction(
+  accessToken: string,
+  emailRaw: string,
+): Promise<UserManagementActionResult<{ email: string; removed: number }>> {
+  try {
+    const ctx = await requireUserManagerFromAccessToken(accessToken);
+    const email = normalizeEmail(emailRaw);
+    if (!email) {
+      return { ok: false, message: 'E-mail inválido.' };
+    }
+
+    const { data: existing, error: readError } = await ctx.admin
+      .from(PANEL_ACCESS_TABLE)
+      .select('email, role, is_active, client_id')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (readError) {
+      return { ok: false, message: readError.message };
+    }
+    if (!existing) {
+      return { ok: false, message: 'Usuário não encontrado.' };
+    }
+
+    assertActorCanManageExistingUser(ctx, existing as { role: PanelUserRole; client_id?: string | null });
+
+    const authUserId = await findAuthUserIdByEmail(ctx.admin, email);
+    if (!authUserId) {
+      return { ok: false, message: 'Conta de autenticação não encontrada.' };
+    }
+
+    const removed = await adminDeleteVerifiedTotpFactors(ctx.admin, authUserId);
+    if (removed === 0) {
+      return { ok: false, message: 'Este usuário não tem 2FA ativo.' };
+    }
+
+    console.info('[users/disable-totp] totp factors removed', { email, removed, by: ctx.email });
+    return { ok: true, data: { email, removed } };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }

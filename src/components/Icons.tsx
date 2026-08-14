@@ -203,6 +203,15 @@ export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function ShieldIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <path d="M12 3 5 6v6c0 4.2 2.7 7.2 7 8.5 4.3-1.3 7-4.3 7-8.5V6z" />
+      <path d="m9 12 2 2 4-4" />
+    </IconBase>
+  );
+}
+
 export function KeyIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <IconBase {...props}>
