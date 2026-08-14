@@ -664,11 +664,12 @@ describe('CorpXAdapter', () => {
     }, async ({ adapter }) => {
       const resp = await adapter.pix.payPaymentQrEmv({
         emv: binanceEmv,
+        amount: '10.00',
         amountHint: '10',
         idempotencyKey: 'idemp-qr-emv',
       });
       const posted = JSON.parse(postedBody) as { amount?: unknown; emv?: string };
-      expect(posted.amount).toBeUndefined();
+      expect(posted.amount).toBe(10);
       expect(posted.emv).toBe(binanceEmv);
       expect(resp.providerTxId).toBe('txn-qr-emv-amount');
       expect(resp.amount).toBe('10.00');
@@ -796,6 +797,33 @@ describe('CorpXAdapter', () => {
       const resp = await adapter.pix.getTransferStatus('e2e-123');
       expect(resp.providerTxId).toBe('txn-123');
       expect(resp.status).toBe('completed');
+    });
+  });
+
+  it('GetTransferStatus_ItemsEnvelope', async () => {
+    await withTestAdapter((req, res) => {
+      expect(req.url).toContain('identifier=treasury-run-1');
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          accountId: 'acc-1',
+          items: [
+            {
+              partnerId: 'partner-1',
+              endToEndId: 'E123456789',
+              status: 'COMPLETED',
+              amount: -10,
+              identifier: 'treasury-run-1',
+              timestamp: '2026-08-14T01:00:00-03:00',
+            },
+          ],
+        }),
+      );
+    }, async ({ adapter }) => {
+      const resp = await adapter.pix.lookupPixPayment({ identifier: 'treasury-run-1' });
+      expect(resp.status).toBe('completed');
+      expect(resp.e2eId).toBe('E123456789');
+      expect(resp.providerTxId).toBe('partner-1');
     });
   });
 
@@ -1026,9 +1054,11 @@ describe('CorpXAdapter', () => {
 
   it('MapCorpXStatus', () => {
     expect(mapCorpXStatus('APPROVED')).toBe('submitted');
+    expect(mapCorpXStatus('ACCEPTED')).toBe('submitted');
     expect(mapCorpXStatus('PENDING')).toBe('submitted');
     expect(mapCorpXStatus('PROCESSING')).toBe('submitted');
     expect(mapCorpXStatus('COMPLETED')).toBe('completed');
+    expect(mapCorpXStatus('TIMEOUT')).toBe('requires_reconciliation');
     expect(mapCorpXStatus('FAILED')).toBe('failed');
     expect(mapCorpXStatus('REJECTED')).toBe('failed');
     expect(mapCorpXStatus('UNKNOWN')).toBe('pending');

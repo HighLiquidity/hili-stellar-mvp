@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   amountForEmvPayout,
   assertCorpXPixOutAccepted,
+  assertCorpXPixOutSettled,
   isBinanceFiatOrderFailed,
   isBinanceFiatOrderInitializing,
   isBinanceFiatOrderPaid,
@@ -83,13 +84,25 @@ describe('assertCorpXPixOutAccepted', () => {
 });
 
 describe('amountForEmvPayout', () => {
-  it('omits amount when Binance EMV already has tag 54', () => {
-    expect(amountForEmvPayout(BINANCE_EMV, '10')).toBeUndefined();
+  it('uses tag 54 amount from Binance EMV', () => {
+    expect(amountForEmvPayout(BINANCE_EMV, '10')).toBe('10.00');
   });
 
   it('keeps planned amount when EMV has no tag 54', () => {
     const staticEmv =
       '00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-4266141740005204000053039865802BR5910NOME TESTE6008BRASILIA62070503***6304ABCD';
     expect(amountForEmvPayout(staticEmv, '10')).toBe('10');
+  });
+});
+
+describe('assertCorpXPixOutSettled', () => {
+  it('accepts completed lookup only', () => {
+    expect(() => assertCorpXPixOutSettled('completed', 'ok')).not.toThrow();
+  });
+
+  it('rejects submitted as a false success', () => {
+    expect(() => assertCorpXPixOutSettled('submitted', 'identifier=run-1')).toThrow(
+      /did not settle/,
+    );
   });
 });

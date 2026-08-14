@@ -1,13 +1,16 @@
 import '@/lib/server/only';
 
 import { createCorpXAdapterFromEnv } from '@/lib/corpx/adapter';
-import type { CorpXPIXKeyType } from '@/lib/corpx/pix/types';
+import { CorpXTransactionNotFoundError } from '@/lib/corpx/errors';
+import { normalizeCorpXPixIdentifier } from '@/lib/corpx/pix/identifier';
+import type { CorpXPIXKeyType, TransferStatus } from '@/lib/corpx/pix/types';
 import { binance } from '@/lib/server/binance';
 
 import { resolveTreasuryBrlAmount } from './brl-amount';
 import {
   amountForEmvPayout,
   assertCorpXPixOutAccepted,
+  assertCorpXPixOutSettled,
   BINANCE_FIAT_PIX_POLL_MAX_MS,
   BINANCE_FIAT_PIX_POLL_MS,
   BINANCE_FIAT_SETTLEMENT_POLL_MAX_MS,
@@ -56,6 +59,63 @@ function step(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForCorpXPixOutSettlement(input: {
+  pix: {
+    lookupPixPayment: (query: {
+      endToEndId?: string;
+      identifier?: string;
+    }) => Promise<TransferStatus>;
+  };
+  e2eId?: string;
+  identifier: string;
+}): Promise<TransferStatus> {
+  const deadline = Date.now() + BINANCE_FIAT_SETTLEMENT_POLL_MAX_MS;
+  let last: TransferStatus = {
+    providerTxId: '',
+    e2eId: input.e2eId?.trim() ?? '',
+    status: 'pending',
+    updatedAt: nowIso(),
+  };
+
+  while (Date.now() <= deadline) {
+    try {
+      if (input.e2eId?.trim()) {
+        last = await input.pix.lookupPixPayment({ endToEndId: input.e2eId.trim() });
+      } else {
+        last = await input.pix.lookupPixPayment({ identifier: input.identifier });
+      }
+    } catch (error) {
+      if (!(error instanceof CorpXTransactionNotFoundError)) {
+        throw error;
+      }
+      if (input.e2eId?.trim()) {
+        try {
+          last = await input.pix.lookupPixPayment({ identifier: input.identifier });
+        } catch (inner) {
+          if (!(inner instanceof CorpXTransactionNotFoundError)) {
+            throw inner;
+          }
+        }
+      }
+    }
+
+    if (
+      last.status === 'completed' ||
+      last.status === 'failed' ||
+      last.status === 'requires_reconciliation'
+    ) {
+      return last;
+    }
+
+    if (Date.now() + BINANCE_FIAT_SETTLEMENT_POLL_MS > deadline) {
+      break;
+    }
+    await sleep(BINANCE_FIAT_SETTLEMENT_POLL_MS);
+  }
+
+  return last;
 }
 
 function throwIfBinanceOrderFailed(orderId: string, detail: unknown): void {
@@ -244,6 +304,7 @@ export async function runTreasuryCorpxBrlToBinance(
       })();
 
     if (payment?.mode === 'emv') {
+      const identifier = normalizeCorpXPixIdentifier(run.id);
       const payout = await adapter.pix.payPaymentQrEmv({
         emv: payment.emv,
         amount: amountForEmvPayout(payment.emv, plan.amountBrl),
@@ -254,12 +315,22 @@ export async function runTreasuryCorpxBrlToBinance(
       });
       assertCorpXPixOutAccepted(payout);
 
+      const corpxSettled = await waitForCorpXPixOutSettlement({
+        pix: adapter.pix,
+        e2eId: payout.e2eId,
+        identifier,
+      });
+      assertCorpXPixOutSettled(
+        corpxSettled.status,
+        `identifier=${identifier} e2e=${corpxSettled.e2eId || payout.e2eId || ''} providerTxId=${corpxSettled.providerTxId || payout.providerTxId}`,
+      );
+
       const settlement = await probeBinanceFiatSettlement(deposit.orderId);
 
       run = await updateTreasuryRun(run.id, {
         status: 'completed',
         executedAmountUsdc: plan.amountBrl,
-        binanceWithdrawId: payout.providerTxId || payout.e2eId || null,
+        binanceWithdrawId: payout.providerTxId || payout.e2eId || corpxSettled.providerTxId || null,
         steps: [
           ...run.steps,
           step(
@@ -270,7 +341,12 @@ export async function runTreasuryCorpxBrlToBinance(
           step(
             'corpx_pix_out',
             'ok',
-            `providerTxId=${payout.providerTxId} e2e=${payout.e2eId} status=${payout.status}`,
+            `providerTxId=${payout.providerTxId} e2e=${payout.e2eId} submit=${payout.status}`,
+          ),
+          step(
+            'corpx_pix_settlement',
+            'ok',
+            `status=${corpxSettled.status} e2e=${corpxSettled.e2eId || payout.e2eId}`,
           ),
           step('binance_settlement_probe', 'ok', describeSettlementProbe(settlement)),
         ],
@@ -291,6 +367,7 @@ export async function runTreasuryCorpxBrlToBinance(
     }
 
     if (payment?.mode === 'key') {
+      const identifier = normalizeCorpXPixIdentifier(run.id);
       const payout = await adapter.pix.initiatePIXCashOut({
         amount: plan.amountBrl,
         pixKey: payment.key,
@@ -301,12 +378,22 @@ export async function runTreasuryCorpxBrlToBinance(
       });
       assertCorpXPixOutAccepted(payout);
 
+      const corpxSettled = await waitForCorpXPixOutSettlement({
+        pix: adapter.pix,
+        e2eId: payout.e2eId,
+        identifier,
+      });
+      assertCorpXPixOutSettled(
+        corpxSettled.status,
+        `identifier=${identifier} e2e=${corpxSettled.e2eId || payout.e2eId || ''} providerTxId=${corpxSettled.providerTxId || payout.providerTxId}`,
+      );
+
       const settlement = await probeBinanceFiatSettlement(deposit.orderId);
 
       run = await updateTreasuryRun(run.id, {
         status: 'completed',
         executedAmountUsdc: plan.amountBrl,
-        binanceWithdrawId: payout.providerTxId || payout.e2eId || null,
+        binanceWithdrawId: payout.providerTxId || payout.e2eId || corpxSettled.providerTxId || null,
         steps: [
           ...run.steps,
           step(
@@ -317,7 +404,12 @@ export async function runTreasuryCorpxBrlToBinance(
           step(
             'corpx_pix_out',
             'ok',
-            `providerTxId=${payout.providerTxId} e2e=${payout.e2eId} status=${payout.status}`,
+            `providerTxId=${payout.providerTxId} e2e=${payout.e2eId} submit=${payout.status}`,
+          ),
+          step(
+            'corpx_pix_settlement',
+            'ok',
+            `status=${corpxSettled.status} e2e=${corpxSettled.e2eId || payout.e2eId}`,
           ),
           step('binance_settlement_probe', 'ok', describeSettlementProbe(settlement)),
         ],

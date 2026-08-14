@@ -66,6 +66,7 @@ type StaticQrApiResponse = {
 
 type CashOutApiResponse = {
   transactionId?: string;
+  paymentId?: string;
   status?: string;
   endToEndId?: string;
   amount?: number | string;
@@ -75,10 +76,16 @@ type CashOutApiResponse = {
 
 type PixTransactionLookupResponse = {
   transactionId?: string;
+  partnerId?: string;
   endToEndId?: string;
   status?: string;
   transactionDate?: string;
+  timestamp?: string;
   description?: string;
+};
+
+type PixTransactionLookupEnvelope = PixTransactionLookupResponse & {
+  items?: PixTransactionLookupResponse[];
 };
 
 type BigPixApiResponse = {
@@ -377,15 +384,28 @@ export class CorpXPixAdapter {
    * Go `GetTransferStatus` names the parameter `providerTxID` but sends it as `endToEndId`.
    */
   async getTransferStatus(endToEndId: string, signal?: AbortSignal): Promise<TransferStatus> {
-    const trimmed = endToEndId.trim();
-    if (!trimmed) {
-      throw new CorpXInvalidRequestError('getTransferStatus requires a non-empty endToEndId');
+    return this.lookupPixPayment({ endToEndId }, signal);
+  }
+
+  /**
+   * Looks up a PIX out by E2E or integrator `identifier`.
+   * CorpX v2 returns a statement envelope (`items[]`); older tenants return a flat object.
+   */
+  async lookupPixPayment(
+    query: { endToEndId?: string; identifier?: string },
+    signal?: AbortSignal,
+  ): Promise<TransferStatus> {
+    const endToEndId = query.endToEndId?.trim() ?? '';
+    const identifier = query.identifier?.trim() ?? '';
+    if (!endToEndId && !identifier) {
+      throw new CorpXInvalidRequestError('lookupPixPayment requires endToEndId or identifier');
     }
 
     const path = `/v1/accounts/${this.accountId}/pix/transactions`;
+    const search = endToEndId ? { endToEndId } : { identifier };
     let response: Response;
     try {
-      response = await this.client.get(path, { endToEndId: trimmed }, signal);
+      response = await this.client.get(path, search, signal);
     } catch (e) {
       if (e instanceof CorpXError) throw e;
       const err = e instanceof Error ? e : new Error(String(e));
@@ -395,8 +415,8 @@ export class CorpXPixAdapter {
     const raw = await response.text().catch(() => '');
     if (response.status === 404) {
       throw new CorpXTransactionNotFoundError(
-        `PIX transaction not found for endToEndId: ${trimmed}`,
-        trimmed,
+        `PIX transaction not found for ${endToEndId ? `endToEndId: ${endToEndId}` : `identifier: ${identifier}`}`,
+        endToEndId || identifier,
         undefined,
         404,
         raw.slice(0, 500),
@@ -407,23 +427,33 @@ export class CorpXPixAdapter {
       throwStatusError('corpx: get transfer status', response.status, raw || '(empty body)');
     }
 
-    let parsed: PixTransactionLookupResponse;
+    let envelope: PixTransactionLookupEnvelope;
     try {
-      parsed = JSON.parse(raw) as PixTransactionLookupResponse;
+      envelope = JSON.parse(raw) as PixTransactionLookupEnvelope;
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       throw new CorpXError(`Failed to parse transfer status response — ${err.message}`, undefined, response.status);
     }
 
-    const status = mapCorpXTransferLookupStatus(parsed.status);
+    const parsed = unwrapPixTransactionLookup(envelope);
+    if (!parsed) {
+      return {
+        providerTxId: '',
+        e2eId: endToEndId,
+        status: 'pending',
+        updatedAt: new Date().toISOString(),
+      };
+    }
 
-    const updatedAt = typeof parsed.transactionDate === 'string' && parsed.transactionDate.trim()
-      ? parsed.transactionDate.trim()
-      : new Date().toISOString();
+    const status = mapCorpXTransferLookupStatus(parsed.status);
+    const updatedAt =
+      (typeof parsed.transactionDate === 'string' && parsed.transactionDate.trim()) ||
+      (typeof parsed.timestamp === 'string' && parsed.timestamp.trim()) ||
+      new Date().toISOString();
 
     return {
-      providerTxId: parsed.transactionId?.trim() ?? '',
-      e2eId: parsed.endToEndId?.trim() ?? trimmed,
+      providerTxId: parsed.transactionId?.trim() || parsed.partnerId?.trim() || '',
+      e2eId: parsed.endToEndId?.trim() || endToEndId,
       status,
       updatedAt,
       ...(typeof parsed.description === 'string' ? { description: parsed.description } : {}),
@@ -527,8 +557,8 @@ export class CorpXPixAdapter {
     });
 
     return {
-      providerTxId: parsed.transactionId ?? '',
-      e2eId: parsed.endToEndId ?? '',
+      providerTxId: parsed.transactionId?.trim() || parsed.paymentId?.trim() || '',
+      e2eId: parsed.endToEndId?.trim() ?? '',
       status: mapCorpXCashOutSubmitStatus(parsed.status),
       amount: amountStr,
       fee: '0',
@@ -554,12 +584,15 @@ export function mapCorpXCashOutSubmitStatus(status: string | undefined): CashOut
   const s = (status ?? '').toUpperCase();
   switch (s) {
     case 'APPROVED':
+    case 'ACCEPTED':
     case 'PENDING':
     case 'PROCESSING':
     case 'SCHEDULED':
       return 'submitted';
     case 'COMPLETED':
       return 'completed';
+    case 'TIMEOUT':
+      return 'requires_reconciliation';
     case 'REJECTED':
     case 'FAILED':
     case 'REVERSED':
@@ -582,7 +615,10 @@ export function mapCorpXTransferLookupStatus(status: string | undefined): CashOu
     case 'PENDING':
     case 'PROCESSING':
     case 'APPROVED':
+    case 'PENDING_APPROVAL':
       return 'pending';
+    case 'TIMEOUT':
+      return 'requires_reconciliation';
     case 'REJECTED':
     case 'FAILED':
     case 'REVERSED':
@@ -667,6 +703,20 @@ async function readBodyOrThrow(response: Response, context: string): Promise<str
     const err = e instanceof Error ? e : new Error(String(e));
     throw new CorpXProviderUnavailableError(`${context}: failed to read body — ${err.message}`);
   }
+}
+
+function unwrapPixTransactionLookup(
+  envelope: PixTransactionLookupEnvelope,
+): PixTransactionLookupResponse | null {
+  if (Array.isArray(envelope.items)) {
+    const first = envelope.items[0];
+    if (!first || typeof first !== 'object') return null;
+    return first;
+  }
+  if (envelope.status || envelope.endToEndId || envelope.transactionId) {
+    return envelope;
+  }
+  return null;
 }
 
 function amountToString(value: unknown, label: string): string {

@@ -85,11 +85,11 @@ export function resolvePixPaymentFromOrderDetail(detail: unknown): ResolvedPixPa
   return null;
 }
 
-/** When EMV already embeds tag 54, omit amount so CorpX does not reject a conflicting body. */
-export function amountForEmvPayout(emv: string, plannedAmount: string): string | undefined {
+/** Amount to send on CorpX PIX QR pay. Official examples always include `amount`. */
+export function amountForEmvPayout(emv: string, plannedAmount: string): string {
   const parsed = parsePixEmv(emv);
   if (parsed.ok && parsed.data.amountBrl) {
-    return undefined;
+    return parsed.data.amountBrl;
   }
   return plannedAmount;
 }
@@ -116,6 +116,22 @@ export function assertCorpXPixOutAccepted(payout: PIXCashOutResponse): void {
         'Payment was not confirmed — check CorpX ledger before retrying.',
     );
   }
+}
+
+/** Submit 2xx is not settlement. Money has not left CorpX until lookup is completed. */
+export function assertCorpXPixOutSettled(status: CashOutTransactionStatus, detail: string): void {
+  if (status === 'completed') return;
+  if (status === 'failed') {
+    throw new Error(`CorpX PIX out failed after submit. ${detail}`);
+  }
+  if (status === 'requires_reconciliation') {
+    throw new Error(
+      `CorpX PIX out timed out (indeterminate). Check the CorpX statement before retrying. ${detail}`,
+    );
+  }
+  throw new Error(
+    `CorpX PIX out did not settle (status=${status}). Money may not have left CorpX. ${detail}`,
+  );
 }
 
 export function formatMissingPixError(orderId: string, detail: unknown): string {
