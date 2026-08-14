@@ -16,6 +16,7 @@ import {
   classifyTreasuryPixOutOutcome,
   describeSettlementProbe,
   formatMissingPixError,
+  inferPixKeyType,
   isBinanceFiatOrderFailed,
   isBinanceFiatOrderPaid,
   readFiatOrderStatus,
@@ -372,14 +373,42 @@ export async function runTreasuryCorpxBrlToBinance(
 
     if (payment?.mode === 'emv') {
       const identifier = normalizeCorpXPixIdentifier(run.id);
-      const payout = await adapter.pix.payPaymentQrEmv({
-        emv: payment.emv,
-        amount: amountForEmvPayout(payment.emv, plan.amountBrl),
-        amountHint: plan.amountBrl,
-        description: `Treasury BRL→Binance ${run.id}`,
-        idempotencyKey,
-        correlationId: run.id,
-      });
+      const amountBrl = amountForEmvPayout(payment.emv, plan.amountBrl);
+      let payout: PIXCashOutResponse | null = null;
+      let detailStep = `emv_found status=${readFiatOrderStatus(detail) || 'unknown'}`;
+
+      try {
+        const decoded = await adapter.pix.decodePaymentQrEmv(payment.emv);
+        if (decoded.pixKey?.trim()) {
+          payout = await adapter.pix.initiatePIXCashOut({
+            amount: decoded.amountBrl?.trim() || amountBrl,
+            pixKey: decoded.pixKey.trim(),
+            pixKeyType: inferPixKeyType(decoded.pixKey),
+            description: `Treasury BRL→Binance ${run.id}`,
+            idempotencyKey,
+            correlationId: run.id,
+          });
+          detailStep = `${detailStep} paid_via=pix_out_key keyType=${inferPixKeyType(decoded.pixKey)}`;
+        }
+      } catch (error) {
+        console.warn('[treasury/brl-transfer] QR decode or key payout failed, falling back to QR async', {
+          runId: run.id,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      if (!payout) {
+        payout = await adapter.pix.payPaymentQrEmv({
+          emv: payment.emv,
+          amount: amountBrl,
+          amountHint: plan.amountBrl,
+          description: `Treasury BRL→Binance ${run.id}`,
+          idempotencyKey,
+          correlationId: run.id,
+        });
+        detailStep = `${detailStep} paid_via=qr_async`;
+      }
+
       assertCorpXPixOutAccepted(payout);
 
       const finished = await completeTreasuryCorpxPixToBinance({
@@ -391,7 +420,7 @@ export async function runTreasuryCorpxBrlToBinance(
         depositOrderId: deposit.orderId,
         initialDetail: detail,
         emvFound: true,
-        detailStep: `emv_found status=${readFiatOrderStatus(detail) || 'unknown'}`,
+        detailStep,
       });
 
       return {

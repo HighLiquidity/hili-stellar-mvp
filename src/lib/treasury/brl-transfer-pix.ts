@@ -107,9 +107,16 @@ export function isBinanceFiatOrderInitializing(detail: unknown): boolean {
   return INITIAL_ORDER_STATUSES.has(status) || status.length === 0;
 }
 
-export type ResolvedPixPayment =
-  | { mode: 'emv'; emv: string }
-  | { mode: 'key'; key: string; keyType: CorpXPIXKeyType };
+export function inferPixKeyType(rawPixKey: string): CorpXPIXKeyType {
+  const pixKey = rawPixKey.trim();
+  const digitsOnly = pixKey.replace(/\D/g, '');
+
+  if (digitsOnly.length === 11) return 'CPF';
+  if (digitsOnly.length === 14) return 'CNPJ';
+  if (pixKey.includes('@')) return 'EMAIL';
+  if (/^\+?\d{10,13}$/.test(pixKey) || /^\d{10,13}$/.test(digitsOnly)) return 'PHONE';
+  return 'EVP';
+}
 
 export function resolvePixPaymentFromOrderDetail(detail: unknown): ResolvedPixPayment | null {
   const emv = extractPixEmvFromUnknown(detail);
@@ -174,10 +181,9 @@ export function throwIfTreasuryPixOutUnresolved(
   }
   if (outcome === 'awaiting_approval') {
     throw new Error(
-      `CorpX PIX is PENDING_APPROVAL. Money has not left CorpX. ` +
-        `Approve or reject this payment in the CorpX admin panel ` +
-        `(or wait for risk analysis, up to ~30 min). ` +
-        `Do not retry until this PIX is COMPLETED, FAILED, or cancelled. ${detail}`,
+      `CorpX PIX is PENDING_APPROVAL (settlement-bank risk hold). Money has not left CorpX. ` +
+        `The CorpX API backoffice has no approve action for this state. ` +
+        `Wait up to ~30 minutes for COMPLETED, FAILED, or TIMEOUT. Do not retry. ${detail}`,
     );
   }
   throw new Error(

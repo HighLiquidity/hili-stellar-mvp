@@ -5,6 +5,7 @@ import {
   assertCorpXPixOutAccepted,
   assertCorpXPixOutSettled,
   classifyTreasuryPixOutOutcome,
+  inferPixKeyType,
   isBacenPixEndToEndId,
   isBinanceFiatOrderFailed,
   isBinanceFiatOrderInitializing,
@@ -125,7 +126,7 @@ describe('assertCorpXPixOutSettled', () => {
         'identifier=27faaf81e1c848dbade5b98b4df1ec5a',
         'E50871921202608140429VA2U2AN46PB',
       ),
-    ).toThrow(/PENDING_APPROVAL/);
+    ).toThrow(/PENDING_APPROVAL \(settlement-bank risk hold\)/);
   });
 });
 
@@ -175,5 +176,11 @@ describe('classifyTreasuryPixOutOutcome', () => {
         binancePaid: false,
       }),
     ).toBe('awaiting_approval');
+  });
+});
+
+describe('inferPixKeyType', () => {
+  it('classifies a UUID as EVP', () => {
+    expect(inferPixKeyType('656079c8-0d7d-46cf-9c2f-b8c68d70b475')).toBe('EVP');
   });
 });
