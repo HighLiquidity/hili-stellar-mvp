@@ -102,7 +102,7 @@ describe('resolveTreasuryBinanceBrlWithdrawAmount', () => {
 });
 
 describe('projectBinanceBrlWithdrawBalances', () => {
-  it('subtracts the 3.50 fee from the amount credited to CorpX', () => {
+  it('moves the full amount from Binance to CorpX', () => {
     expect(
       projectBinanceBrlWithdrawBalances({
         amountBrl: '100',
@@ -110,10 +110,8 @@ describe('projectBinanceBrlWithdrawBalances', () => {
         corpxAvailable: '20.00',
       }),
     ).toEqual({
-      withdrawFeeBrl: '3.5',
-      amountNetBrl: '96.5',
       binanceBrlAfter: '80',
-      corpxBrlAfter: '116.5',
+      corpxBrlAfter: '120',
     });
   });
 
@@ -125,21 +123,9 @@ describe('projectBinanceBrlWithdrawBalances', () => {
         corpxAvailable: 'unavailable',
       }),
     ).toEqual({
-      withdrawFeeBrl: '3.5',
-      amountNetBrl: '6.5',
       binanceBrlAfter: '0',
       corpxBrlAfter: 'unavailable',
     });
-  });
-
-  it('rejects amount that does not cover the fee', () => {
-    expect(() =>
-      projectBinanceBrlWithdrawBalances({
-        amountBrl: '3.5',
-        binanceBrlFree: '80',
-        corpxAvailable: '10',
-      }),
-    ).toThrow(/greater than the Binance BRL withdraw fee/i);
   });
 });
 

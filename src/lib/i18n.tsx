@@ -816,16 +816,12 @@ const dictionaries: Record<Locale, TranslationTree> = {
           execute: 'Executar saque',
           executing: 'Executando…',
           dryRunSuccess:
-            'Simulação concluída. Confira a taxa de R$ 3,50 e os saldos esperados antes de executar.',
+            'Simulação concluída. Confira os saldos esperados antes de executar.',
           executeSuccess: 'Saque Binance solicitado. Confirme o crédito BRL na CorpX.',
           executeSuccessPending:
             'Saque Binance aceito, mas o crédito na CorpX ainda não foi confirmado via status da ordem. Atualize os bolsos.',
           planTitle: 'Plano',
-          planAmount: 'Valor do saque (débito Binance)',
-          planFee: 'Taxa Binance',
-          planFeeNote:
-            'A Binance cobra R$ 3,50 por saque fiat. Essa taxa sai do valor sacado; a CorpX recebe o líquido.',
-          planNet: 'Crédito esperado na CorpX',
+          planAmount: 'Valor do saque',
           planAfterTitle: 'Saldos após o saque',
           planAfterBinance: 'Binance',
           planAfterCorpx: 'CorpX',
@@ -2085,17 +2081,12 @@ const dictionaries: Record<Locale, TranslationTree> = {
           dryRunning: 'Simulating…',
           execute: 'Execute withdraw',
           executing: 'Executing…',
-          dryRunSuccess:
-            'Simulation complete. Review the R$ 3.50 fee and expected balances before executing.',
+          dryRunSuccess: 'Simulation complete. Review the expected balances before executing.',
           executeSuccess: 'Binance withdraw requested. Confirm BRL credited on CorpX.',
           executeSuccessPending:
             'Binance accepted the withdraw, but CorpX credit is not confirmed via order status yet. Refresh pockets.',
           planTitle: 'Plan',
-          planAmount: 'Withdraw amount (Binance debit)',
-          planFee: 'Binance fee',
-          planFeeNote:
-            'Binance charges R$ 3.50 per fiat withdraw. The fee comes out of the withdrawn amount; CorpX receives the net.',
-          planNet: 'Expected CorpX credit',
+          planAmount: 'Withdraw amount',
           planAfterTitle: 'Balances after withdraw',
           planAfterBinance: 'Binance',
           planAfterCorpx: 'CorpX',

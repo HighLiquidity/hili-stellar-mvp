@@ -2758,15 +2758,6 @@ a.user-menu__item {
   font-size: 0.9rem;
 }
 
-.treasury-refill-plan__fee {
-  color: #b45309;
-  font-weight: 650;
-}
-
-:root[data-theme='dark'] .treasury-refill-plan__fee {
-  color: #fbbf24;
-}
-
 .treasury-refill-plan__note {
   margin: 4px 0 0;
   font-size: 0.82rem;

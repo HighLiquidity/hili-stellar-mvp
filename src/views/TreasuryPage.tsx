@@ -921,14 +921,6 @@ function BrlReceiveModal({
                   {t('pages.treasury.brlReceive.planAmount')}:{' '}
                   <strong>{formatBrl(plan.amountBrl)} BRL</strong>
                 </li>
-                <li className="treasury-refill-plan__fee">
-                  {t('pages.treasury.brlReceive.planFee')}:{' '}
-                  <strong>{formatBrl(plan.withdrawFeeBrl)} BRL</strong>
-                </li>
-                <li>
-                  {t('pages.treasury.brlReceive.planNet')}:{' '}
-                  <strong>{formatBrl(plan.amountNetBrl)} BRL</strong>
-                </li>
                 <li>
                   {t('pages.treasury.brlReceive.planDestination')}:{' '}
                   <code>{plan.destinationMasked}</code>
@@ -938,9 +930,6 @@ function BrlReceiveModal({
                   {t('pages.treasury.brlReceive.planPaymentValue')}
                 </li>
               </ul>
-              <p className="treasury-refill-plan__note">
-                {t('pages.treasury.brlReceive.planFeeNote')}
-              </p>
               <PlanAfterBalances
                 title={t('pages.treasury.brlReceive.planAfterTitle')}
                 unavailableLabel={t('pages.treasury.brlReceive.planAfterUnavailable')}
@@ -958,7 +947,7 @@ function BrlReceiveModal({
                     unit: 'BRL',
                     hint:
                       plan.corpxAvailable === 'unavailable' || plan.corpxBrlAfter === 'unavailable'
-                        ? `${t('pages.treasury.brlReceive.planAfterUnavailable')} (+${formatBrl(plan.amountNetBrl)} BRL)`
+                        ? `${t('pages.treasury.brlReceive.planAfterUnavailable')} (+${formatBrl(plan.amountBrl)} BRL)`
                         : undefined,
                   },
                 ]}

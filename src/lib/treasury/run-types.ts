@@ -73,13 +73,10 @@ export type TreasuryBrlTransferPlan = {
 export type TreasuryBrlReceivePlan = {
   kind: 'binance_brl_to_corpx';
   amountBrl: string;
-  /** Requested amount minus the Binance fiat withdraw fee (credited to CorpX). */
-  amountNetBrl: string;
-  withdrawFeeBrl: string;
   corpxAvailable: string;
   binanceBrlFree: string;
   binanceBrlAfter: string;
-  /** Estimated CorpX available after the net credit, or `unavailable`. */
+  /** Estimated CorpX available after the full credit, or `unavailable`. */
   corpxBrlAfter: string;
   destinationMasked: string;
   paymentHint: 'binance_fiat_withdraw_bank_transfer';

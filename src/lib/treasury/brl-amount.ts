@@ -57,18 +57,6 @@ function resolveTreasuryBrlAgainstBalance(input: {
   return amount;
 }
 
-/** Binance BRL fiat bank-transfer withdraw fee (PF). Override with BINANCE_BRL_WITHDRAW_FEE_BRL. */
-export const DEFAULT_BINANCE_BRL_WITHDRAW_FEE_BRL = '3.5';
-
-export function readBinanceBrlWithdrawFeeFromEnv(): string {
-  const fromEnv =
-    typeof process !== 'undefined' ? process.env.BINANCE_BRL_WITHDRAW_FEE_BRL?.trim() : undefined;
-  if (!fromEnv) {
-    return DEFAULT_BINANCE_BRL_WITHDRAW_FEE_BRL;
-  }
-  return normalizeBrlAmount(fromEnv, 'BINANCE_BRL_WITHDRAW_FEE_BRL');
-}
-
 function parseBrlToCents(value: string, fieldName: string): bigint {
   const normalized = value.trim().replace(',', '.');
   if (!/^\d+(?:\.\d+)?$/.test(normalized)) {
@@ -89,26 +77,19 @@ function formatBrlFromCents(cents: bigint): string {
 }
 
 export type BinanceBrlWithdrawProjection = {
-  withdrawFeeBrl: string;
-  amountNetBrl: string;
   binanceBrlAfter: string;
   corpxBrlAfter: string;
 };
 
 /**
- * Binance debit = requested amount. The 3.50 BRL fee is taken from that amount,
- * so CorpX is credited amount − fee. After balances are estimates.
+ * Observed Binance BRL bank_transfer: the requested amount is debited on Binance
+ * and credited in full on CorpX. No platform fee is applied.
  */
 export function projectBinanceBrlWithdrawBalances(input: {
   amountBrl: string;
   binanceBrlFree: string;
   corpxAvailable: string;
-  feeBrl?: string;
 }): BinanceBrlWithdrawProjection {
-  const fee = normalizeBrlAmount(
-    input.feeBrl ?? DEFAULT_BINANCE_BRL_WITHDRAW_FEE_BRL,
-    'Binance BRL withdraw fee',
-  );
   const amount = normalizeBrlAmount(input.amountBrl, 'amount');
   const free = normalizeBrlAmount(
     floorBrlWalletAmount(input.binanceBrlFree, 'Binance BRL free balance'),
@@ -116,28 +97,22 @@ export function projectBinanceBrlWithdrawBalances(input: {
   );
 
   const amountCents = parseBrlToCents(amount, 'amount');
-  const feeCents = parseBrlToCents(fee, 'Binance BRL withdraw fee');
-  if (amountCents <= feeCents) {
-    throw new Error(`amount must be greater than the Binance BRL withdraw fee (${fee}).`);
-  }
-
   const freeCents = parseBrlToCents(free, 'Binance BRL free balance');
   const afterBinanceCents = freeCents - amountCents;
   if (afterBinanceCents < BigInt(0)) {
     throw new Error(`amount (${amount}) exceeds Binance BRL free balance (${free}).`);
   }
 
-  const netCents = amountCents - feeCents;
   let corpxBrlAfter = 'unavailable';
   const currentCorpx = input.corpxAvailable.trim();
   if (currentCorpx && currentCorpx !== 'unavailable') {
     const corpxNow = floorBrlWalletAmount(currentCorpx, 'CorpX available balance');
-    corpxBrlAfter = formatBrlFromCents(parseBrlToCents(corpxNow, 'CorpX available balance') + netCents);
+    corpxBrlAfter = formatBrlFromCents(
+      parseBrlToCents(corpxNow, 'CorpX available balance') + amountCents,
+    );
   }
 
   return {
-    withdrawFeeBrl: fee,
-    amountNetBrl: formatBrlFromCents(netCents),
     binanceBrlAfter: formatBrlFromCents(afterBinanceCents),
     corpxBrlAfter,
   };

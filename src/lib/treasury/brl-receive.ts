@@ -3,11 +3,7 @@ import '@/lib/server/only';
 import { createCorpXAdapterFromEnv } from '@/lib/corpx/adapter';
 import { binance } from '@/lib/server/binance';
 
-import {
-  projectBinanceBrlWithdrawBalances,
-  readBinanceBrlWithdrawFeeFromEnv,
-  resolveTreasuryBinanceBrlWithdrawAmount,
-} from './brl-amount';
+import { projectBinanceBrlWithdrawBalances, resolveTreasuryBinanceBrlWithdrawAmount } from './brl-amount';
 import {
   BINANCE_FIAT_SETTLEMENT_POLL_MAX_MS,
   BINANCE_FIAT_SETTLEMENT_POLL_MS,
@@ -103,22 +99,15 @@ export async function buildTreasuryBrlReceivePlan(
     corpxAvailable = 'unavailable';
   }
 
-  const withdrawFeeBrl = readBinanceBrlWithdrawFeeFromEnv();
   const projection = projectBinanceBrlWithdrawBalances({
     amountBrl,
     binanceBrlFree,
     corpxAvailable,
-    feeBrl: withdrawFeeBrl,
   });
 
   const steps: TreasuryRunStep[] = [
     step('read_binance_brl', 'planned', `free=${binanceBrlFree}`),
     step('normalize_amount', 'planned', `amount=${amountBrl}`),
-    step(
-      'binance_withdraw_fee',
-      'planned',
-      `fee=${projection.withdrawFeeBrl} net=${projection.amountNetBrl}`,
-    ),
     step('binance_fiat_withdraw', 'planned', `BRL ${amountBrl} bank_transfer → ${destinationMasked}`),
     step('await_binance_settlement', 'planned', 'poll fiat order detail'),
   ];
@@ -126,8 +115,6 @@ export async function buildTreasuryBrlReceivePlan(
   return {
     kind: 'binance_brl_to_corpx',
     amountBrl,
-    amountNetBrl: projection.amountNetBrl,
-    withdrawFeeBrl: projection.withdrawFeeBrl,
     corpxAvailable,
     binanceBrlFree,
     binanceBrlAfter: projection.binanceBrlAfter,
