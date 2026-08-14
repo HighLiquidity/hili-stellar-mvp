@@ -107,6 +107,10 @@ export function isBinanceFiatOrderInitializing(detail: unknown): boolean {
   return INITIAL_ORDER_STATUSES.has(status) || status.length === 0;
 }
 
+export type ResolvedPixPayment =
+  | { mode: 'emv'; emv: string }
+  | { mode: 'key'; key: string; keyType: CorpXPIXKeyType };
+
 export function inferPixKeyType(rawPixKey: string): CorpXPIXKeyType {
   const pixKey = rawPixKey.trim();
   const digitsOnly = pixKey.replace(/\D/g, '');
