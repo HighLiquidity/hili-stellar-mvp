@@ -72,7 +72,7 @@ Abra [http://localhost:3000](http://localhost:3000).
 
 Em **Auth → URL Configuration**, inclua `NEXT_PUBLIC_SITE_URL` e a rota `/reset-password` nas URLs de redirect.
 
-2FA TOTP é **opcional**. Em **Authentication → Multi-Factor**, habilite TOTP. Cada usuário ativa o autenticador em **Autenticação em duas etapas** (menu da conta). Admin e `client_admin` podem desativar o 2FA de um usuário na gestão de usuários (telefone perdido).
+2FA TOTP é **opcional**. Em **Authentication → Multi-Factor**, habilite TOTP. Cada usuário ativa o autenticador em **Segurança** (menu da conta). Admin e `client_admin` podem desativar o 2FA de um usuário na gestão de usuários (telefone perdido).
 
 #### Variáveis de ambiente
 
@@ -256,7 +256,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Under **Auth → URL Configuration**, add `NEXT_PUBLIC_SITE_URL` and the `/reset-password` route to redirect URLs.
 
-TOTP 2FA is **optional**. Under **Authentication → Multi-Factor**, enable TOTP. Users enroll from **Two-factor authentication** in the account menu. Admins and `client_admin` can disable a user's 2FA in user management if they lose their authenticator.
+TOTP 2FA is **optional**. Under **Authentication → Multi-Factor**, enable TOTP. Users enroll from **Security** in the account menu. Admins and `client_admin` can disable a user's 2FA in user management if they lose their authenticator.
 
 #### Environment variables
 

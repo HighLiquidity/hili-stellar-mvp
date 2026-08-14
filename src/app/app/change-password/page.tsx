@@ -1,5 +1,5 @@
-import { ChangePasswordPage } from '@/views/ChangePasswordPage';
+import { redirect } from 'next/navigation';
 
 export default function ChangePasswordRoutePage() {
-  return <ChangePasswordPage />;
+  redirect('/app/security');
 }

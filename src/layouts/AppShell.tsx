@@ -295,11 +295,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [navGroups, pathname]);
 
   const pageTitle = useMemo(() => {
-    if (pathname.startsWith('/app/change-password')) {
-      return t('pages.changePassword.title');
-    }
-
-    if (pathname.startsWith('/app/security')) {
+    if (pathname.startsWith('/app/security') || pathname.startsWith('/app/change-password')) {
       return t('pages.security.title');
     }
 
@@ -342,11 +338,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       ...current,
       [groupId]: !current[groupId],
     }));
-  };
-
-  const handleOpenChangePassword = () => {
-    setIsUserMenuOpen(false);
-    router.push('/app/change-password');
   };
 
   const handleOpenSecurity = () => {
@@ -539,16 +530,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <strong>{userDisplayName}</strong>
                     <span>{profile?.role ?? 'user'}</span>
                   </div>
-
-                  <button
-                    type="button"
-                    className="user-menu__item"
-                    role="menuitem"
-                    onClick={handleOpenChangePassword}
-                  >
-                    <KeyIcon width={16} height={16} />
-                    <span>{t('shell.changePassword')}</span>
-                  </button>
 
                   <button
                     type="button"

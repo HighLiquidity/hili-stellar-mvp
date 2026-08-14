@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Button } from '../components/ui/Button';
 import { InputField } from '../components/ui/InputField';
 import { useAuth } from '../hooks/useAuth';
 import {
+  changeUserPassword,
   disableVerifiedTotp,
   enrollTotpFactor,
   getAuthErrorMessage,
@@ -19,25 +20,35 @@ export function SecurityPage() {
   const { user } = useAuth();
   const { t } = useI18n();
   const [isLoading, setIsLoading] = useState(true);
-  const [isBusy, setIsBusy] = useState(false);
-  const [enabled, setEnabled] = useState(false);
+  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordTotpCode, setPasswordTotpCode] = useState('');
+  const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+
+  const [isTotpBusy, setIsTotpBusy] = useState(false);
   const [enrollment, setEnrollment] = useState<TotpEnrollment | null>(null);
-  const [code, setCode] = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState('');
+  const [totpError, setTotpError] = useState<string | null>(null);
+  const [totpSuccess, setTotpSuccess] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const userEmail = user?.email ?? '';
 
   const loadStatus = useCallback(async () => {
     setIsLoading(true);
-    setErrorMessage(null);
+    setLoadError(null);
     try {
       const factor = await getVerifiedTotpFactor();
-      setEnabled(Boolean(factor));
+      setTotpEnabled(Boolean(factor));
     } catch (error) {
-      setErrorMessage(getAuthErrorMessage(error));
-      setEnabled(false);
+      setLoadError(getAuthErrorMessage(error));
+      setTotpEnabled(false);
     } finally {
       setIsLoading(false);
     }
@@ -47,19 +58,69 @@ export function SecurityPage() {
     void loadStatus();
   }, [loadStatus]);
 
+  const canSubmitPassword = useMemo(
+    () =>
+      Boolean(
+        currentPassword &&
+          newPassword &&
+          confirmPassword &&
+          (!totpEnabled || passwordTotpCode.trim()) &&
+          !isPasswordSubmitting,
+      ),
+    [confirmPassword, currentPassword, isPasswordSubmitting, newPassword, passwordTotpCode, totpEnabled],
+  );
+
+  const handlePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!userEmail) {
+      setPasswordError(t('pages.changePassword.errors.missingUser'));
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError(t('pages.changePassword.errors.passwordMismatch'));
+      setPasswordSuccess(null);
+      return;
+    }
+
+    setIsPasswordSubmitting(true);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    try {
+      await changeUserPassword({
+        email: userEmail,
+        currentPassword,
+        newPassword,
+        totpCode: totpEnabled ? passwordTotpCode : undefined,
+      });
+
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordTotpCode('');
+      setPasswordSuccess(t('pages.changePassword.success'));
+    } catch (error) {
+      setPasswordError(getAuthErrorMessage(error));
+    } finally {
+      setIsPasswordSubmitting(false);
+    }
+  };
+
   const handleStartEnroll = async () => {
-    setIsBusy(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
+    setIsTotpBusy(true);
+    setTotpError(null);
+    setTotpSuccess(null);
     setCopied(false);
     try {
       const next = await enrollTotpFactor();
       setEnrollment(next);
-      setCode('');
+      setTotpCode('');
     } catch (error) {
-      setErrorMessage(getAuthErrorMessage(error));
+      setTotpError(getAuthErrorMessage(error));
     } finally {
-      setIsBusy(false);
+      setIsTotpBusy(false);
     }
   };
 
@@ -68,16 +129,16 @@ export function SecurityPage() {
       return;
     }
 
-    setIsBusy(true);
-    setErrorMessage(null);
+    setIsTotpBusy(true);
+    setTotpError(null);
     try {
       await unenrollTotpFactor(enrollment.factorId);
       setEnrollment(null);
-      setCode('');
+      setTotpCode('');
     } catch (error) {
-      setErrorMessage(getAuthErrorMessage(error));
+      setTotpError(getAuthErrorMessage(error));
     } finally {
-      setIsBusy(false);
+      setIsTotpBusy(false);
     }
   };
 
@@ -87,19 +148,19 @@ export function SecurityPage() {
       return;
     }
 
-    setIsBusy(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
+    setIsTotpBusy(true);
+    setTotpError(null);
+    setTotpSuccess(null);
     try {
-      await verifyTotpEnrollment(enrollment.factorId, code);
+      await verifyTotpEnrollment(enrollment.factorId, totpCode);
       setEnrollment(null);
-      setCode('');
-      setEnabled(true);
-      setSuccessMessage(t('pages.security.successEnabled'));
+      setTotpCode('');
+      setTotpEnabled(true);
+      setTotpSuccess(t('pages.security.successEnabled'));
     } catch (error) {
-      setErrorMessage(getAuthErrorMessage(error));
+      setTotpError(getAuthErrorMessage(error));
     } finally {
-      setIsBusy(false);
+      setIsTotpBusy(false);
     }
   };
 
@@ -110,18 +171,19 @@ export function SecurityPage() {
       return;
     }
 
-    setIsBusy(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
+    setIsTotpBusy(true);
+    setTotpError(null);
+    setTotpSuccess(null);
     try {
-      await disableVerifiedTotp(code);
-      setCode('');
-      setEnabled(false);
-      setSuccessMessage(t('pages.security.successDisabled'));
+      await disableVerifiedTotp(totpCode);
+      setTotpCode('');
+      setPasswordTotpCode('');
+      setTotpEnabled(false);
+      setTotpSuccess(t('pages.security.successDisabled'));
     } catch (error) {
-      setErrorMessage(getAuthErrorMessage(error));
+      setTotpError(getAuthErrorMessage(error));
     } finally {
-      setIsBusy(false);
+      setIsTotpBusy(false);
     }
   };
 
@@ -139,31 +201,106 @@ export function SecurityPage() {
   };
 
   return (
-    <section className="page-grid page-grid--single password-page">
-      <article className="surface password-page__card">
-        <header className="password-page__header">
-          <div>
-            <p className="eyebrow">{t('pages.security.eyebrow')}</p>
-            <h2>{t('pages.security.title')}</h2>
-            <p className="surface__lead">{t('pages.security.description')}</p>
-          </div>
+    <section className="page-grid page-grid--single password-page security-page">
+      <header className="password-page__header">
+        <div>
+          <p className="eyebrow">{t('pages.security.eyebrow')}</p>
+          <h2>{t('pages.security.title')}</h2>
+          <p className="surface__lead">{t('pages.security.description')}</p>
+        </div>
 
-          <aside className="password-page__account" aria-label={t('pages.changePassword.accountLabel')}>
-            <span className="password-page__account-label">{t('pages.changePassword.accountLabel')}</span>
-            <strong>{userEmail}</strong>
-          </aside>
+        <aside className="password-page__account" aria-label={t('pages.changePassword.accountLabel')}>
+          <span className="password-page__account-label">{t('pages.changePassword.accountLabel')}</span>
+          <strong>{userEmail}</strong>
+        </aside>
+      </header>
+
+      <div className="security-page__cards">
+      <article className="surface password-page__card">
+        <header>
+          <h3 className="security-section-title">{t('pages.security.passwordTitle')}</h3>
+          <p className="surface__lead">{t('pages.security.passwordDescription')}</p>
+        </header>
+
+        <form className="password-form" onSubmit={handlePasswordSubmit}>
+          <InputField
+            id="current-password"
+            label={t('pages.changePassword.currentPassword')}
+            type="password"
+            value={currentPassword}
+            onChange={(event) => setCurrentPassword(event.target.value)}
+            placeholder={t('pages.changePassword.currentPasswordPlaceholder')}
+            autoComplete="current-password"
+            required
+          />
+
+          <InputField
+            id="new-password"
+            label={t('pages.changePassword.newPassword')}
+            type="password"
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
+            placeholder={t('pages.changePassword.newPasswordPlaceholder')}
+            autoComplete="new-password"
+            required
+          />
+
+          <InputField
+            id="confirm-password"
+            label={t('pages.changePassword.confirmPassword')}
+            type="password"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            placeholder={t('pages.changePassword.confirmPasswordPlaceholder')}
+            autoComplete="new-password"
+            required
+          />
+
+          {totpEnabled ? (
+            <InputField
+              id="change-password-totp"
+              label={t('pages.changePassword.totpCode')}
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]*"
+              maxLength={8}
+              value={passwordTotpCode}
+              onChange={(event) => setPasswordTotpCode(event.target.value)}
+              placeholder={t('pages.changePassword.totpCodePlaceholder')}
+              required
+            />
+          ) : null}
+
+          {passwordError ? <p className="auth-inline-error">{passwordError}</p> : null}
+          {passwordSuccess ? <p className="form-success-message">{passwordSuccess}</p> : null}
+
+          <div className="password-page__actions">
+            <Button type="submit" fullWidth disabled={!canSubmitPassword}>
+              {isPasswordSubmitting ? t('pages.changePassword.submitting') : t('pages.changePassword.submit')}
+            </Button>
+          </div>
+        </form>
+      </article>
+
+      <article className="surface password-page__card">
+        <header>
+          <h3 className="security-section-title">{t('pages.security.totpTitle')}</h3>
+          <p className="surface__lead">{t('pages.security.totpDescription')}</p>
         </header>
 
         {isLoading ? (
           <p className="surface__lead">{t('pages.security.loading')}</p>
         ) : (
           <>
-            <p className={`security-status${enabled ? ' is-on' : ' is-off'}`}>
-              {enabled ? t('pages.security.statusOn') : t('pages.security.statusOff')}
+            {loadError ? <p className="auth-inline-error">{loadError}</p> : null}
+
+            <p className={`security-status${totpEnabled ? ' is-on' : ' is-off'}`}>
+              {totpEnabled ? t('pages.security.statusOn') : t('pages.security.statusOff')}
             </p>
 
-            {errorMessage ? <p className="auth-inline-error">{errorMessage}</p> : null}
-            {successMessage ? <p className="form-success-message">{successMessage}</p> : null}
+            {totpError ? <p className="auth-inline-error">{totpError}</p> : null}
+            {totpSuccess ? <p className="form-success-message">{totpSuccess}</p> : null}
 
             {enrollment ? (
               <form className="password-form" onSubmit={handleVerifyEnroll}>
@@ -185,22 +322,22 @@ export function SecurityPage() {
                   autoComplete="one-time-code"
                   pattern="[0-9]*"
                   maxLength={8}
-                  value={code}
-                  onChange={(event) => setCode(event.target.value)}
+                  value={totpCode}
+                  onChange={(event) => setTotpCode(event.target.value)}
                   placeholder={t('auth.mfaCodePlaceholder')}
                   required
                 />
 
                 <div className="password-page__actions security-actions">
-                  <Button type="submit" disabled={isBusy}>
-                    {isBusy ? t('pages.security.verifying') : t('pages.security.verify')}
+                  <Button type="submit" disabled={isTotpBusy}>
+                    {isTotpBusy ? t('pages.security.verifying') : t('pages.security.verify')}
                   </Button>
-                  <Button type="button" variant="ghost" disabled={isBusy} onClick={() => void handleCancelEnroll()}>
+                  <Button type="button" variant="ghost" disabled={isTotpBusy} onClick={() => void handleCancelEnroll()}>
                     {t('pages.security.cancelEnroll')}
                   </Button>
                 </div>
               </form>
-            ) : enabled ? (
+            ) : totpEnabled ? (
               <form className="password-form" onSubmit={handleDisable}>
                 <InputField
                   id="security-disable-code"
@@ -210,27 +347,28 @@ export function SecurityPage() {
                   autoComplete="one-time-code"
                   pattern="[0-9]*"
                   maxLength={8}
-                  value={code}
-                  onChange={(event) => setCode(event.target.value)}
+                  value={totpCode}
+                  onChange={(event) => setTotpCode(event.target.value)}
                   placeholder={t('auth.mfaCodePlaceholder')}
                   required
                 />
                 <div className="password-page__actions">
-                  <Button type="submit" disabled={isBusy}>
-                    {isBusy ? t('pages.security.disabling') : t('pages.security.disable')}
+                  <Button type="submit" disabled={isTotpBusy}>
+                    {isTotpBusy ? t('pages.security.disabling') : t('pages.security.disable')}
                   </Button>
                 </div>
               </form>
             ) : (
               <div className="password-page__actions">
-                <Button type="button" onClick={() => void handleStartEnroll()} disabled={isBusy}>
-                  {isBusy ? t('pages.security.enabling') : t('pages.security.enable')}
+                <Button type="button" onClick={() => void handleStartEnroll()} disabled={isTotpBusy}>
+                  {isTotpBusy ? t('pages.security.enabling') : t('pages.security.enable')}
                 </Button>
               </div>
             )}
           </>
         )}
       </article>
+      </div>
     </section>
   );
 }

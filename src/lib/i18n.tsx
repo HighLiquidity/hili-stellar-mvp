@@ -118,7 +118,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
       userMenu: 'Menu do usuário',
       userFallback: 'Usuário',
       changePassword: 'Alterar senha',
-      security: 'Autenticação em duas etapas',
+      security: 'Segurança',
       adminSettings: 'Configurações',
       home: 'Início',
       breadcrumb: 'Navegação estrutural',
@@ -568,9 +568,13 @@ const dictionaries: Record<Locale, TranslationTree> = {
         },
       },
       security: {
-        eyebrow: 'Segurança',
-        title: 'Autenticação em duas etapas',
-        description:
+        eyebrow: 'Conta',
+        title: 'Segurança',
+        description: 'Altere sua senha e gerencie a autenticação em duas etapas nesta conta.',
+        passwordTitle: 'Senha',
+        passwordDescription: 'Defina uma nova senha forte para manter sua conta protegida.',
+        totpTitle: 'Autenticação em duas etapas',
+        totpDescription:
           'Use um aplicativo autenticador (Google Authenticator, Authy ou 1Password) para exigir um código além da senha. O 2FA é opcional.',
         loading: 'Carregando…',
         statusOn: '2FA ativo nesta conta.',
@@ -1426,7 +1430,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
       userMenu: 'User menu',
       userFallback: 'User',
       changePassword: 'Change password',
-      security: 'Two-factor authentication',
+      security: 'Security',
       adminSettings: 'Settings',
       home: 'Home',
       breadcrumb: 'Breadcrumb',
@@ -1874,9 +1878,13 @@ const dictionaries: Record<Locale, TranslationTree> = {
         },
       },
       security: {
-        eyebrow: 'Security',
-        title: 'Two-factor authentication',
-        description:
+        eyebrow: 'Account',
+        title: 'Security',
+        description: 'Change your password and manage two-factor authentication for this account.',
+        passwordTitle: 'Password',
+        passwordDescription: 'Choose a strong new password to keep your account protected.',
+        totpTitle: 'Two-factor authentication',
+        totpDescription:
           'Use an authenticator app (Google Authenticator, Authy, or 1Password) to require a code in addition to your password. 2FA is optional.',
         loading: 'Loading…',
         statusOn: '2FA is enabled on this account.',

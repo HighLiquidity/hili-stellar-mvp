@@ -2132,6 +2132,21 @@ a.user-menu__item {
   margin: 0 auto;
 }
 
+.security-page {
+  max-width: none;
+  width: 100%;
+}
+
+.security-page__cards {
+  display: grid;
+  gap: 12px;
+  align-items: start;
+}
+
+.security-page .password-page__card {
+  padding: 20px 16px;
+}
+
 .password-page__card {
   display: grid;
   width: 100%;
@@ -2168,6 +2183,12 @@ a.user-menu__item {
 
 .password-page__actions {
   width: 100%;
+}
+
+.security-section-title {
+  margin: 0;
+  font-size: 1.12rem;
+  line-height: 1.35;
 }
 
 .security-status {
@@ -3200,6 +3221,15 @@ a.user-menu__item {
 }
 
 @media (min-width: 1024px) {
+  .security-page {
+    margin-inline: -8px;
+  }
+
+  .security-page__cards {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+  }
+
   .auth-page {
     padding: 36px;
   }
