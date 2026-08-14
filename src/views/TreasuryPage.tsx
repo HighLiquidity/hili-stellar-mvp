@@ -447,7 +447,7 @@ function BrlTransferModal({
               error?: string;
               plan?: TreasuryBrlTransferPlan;
               run?: { id: string; status: string };
-              binanceOrder?: { settled?: boolean };
+              binanceOrder?: { settled?: boolean; pixInFlight?: boolean };
             }
           | null;
 
@@ -469,7 +469,9 @@ function BrlTransferModal({
           setMessage(
             body?.binanceOrder?.settled
               ? t('pages.treasury.brlTransfer.executeSuccess')
-              : t('pages.treasury.brlTransfer.executeSuccessPending'),
+              : body?.binanceOrder?.pixInFlight
+                ? t('pages.treasury.brlTransfer.executeSuccessInFlight')
+                : t('pages.treasury.brlTransfer.executeSuccessPending'),
           );
           setPlan(null);
           await onExecuted();

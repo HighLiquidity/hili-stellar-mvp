@@ -4,6 +4,8 @@ import {
   amountForEmvPayout,
   assertCorpXPixOutAccepted,
   assertCorpXPixOutSettled,
+  classifyTreasuryPixOutOutcome,
+  isBacenPixEndToEndId,
   isBinanceFiatOrderFailed,
   isBinanceFiatOrderInitializing,
   isBinanceFiatOrderPaid,
@@ -104,5 +106,74 @@ describe('assertCorpXPixOutSettled', () => {
     expect(() => assertCorpXPixOutSettled('submitted', 'identifier=run-1')).toThrow(
       /did not settle/,
     );
+  });
+
+  it('does not treat a BACEN E2E still PROCESSING as a failed send', () => {
+    expect(() =>
+      assertCorpXPixOutSettled(
+        'pending',
+        'identifier=27faaf81e1c848dbade5b98b4df1ec5a',
+        'E50871921202608140429VA2U2AN46PB',
+      ),
+    ).not.toThrow();
+  });
+
+  it('rejects PENDING_APPROVAL even when an E2E-looking id is present', () => {
+    expect(() =>
+      assertCorpXPixOutSettled(
+        'pending_approval',
+        'identifier=27faaf81e1c848dbade5b98b4df1ec5a',
+        'E50871921202608140429VA2U2AN46PB',
+      ),
+    ).toThrow(/PENDING_APPROVAL/);
+  });
+});
+
+describe('classifyTreasuryPixOutOutcome', () => {
+  const bacenE2e = 'E50871921202608140429VA2U2AN46PB';
+
+  it('recognizes a BACEN E2E id', () => {
+    expect(isBacenPixEndToEndId(bacenE2e)).toBe(true);
+    expect(isBacenPixEndToEndId('E2E')).toBe(false);
+  });
+
+  it('treats Binance paid as settled even if CorpX is still pending', () => {
+    expect(
+      classifyTreasuryPixOutOutcome({
+        corpxStatus: 'pending',
+        e2eId: bacenE2e,
+        binancePaid: true,
+      }),
+    ).toBe('settled');
+  });
+
+  it('treats pending without E2E as not sent', () => {
+    expect(
+      classifyTreasuryPixOutOutcome({
+        corpxStatus: 'pending',
+        e2eId: '',
+        binancePaid: false,
+      }),
+    ).toBe('not_sent');
+  });
+
+  it('treats pending with BACEN E2E as in flight', () => {
+    expect(
+      classifyTreasuryPixOutOutcome({
+        corpxStatus: 'pending',
+        e2eId: bacenE2e,
+        binancePaid: false,
+      }),
+    ).toBe('in_flight');
+  });
+
+  it('treats PENDING_APPROVAL as awaiting approval, not in flight', () => {
+    expect(
+      classifyTreasuryPixOutOutcome({
+        corpxStatus: 'pending_approval',
+        e2eId: bacenE2e,
+        binancePaid: false,
+      }),
+    ).toBe('awaiting_approval');
   });
 });

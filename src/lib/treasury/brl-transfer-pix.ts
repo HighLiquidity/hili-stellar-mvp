@@ -13,6 +13,40 @@ export const BINANCE_FIAT_PIX_POLL_MS = 2000;
 export const BINANCE_FIAT_PIX_POLL_MAX_MS = 60_000;
 export const BINANCE_FIAT_SETTLEMENT_POLL_MS = 2000;
 export const BINANCE_FIAT_SETTLEMENT_POLL_MAX_MS = 45_000;
+/** Combined CorpX lookup + Binance paid probe after PIX submit (replaces two sequential 45s waits). */
+export const TREASURY_PIX_ARRIVAL_POLL_MAX_MS = 60_000;
+
+/** BACEN E2E: E + ISPB(8) + yyyyMMddHHmm(12) + 11 alnum = 32 chars. */
+export function isBacenPixEndToEndId(value: string | undefined | null): boolean {
+  const id = value?.trim().toUpperCase() ?? '';
+  return /^E[0-9]{8}[0-9]{12}[A-Z0-9]{11}$/.test(id);
+}
+
+export type TreasuryPixOutOutcome =
+  | 'settled'
+  | 'in_flight'
+  | 'awaiting_approval'
+  | 'failed'
+  | 'not_sent';
+
+/**
+ * Binance PAID or CorpX COMPLETED = settled.
+ * PROCESSING with a BACEN E2E is in-flight — do not retry.
+ * PENDING_APPROVAL means funds have not moved (admin approval or risk desk).
+ */
+export function classifyTreasuryPixOutOutcome(input: {
+  corpxStatus: CashOutTransactionStatus;
+  e2eId?: string;
+  binancePaid: boolean;
+}): TreasuryPixOutOutcome {
+  if (input.binancePaid || input.corpxStatus === 'completed') return 'settled';
+  if (input.corpxStatus === 'failed') return 'failed';
+  if (input.corpxStatus === 'pending_approval') return 'awaiting_approval';
+  if (isBacenPixEndToEndId(input.e2eId) || input.corpxStatus === 'requires_reconciliation') {
+    return 'in_flight';
+  }
+  return 'not_sent';
+}
 
 const INITIAL_ORDER_STATUSES = new Set([
   'ORDER_INITIAL',
@@ -119,18 +153,35 @@ export function assertCorpXPixOutAccepted(payout: PIXCashOutResponse): void {
 }
 
 /** Submit 2xx is not settlement. Money has not left CorpX until lookup is completed. */
-export function assertCorpXPixOutSettled(status: CashOutTransactionStatus, detail: string): void {
-  if (status === 'completed') return;
-  if (status === 'failed') {
+export function assertCorpXPixOutSettled(
+  status: CashOutTransactionStatus,
+  detail: string,
+  e2eId?: string,
+): void {
+  throwIfTreasuryPixOutUnresolved(
+    classifyTreasuryPixOutOutcome({ corpxStatus: status, e2eId, binancePaid: false }),
+    detail,
+  );
+}
+
+export function throwIfTreasuryPixOutUnresolved(
+  outcome: TreasuryPixOutOutcome,
+  detail: string,
+): void {
+  if (outcome === 'settled' || outcome === 'in_flight') return;
+  if (outcome === 'failed') {
     throw new Error(`CorpX PIX out failed after submit. ${detail}`);
   }
-  if (status === 'requires_reconciliation') {
+  if (outcome === 'awaiting_approval') {
     throw new Error(
-      `CorpX PIX out timed out (indeterminate). Check the CorpX statement before retrying. ${detail}`,
+      `CorpX PIX is PENDING_APPROVAL. Money has not left CorpX. ` +
+        `Approve or reject this payment in the CorpX admin panel ` +
+        `(or wait for risk analysis, up to ~30 min). ` +
+        `Do not retry until this PIX is COMPLETED, FAILED, or cancelled. ${detail}`,
     );
   }
   throw new Error(
-    `CorpX PIX out did not settle (status=${status}). Money may not have left CorpX. ${detail}`,
+    `CorpX PIX out did not settle (status=pending). Money may not have left CorpX. ${detail}`,
   );
 }
 

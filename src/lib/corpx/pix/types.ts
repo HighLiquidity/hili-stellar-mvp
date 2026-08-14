@@ -4,6 +4,7 @@ export type CashOutTransactionStatus =
   | 'pending'
   | 'processing'
   | 'submitted'
+  | 'pending_approval'
   | 'completed'
   | 'failed'
   | 'requires_reconciliation';

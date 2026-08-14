@@ -18,6 +18,7 @@ import {
 } from '../errors';
 import {
   mapCorpXStatus,
+  mapCorpXTransferLookupStatus,
   throwPIXCashOutError,
 } from '../pix/adapter';
 
@@ -617,7 +618,7 @@ describe('CorpXAdapter', () => {
   it('PayPaymentQrEmv_FallsBackToRequestAmountWhenResponseAmountMissing', async () => {
     await withTestAdapter((req, res) => {
       expect(req.method).toBe('POST');
-      expect(req.url).toContain('/pix/out/qr-code');
+      expect(req.url).toContain('/pix/out/qr-code/async');
       res.setHeader('Content-Type', 'application/json');
       res.statusCode = 202;
       res.end(
@@ -650,6 +651,7 @@ describe('CorpXAdapter', () => {
         const chunks: Buffer[] = [];
         for await (const chunk of req) chunks.push(chunk as Buffer);
         postedBody = Buffer.concat(chunks).toString('utf8');
+        expect(req.url).toContain('/pix/out/qr-code/async');
         res.setHeader('Content-Type', 'application/json');
         res.statusCode = 202;
         res.end(
@@ -673,6 +675,31 @@ describe('CorpXAdapter', () => {
       expect(posted.emv).toBe(binanceEmv);
       expect(resp.providerTxId).toBe('txn-qr-emv-amount');
       expect(resp.amount).toBe('10.00');
+    });
+  });
+
+  it('PayPaymentQrEmv_AcceptsAsync202WithPaymentId', async () => {
+    await withTestAdapter((req, res) => {
+      expect(req.url).toContain('/pix/out/qr-code/async');
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 202;
+      res.end(
+        JSON.stringify({
+          paymentId: 'pay_2f4a0f88-2147-49f2-a4e2-4f7b9f6c0f7a',
+          status: 'ACCEPTED',
+          identifier: 'pay-qr-async-12345',
+        }),
+      );
+    }, async ({ adapter }) => {
+      const resp = await adapter.pix.payPaymentQrEmv({
+        emv: '00020126890014BR.GOV.BCB.PIX2567api-pix.example/spi/v2/abc520400005303986540510.005802BR5904Gowd6014Belo Horizonte61083038040362070503***6304ABCD',
+        amount: '10.00',
+        idempotencyKey: 'pay-qr-async-12345',
+        correlationId: 'pay-qr-async-12345',
+      });
+      expect(resp.providerTxId).toBe('pay_2f4a0f88-2147-49f2-a4e2-4f7b9f6c0f7a');
+      expect(resp.status).toBe('submitted');
+      expect(resp.e2eId).toBe('');
     });
   });
 
@@ -824,6 +851,52 @@ describe('CorpXAdapter', () => {
       expect(resp.status).toBe('completed');
       expect(resp.e2eId).toBe('E123456789');
       expect(resp.providerTxId).toBe('partner-1');
+    });
+  });
+
+  it('LookupPixOutStatus_PrefersPaymentsLookup', async () => {
+    await withTestAdapter((req, res) => {
+      expect(req.url).toContain('/pix/payments/lookup');
+      expect(req.url).toContain('endToEnd=E50871921202608140429VA2U2AN46PB');
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          transactionId: 'txn-lookup',
+          endToEndId: 'E50871921202608140429VA2U2AN46PB',
+          status: 'COMPLETED',
+        }),
+      );
+    }, async ({ adapter }) => {
+      const resp = await adapter.pix.lookupPixOutStatus({
+        endToEndId: 'E50871921202608140429VA2U2AN46PB',
+      });
+      expect(resp.status).toBe('completed');
+      expect(resp.providerTxId).toBe('txn-lookup');
+    });
+  });
+
+  it('LookupPixOutStatus_FallsBackToTransactions', async () => {
+    await withTestAdapter((req, res) => {
+      if (req.url?.includes('/pix/payments/lookup')) {
+        res.statusCode = 404;
+        res.end();
+        return;
+      }
+      expect(req.url).toContain('/pix/transactions');
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          transactionId: 'txn-stmt',
+          endToEndId: 'E50871921202608140429VA2U2AN46PB',
+          status: 'PROCESSING',
+        }),
+      );
+    }, async ({ adapter }) => {
+      const resp = await adapter.pix.lookupPixOutStatus({
+        endToEndId: 'E50871921202608140429VA2U2AN46PB',
+      });
+      expect(resp.status).toBe('pending');
+      expect(resp.providerTxId).toBe('txn-stmt');
     });
   });
 
@@ -1062,6 +1135,14 @@ describe('CorpXAdapter', () => {
     expect(mapCorpXStatus('FAILED')).toBe('failed');
     expect(mapCorpXStatus('REJECTED')).toBe('failed');
     expect(mapCorpXStatus('UNKNOWN')).toBe('pending');
+    expect(mapCorpXStatus('PENDING_APPROVAL')).toBe('pending_approval');
+  });
+
+  it('MapCorpXTransferLookupStatus', () => {
+    expect(mapCorpXTransferLookupStatus('COMPLETED')).toBe('completed');
+    expect(mapCorpXTransferLookupStatus('PROCESSING')).toBe('pending');
+    expect(mapCorpXTransferLookupStatus('PENDING_APPROVAL')).toBe('pending_approval');
+    expect(mapCorpXTransferLookupStatus('FAILED')).toBe('failed');
   });
 
   it('MapCorpXTransactionStatus', () => {

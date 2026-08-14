@@ -78,6 +78,7 @@ type PixTransactionLookupResponse = {
   transactionId?: string;
   partnerId?: string;
   endToEndId?: string;
+  endToEnd?: string;
   status?: string;
   transactionDate?: string;
   timestamp?: string;
@@ -388,6 +389,19 @@ export class CorpXPixAdapter {
   }
 
   /**
+   * Canonical PIX-out status: `GET .../pix/payments/lookup` (single object), then
+   * statement `GET .../pix/transactions` if the lookup route is missing.
+   */
+  async lookupPixOutStatus(
+    query: { endToEndId?: string; identifier?: string },
+    signal?: AbortSignal,
+  ): Promise<TransferStatus> {
+    const fromLookup = await this.tryPixPaymentsLookup(query, signal);
+    if (fromLookup) return fromLookup;
+    return this.lookupPixPayment(query, signal);
+  }
+
+  /**
    * Looks up a PIX out by E2E or integrator `identifier`.
    * CorpX v2 returns a statement envelope (`items[]`); older tenants return a flat object.
    */
@@ -427,37 +441,34 @@ export class CorpXPixAdapter {
       throwStatusError('corpx: get transfer status', response.status, raw || '(empty body)');
     }
 
-    let envelope: PixTransactionLookupEnvelope;
+    return parsePixLookupBody(raw, endToEndId, response.status);
+  }
+
+  private async tryPixPaymentsLookup(
+    query: { endToEndId?: string; identifier?: string },
+    signal?: AbortSignal,
+  ): Promise<TransferStatus | null> {
+    const endToEndId = query.endToEndId?.trim() ?? '';
+    const identifier = query.identifier?.trim() ?? '';
+    if (!endToEndId && !identifier) return null;
+
+    const path = `/v1/accounts/${this.accountId}/pix/payments/lookup`;
+    const search = endToEndId ? { endToEnd: endToEndId } : { identifier };
+    let response: Response;
     try {
-      envelope = JSON.parse(raw) as PixTransactionLookupEnvelope;
-    } catch (e) {
-      const err = e instanceof Error ? e : new Error(String(e));
-      throw new CorpXError(`Failed to parse transfer status response — ${err.message}`, undefined, response.status);
+      response = await this.client.get(path, search, signal);
+    } catch {
+      return null;
     }
 
-    const parsed = unwrapPixTransactionLookup(envelope);
-    if (!parsed) {
-      return {
-        providerTxId: '',
-        e2eId: endToEndId,
-        status: 'pending',
-        updatedAt: new Date().toISOString(),
-      };
+    const raw = await response.text().catch(() => '');
+    if (!response.ok) return null;
+
+    try {
+      return parsePixLookupBody(raw, endToEndId, response.status);
+    } catch {
+      return null;
     }
-
-    const status = mapCorpXTransferLookupStatus(parsed.status);
-    const updatedAt =
-      (typeof parsed.transactionDate === 'string' && parsed.transactionDate.trim()) ||
-      (typeof parsed.timestamp === 'string' && parsed.timestamp.trim()) ||
-      new Date().toISOString();
-
-    return {
-      providerTxId: parsed.transactionId?.trim() || parsed.partnerId?.trim() || '',
-      e2eId: parsed.endToEndId?.trim() || endToEndId,
-      status,
-      updatedAt,
-      ...(typeof parsed.description === 'string' ? { description: parsed.description } : {}),
-    };
   }
 
 
@@ -512,8 +523,14 @@ export class CorpXPixAdapter {
     };
   }
 
+  /**
+   * Pay an EMV (copy-and-paste) PIX QR.
+   * Canonical CorpX path is `/pix/out/qr-code/async` (202 + lookup/webhooks).
+   * The sync `/pix/out/qr-code` is deprecated and parks payments as PENDING_APPROVAL
+   * with no admin-approval UI — unlike key-based `/pix/out` used by offramp.
+   */
   async payPaymentQrEmv(req: PayPaymentQrRequest, signal?: AbortSignal): Promise<PIXCashOutResponse> {
-    const path = `/v1/accounts/${this.accountId}/pix/out/qr-code`;
+    const path = `/v1/accounts/${this.accountId}/pix/out/qr-code/async`;
 
     const body: Record<string, unknown> = {
       accountId: this.accountId,
@@ -589,6 +606,8 @@ export function mapCorpXCashOutSubmitStatus(status: string | undefined): CashOut
     case 'PROCESSING':
     case 'SCHEDULED':
       return 'submitted';
+    case 'PENDING_APPROVAL':
+      return 'pending_approval';
     case 'COMPLETED':
       return 'completed';
     case 'TIMEOUT':
@@ -611,12 +630,17 @@ export function mapCorpXTransferLookupStatus(status: string | undefined): CashOu
   switch (s) {
     case 'COMPLETED':
     case 'PAID':
+    case 'SUCCESS':
+    case 'SUCCEEDED':
+    case 'SETTLED':
+    case 'CONFIRMED':
       return 'completed';
     case 'PENDING':
     case 'PROCESSING':
     case 'APPROVED':
-    case 'PENDING_APPROVAL':
       return 'pending';
+    case 'PENDING_APPROVAL':
+      return 'pending_approval';
     case 'TIMEOUT':
       return 'requires_reconciliation';
     case 'REJECTED':
@@ -705,6 +729,41 @@ async function readBodyOrThrow(response: Response, context: string): Promise<str
   }
 }
 
+function parsePixLookupBody(raw: string, fallbackE2eId: string, statusCode: number): TransferStatus {
+  let envelope: PixTransactionLookupEnvelope;
+  try {
+    envelope = JSON.parse(raw) as PixTransactionLookupEnvelope;
+  } catch (e) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    throw new CorpXError(`Failed to parse transfer status response — ${err.message}`, undefined, statusCode);
+  }
+
+  const parsed = unwrapPixTransactionLookup(envelope);
+  if (!parsed) {
+    return {
+      providerTxId: '',
+      e2eId: fallbackE2eId,
+      status: 'pending',
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  const status = mapCorpXTransferLookupStatus(parsed.status);
+  const updatedAt =
+    (typeof parsed.transactionDate === 'string' && parsed.transactionDate.trim()) ||
+    (typeof parsed.timestamp === 'string' && parsed.timestamp.trim()) ||
+    new Date().toISOString();
+  const e2eId = parsed.endToEndId?.trim() || parsed.endToEnd?.trim() || fallbackE2eId;
+
+  return {
+    providerTxId: parsed.transactionId?.trim() || parsed.partnerId?.trim() || '',
+    e2eId,
+    status,
+    updatedAt,
+    ...(typeof parsed.description === 'string' ? { description: parsed.description } : {}),
+  };
+}
+
 function unwrapPixTransactionLookup(
   envelope: PixTransactionLookupEnvelope,
 ): PixTransactionLookupResponse | null {
@@ -713,7 +772,7 @@ function unwrapPixTransactionLookup(
     if (!first || typeof first !== 'object') return null;
     return first;
   }
-  if (envelope.status || envelope.endToEndId || envelope.transactionId) {
+  if (envelope.status || envelope.endToEndId || envelope.endToEnd || envelope.transactionId) {
     return envelope;
   }
   return null;

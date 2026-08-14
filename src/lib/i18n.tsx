@@ -777,6 +777,8 @@ const dictionaries: Record<Locale, TranslationTree> = {
           executeSuccess: 'PIX CorpX liquidado. Confirme se o BRL creditou na Binance (pode levar alguns minutos).',
           executeSuccessPending:
             'PIX CorpX liquidado, mas a Binance ainda não confirmou o crédito. Atualize os bolsos e verifique a ordem fiat.',
+          executeSuccessInFlight:
+            'PIX já foi enviado ao BACEN. Não execute de novo. Confira o débito na CorpX e o crédito BRL na Binance.',
           planTitle: 'Plano',
           planAmount: 'Valor',
           planCorpx: 'Disponível na CorpX',
@@ -2025,6 +2027,8 @@ const dictionaries: Record<Locale, TranslationTree> = {
             'CorpX PIX settled. Confirm BRL credited on Binance (may take a few minutes).',
           executeSuccessPending:
             'CorpX PIX settled, but Binance has not confirmed credit yet. Refresh pockets and check the fiat order.',
+          executeSuccessInFlight:
+            'PIX was already submitted to BACEN. Do not execute again. Check the CorpX debit and Binance BRL credit.',
           planTitle: 'Plan',
           planAmount: 'Amount',
           planCorpx: 'Available on CorpX',

@@ -3,26 +3,28 @@ import '@/lib/server/only';
 import { createCorpXAdapterFromEnv } from '@/lib/corpx/adapter';
 import { CorpXTransactionNotFoundError } from '@/lib/corpx/errors';
 import { normalizeCorpXPixIdentifier } from '@/lib/corpx/pix/identifier';
-import type { CorpXPIXKeyType, TransferStatus } from '@/lib/corpx/pix/types';
+import type { CorpXPIXKeyType, PIXCashOutResponse, TransferStatus } from '@/lib/corpx/pix/types';
 import { binance } from '@/lib/server/binance';
 
 import { resolveTreasuryBrlAmount } from './brl-amount';
 import {
   amountForEmvPayout,
   assertCorpXPixOutAccepted,
-  assertCorpXPixOutSettled,
   BINANCE_FIAT_PIX_POLL_MAX_MS,
   BINANCE_FIAT_PIX_POLL_MS,
-  BINANCE_FIAT_SETTLEMENT_POLL_MAX_MS,
   BINANCE_FIAT_SETTLEMENT_POLL_MS,
+  classifyTreasuryPixOutOutcome,
   describeSettlementProbe,
   formatMissingPixError,
   isBinanceFiatOrderFailed,
   isBinanceFiatOrderPaid,
   readFiatOrderStatus,
   resolvePixPaymentFromOrderDetail,
+  throwIfTreasuryPixOutUnresolved,
+  TREASURY_PIX_ARRIVAL_POLL_MAX_MS,
   type ResolvedPixPayment,
   type SettlementProbeResult,
+  type TreasuryPixOutOutcome,
 } from './brl-transfer-pix';
 import { summarizeFiatOrderDetail } from './pix-emv-extract';
 import { insertTreasuryRun, updateTreasuryRun } from './runs-store';
@@ -61,52 +63,73 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForCorpXPixOutSettlement(input: {
-  pix: {
-    lookupPixPayment: (query: {
-      endToEndId?: string;
-      identifier?: string;
-    }) => Promise<TransferStatus>;
-  };
+type PixLookupClient = {
+  lookupPixOutStatus?: (query: {
+    endToEndId?: string;
+    identifier?: string;
+  }) => Promise<TransferStatus>;
+  lookupPixPayment: (query: {
+    endToEndId?: string;
+    identifier?: string;
+  }) => Promise<TransferStatus>;
+};
+
+async function lookupTreasuryPix(
+  pix: PixLookupClient,
+  query: { endToEndId?: string; identifier?: string },
+): Promise<TransferStatus> {
+  if (pix.lookupPixOutStatus) {
+    return pix.lookupPixOutStatus(query);
+  }
+  return pix.lookupPixPayment(query);
+}
+
+async function waitForTreasuryPixArrival(input: {
+  pix: PixLookupClient;
   e2eId?: string;
   identifier: string;
-}): Promise<TransferStatus> {
-  const deadline = Date.now() + BINANCE_FIAT_SETTLEMENT_POLL_MAX_MS;
+  binanceOrderId: string;
+}): Promise<{ corpx: TransferStatus; binance: SettlementProbeResult }> {
+  const deadline = Date.now() + TREASURY_PIX_ARRIVAL_POLL_MAX_MS;
   let last: TransferStatus = {
     providerTxId: '',
     e2eId: input.e2eId?.trim() ?? '',
     status: 'pending',
     updatedAt: nowIso(),
   };
+  let binanceProbe: SettlementProbeResult = { detail: null, paid: false, status: '' };
 
   while (Date.now() <= deadline) {
     try {
-      if (input.e2eId?.trim()) {
-        last = await input.pix.lookupPixPayment({ endToEndId: input.e2eId.trim() });
+      const e2e = last.e2eId.trim() || input.e2eId?.trim() || '';
+      if (e2e) {
+        last = await lookupTreasuryPix(input.pix, { endToEndId: e2e });
       } else {
-        last = await input.pix.lookupPixPayment({ identifier: input.identifier });
+        last = await lookupTreasuryPix(input.pix, { identifier: input.identifier });
       }
     } catch (error) {
       if (!(error instanceof CorpXTransactionNotFoundError)) {
         throw error;
       }
-      if (input.e2eId?.trim()) {
-        try {
-          last = await input.pix.lookupPixPayment({ identifier: input.identifier });
-        } catch (inner) {
-          if (!(inner instanceof CorpXTransactionNotFoundError)) {
-            throw inner;
-          }
+      try {
+        last = await lookupTreasuryPix(input.pix, { identifier: input.identifier });
+      } catch (inner) {
+        if (!(inner instanceof CorpXTransactionNotFoundError)) {
+          throw inner;
         }
       }
     }
 
-    if (
-      last.status === 'completed' ||
-      last.status === 'failed' ||
-      last.status === 'requires_reconciliation'
-    ) {
-      return last;
+    const detail = await binance.fiat.getOrderDetail(input.binanceOrderId);
+    throwIfBinanceOrderFailed(input.binanceOrderId, detail);
+    binanceProbe = {
+      detail,
+      paid: isBinanceFiatOrderPaid(detail),
+      status: readFiatOrderStatus(detail),
+    };
+
+    if (last.status === 'completed' || last.status === 'failed' || binanceProbe.paid) {
+      return { corpx: last, binance: binanceProbe };
     }
 
     if (Date.now() + BINANCE_FIAT_SETTLEMENT_POLL_MS > deadline) {
@@ -115,7 +138,78 @@ async function waitForCorpXPixOutSettlement(input: {
     await sleep(BINANCE_FIAT_SETTLEMENT_POLL_MS);
   }
 
-  return last;
+  return { corpx: last, binance: binanceProbe };
+}
+
+async function completeTreasuryCorpxPixToBinance(input: {
+  pix: PixLookupClient;
+  run: TreasuryRunRow;
+  plan: TreasuryBrlTransferPlan;
+  payout: PIXCashOutResponse;
+  identifier: string;
+  depositOrderId: string;
+  initialDetail: unknown;
+  emvFound: boolean;
+  detailStep: string;
+}): Promise<{
+  run: TreasuryRunRow;
+  binanceOrder: {
+    orderId: string;
+    detail: unknown;
+    emvFound: boolean;
+    settled?: boolean;
+    pixInFlight?: boolean;
+  };
+}> {
+  const arrival = await waitForTreasuryPixArrival({
+    pix: input.pix,
+    e2eId: input.payout.e2eId,
+    identifier: input.identifier,
+    binanceOrderId: input.depositOrderId,
+  });
+  const e2e = arrival.corpx.e2eId || input.payout.e2eId;
+  const outcome: TreasuryPixOutOutcome = classifyTreasuryPixOutOutcome({
+    corpxStatus: arrival.corpx.status,
+    e2eId: e2e,
+    binancePaid: arrival.binance.paid,
+  });
+  throwIfTreasuryPixOutUnresolved(
+    outcome,
+    `identifier=${input.identifier} e2e=${e2e || ''} providerTxId=${arrival.corpx.providerTxId || input.payout.providerTxId}`,
+  );
+
+  const run = await updateTreasuryRun(input.run.id, {
+    status: 'completed',
+    executedAmountUsdc: input.plan.amountBrl,
+    binanceWithdrawId: input.payout.providerTxId || e2e || arrival.corpx.providerTxId || null,
+    steps: [
+      ...input.run.steps,
+      step('read_binance_order_detail', 'ok', input.detailStep),
+      step(
+        'corpx_pix_out',
+        'ok',
+        `providerTxId=${input.payout.providerTxId} e2e=${input.payout.e2eId} submit=${input.payout.status}`,
+      ),
+      step(
+        'corpx_pix_settlement',
+        'ok',
+        `outcome=${outcome} status=${arrival.corpx.status} e2e=${e2e}`,
+      ),
+      step('binance_settlement_probe', 'ok', describeSettlementProbe(arrival.binance)),
+    ],
+    error: null,
+  });
+
+  return {
+    run,
+    binanceOrder: {
+      orderId: input.depositOrderId,
+      detail: arrival.binance.detail ?? input.initialDetail,
+      emvFound: input.emvFound,
+      settled: outcome === 'settled' && arrival.binance.paid,
+      pixInFlight: outcome === 'in_flight',
+    },
+  };
 }
 
 function throwIfBinanceOrderFailed(orderId: string, detail: unknown): void {
@@ -147,35 +241,6 @@ async function waitForBinanceFiatPixPayment(
   }
 
   return { detail, payment: null };
-}
-
-async function probeBinanceFiatSettlement(orderId: string): Promise<SettlementProbeResult> {
-  const deadline = Date.now() + BINANCE_FIAT_SETTLEMENT_POLL_MAX_MS;
-  let detail: unknown = null;
-
-  while (Date.now() <= deadline) {
-    detail = await binance.fiat.getOrderDetail(orderId);
-    throwIfBinanceOrderFailed(orderId, detail);
-
-    if (isBinanceFiatOrderPaid(detail)) {
-      return {
-        detail,
-        paid: true,
-        status: readFiatOrderStatus(detail),
-      };
-    }
-
-    if (Date.now() + BINANCE_FIAT_SETTLEMENT_POLL_MS > deadline) {
-      break;
-    }
-    await sleep(BINANCE_FIAT_SETTLEMENT_POLL_MS);
-  }
-
-  return {
-    detail,
-    paid: false,
-    status: readFiatOrderStatus(detail),
-  };
 }
 
 function readFallbackPixKey(): { key: string; keyType: CorpXPIXKeyType } | null {
@@ -235,6 +300,8 @@ export type TreasuryBrlTransferResult = {
     detail: unknown;
     emvFound: boolean;
     settled?: boolean;
+    /** PIX is in SPI (BACEN E2E) but CorpX lookup is still PROCESSING. Do not retry. */
+    pixInFlight?: boolean;
   };
 };
 
@@ -315,54 +382,23 @@ export async function runTreasuryCorpxBrlToBinance(
       });
       assertCorpXPixOutAccepted(payout);
 
-      const corpxSettled = await waitForCorpXPixOutSettlement({
+      const finished = await completeTreasuryCorpxPixToBinance({
         pix: adapter.pix,
-        e2eId: payout.e2eId,
+        run,
+        plan,
+        payout,
         identifier,
-      });
-      assertCorpXPixOutSettled(
-        corpxSettled.status,
-        `identifier=${identifier} e2e=${corpxSettled.e2eId || payout.e2eId || ''} providerTxId=${corpxSettled.providerTxId || payout.providerTxId}`,
-      );
-
-      const settlement = await probeBinanceFiatSettlement(deposit.orderId);
-
-      run = await updateTreasuryRun(run.id, {
-        status: 'completed',
-        executedAmountUsdc: plan.amountBrl,
-        binanceWithdrawId: payout.providerTxId || payout.e2eId || corpxSettled.providerTxId || null,
-        steps: [
-          ...run.steps,
-          step(
-            'read_binance_order_detail',
-            'ok',
-            `emv_found status=${readFiatOrderStatus(detail) || 'unknown'}`,
-          ),
-          step(
-            'corpx_pix_out',
-            'ok',
-            `providerTxId=${payout.providerTxId} e2e=${payout.e2eId} submit=${payout.status}`,
-          ),
-          step(
-            'corpx_pix_settlement',
-            'ok',
-            `status=${corpxSettled.status} e2e=${corpxSettled.e2eId || payout.e2eId}`,
-          ),
-          step('binance_settlement_probe', 'ok', describeSettlementProbe(settlement)),
-        ],
-        error: null,
+        depositOrderId: deposit.orderId,
+        initialDetail: detail,
+        emvFound: true,
+        detailStep: `emv_found status=${readFiatOrderStatus(detail) || 'unknown'}`,
       });
 
       return {
         dryRun: false,
         plan,
-        run,
-        binanceOrder: {
-          orderId: deposit.orderId,
-          detail: settlement.detail ?? detail,
-          emvFound: true,
-          settled: settlement.paid,
-        },
+        run: finished.run,
+        binanceOrder: finished.binanceOrder,
       };
     }
 
@@ -378,54 +414,23 @@ export async function runTreasuryCorpxBrlToBinance(
       });
       assertCorpXPixOutAccepted(payout);
 
-      const corpxSettled = await waitForCorpXPixOutSettlement({
+      const finished = await completeTreasuryCorpxPixToBinance({
         pix: adapter.pix,
-        e2eId: payout.e2eId,
+        run,
+        plan,
+        payout,
         identifier,
-      });
-      assertCorpXPixOutSettled(
-        corpxSettled.status,
-        `identifier=${identifier} e2e=${corpxSettled.e2eId || payout.e2eId || ''} providerTxId=${corpxSettled.providerTxId || payout.providerTxId}`,
-      );
-
-      const settlement = await probeBinanceFiatSettlement(deposit.orderId);
-
-      run = await updateTreasuryRun(run.id, {
-        status: 'completed',
-        executedAmountUsdc: plan.amountBrl,
-        binanceWithdrawId: payout.providerTxId || payout.e2eId || corpxSettled.providerTxId || null,
-        steps: [
-          ...run.steps,
-          step(
-            'read_binance_order_detail',
-            'ok',
-            polledPayment ? 'pix_key_found' : 'emv_missing_used_fallback_key',
-          ),
-          step(
-            'corpx_pix_out',
-            'ok',
-            `providerTxId=${payout.providerTxId} e2e=${payout.e2eId} submit=${payout.status}`,
-          ),
-          step(
-            'corpx_pix_settlement',
-            'ok',
-            `status=${corpxSettled.status} e2e=${corpxSettled.e2eId || payout.e2eId}`,
-          ),
-          step('binance_settlement_probe', 'ok', describeSettlementProbe(settlement)),
-        ],
-        error: null,
+        depositOrderId: deposit.orderId,
+        initialDetail: detail,
+        emvFound: false,
+        detailStep: polledPayment ? 'pix_key_found' : 'emv_missing_used_fallback_key',
       });
 
       return {
         dryRun: false,
         plan,
-        run,
-        binanceOrder: {
-          orderId: deposit.orderId,
-          detail: settlement.detail ?? detail,
-          emvFound: false,
-          settled: settlement.paid,
-        },
+        run: finished.run,
+        binanceOrder: finished.binanceOrder,
       };
     }
 
