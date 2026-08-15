@@ -427,7 +427,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
 
           <nav className="sidebar__nav" aria-label={t('shell.menu')}>
-            <div className="nav-section">{primaryNavItems.map(renderNavLink)}</div>
+            <div className="nav-section">{primaryNavItems.map((item) => renderNavLink(item))}</div>
 
             {navGroups.map((group) => {
               const isExpanded = Boolean(expandedGroups[group.id]);
