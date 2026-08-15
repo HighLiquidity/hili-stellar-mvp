@@ -20,6 +20,13 @@ import {
   signOutUser,
   type AccessProfile,
 } from '../lib/authService';
+import { getPlatformRampFlagsAction } from '@/app/actions/admin-settings';
+import type { PlatformRampFlags } from '@/lib/admin-test-settings/types';
+
+const DEFAULT_RAMP_FLAGS: PlatformRampFlags = {
+  usdcRampEnabled: true,
+  brhRampEnabled: true,
+};
 
 interface AuthContextValue {
   session: Session | null;
@@ -30,6 +37,8 @@ interface AuthContextValue {
   needsMfa: boolean;
   isLoading: boolean;
   authError: string | null;
+  rampFlags: PlatformRampFlags;
+  refreshRampFlags: () => Promise<void>;
   clearAuthError: () => void;
   logout: () => Promise<void>;
 }
@@ -42,7 +51,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [needsMfa, setNeedsMfa] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [rampFlags, setRampFlags] = useState<PlatformRampFlags>(DEFAULT_RAMP_FLAGS);
   const keepNextSignedOutErrorRef = useRef(false);
+
+  const loadRampFlags = async (accessToken: string | undefined) => {
+    if (!accessToken) {
+      setRampFlags(DEFAULT_RAMP_FLAGS);
+      return;
+    }
+    try {
+      const result = await getPlatformRampFlagsAction(accessToken);
+      if (result.ok) {
+        setRampFlags(result.data);
+      }
+    } catch {
+      setRampFlags(DEFAULT_RAMP_FLAGS);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -56,6 +81,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setSession(null);
         setProfile(null);
         setNeedsMfa(false);
+        setRampFlags(DEFAULT_RAMP_FLAGS);
         if (!keepNextSignedOutErrorRef.current) {
           setAuthError(null);
         }
@@ -72,6 +98,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (!accessProfile || !accessProfile.is_active) {
           setProfile(null);
           setNeedsMfa(false);
+          setRampFlags(DEFAULT_RAMP_FLAGS);
           setAuthError('access_denied');
           keepNextSignedOutErrorRef.current = true;
           await signOutUser();
@@ -98,6 +125,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setProfile(accessProfile);
         setNeedsMfa(pendingMfa);
         setAuthError(null);
+        void loadRampFlags(nextSession.access_token);
       } catch (error) {
         if (!isMounted) {
           return;
@@ -134,6 +162,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
             setSession(null);
             setProfile(null);
             setNeedsMfa(false);
+            setRampFlags(DEFAULT_RAMP_FLAGS);
             if (!keepNextSignedOutErrorRef.current) {
               setAuthError(null);
             }
@@ -163,6 +192,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       needsMfa,
       isLoading,
       authError,
+      rampFlags,
+      refreshRampFlags: async () => {
+        await loadRampFlags(session?.access_token);
+      },
       clearAuthError: () => {
         keepNextSignedOutErrorRef.current = false;
         setAuthError(null);
@@ -174,13 +207,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
           setSession(null);
           setProfile(null);
           setNeedsMfa(false);
+          setRampFlags(DEFAULT_RAMP_FLAGS);
           setAuthError(null);
         } catch (error) {
           setAuthError(getAuthErrorMessage(error));
         }
       },
     }),
-    [authError, isLoading, needsMfa, profile, session],
+    [authError, isLoading, needsMfa, profile, rampFlags, session],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

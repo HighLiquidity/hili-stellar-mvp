@@ -2,6 +2,7 @@ import '@/lib/server/only';
 
 import { NextResponse } from 'next/server';
 
+import { RampDisabledError } from '@/lib/admin-test-settings/ramp-disabled';
 import { ApiRateLimitError } from '@/lib/api-keys/errors';
 import type { ApiKeyAuthContext } from '@/lib/api-keys/store';
 import { resolveApiKeyDataScope } from '@/lib/clients/scope';
@@ -66,6 +67,10 @@ export function handleV1OnrampRouteError(error: unknown) {
     return jsonError(error.message, error.status);
   }
 
+  if (error instanceof RampDisabledError) {
+    return jsonError(error.message, error.status, { code: error.code });
+  }
+
   if (error instanceof OnrampValidationError || error instanceof BinanceValidationError) {
     return jsonError(error.message, 400);
   }
@@ -100,6 +105,10 @@ export function handleV1OnrampRouteError(error: unknown) {
 export function handleV1OfframpRouteError(error: unknown) {
   if (error instanceof ApiRateLimitError) {
     return jsonError(error.message, error.status);
+  }
+
+  if (error instanceof RampDisabledError) {
+    return jsonError(error.message, error.status, { code: error.code });
   }
 
   if (error instanceof OfframpValidationError) {

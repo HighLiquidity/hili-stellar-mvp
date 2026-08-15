@@ -4,11 +4,13 @@ import { randomUUID } from 'node:crypto';
 
 import QRCode from 'qrcode';
 
+import { assertBrhRampEnabled } from '@/lib/admin-test-settings/assert-enabled';
 import {
   isDepositAboveMax,
   loadMaxDepositBrl,
   parseMaxDepositBrl,
 } from '@/lib/admin-test-settings/deposit-limits';
+import { RampDisabledError } from '@/lib/admin-test-settings/ramp-disabled';
 import { createCorpXAdapterFromEnv } from '@/lib/corpx/adapter';
 import { brlStringToJsonNumber } from '@/lib/corpx/pix/brl';
 import { clampCorpXPixExpirationDate } from '@/lib/corpx/pix/expiration';
@@ -33,6 +35,7 @@ export type GenerateDepositPixResult =
         | 'AMOUNT_NOT_POSITIVE'
         | 'EXCEEDS_MAX_DEPOSIT'
         | 'SETTINGS_UNAVAILABLE'
+        | 'RAMP_DISABLED'
         | 'UPSTREAM';
       maxDepositBrl?: string;
       message?: string;
@@ -49,6 +52,21 @@ export async function generateDepositPixAction(input: {
   let amountBrlForLog: string | null = null;
 
   try {
+    try {
+      await assertBrhRampEnabled();
+    } catch (error) {
+      if (error instanceof RampDisabledError) {
+        result = { ok: false, code: 'RAMP_DISABLED', message: error.message };
+        return result;
+      }
+      result = {
+        ok: false,
+        code: 'SETTINGS_UNAVAILABLE',
+        message: error instanceof Error ? error.message : String(error),
+      };
+      return result;
+    }
+
     if (!input.taxId.trim()) {
       result = { ok: false, code: 'TAX_ID_REQUIRED' };
       return result;

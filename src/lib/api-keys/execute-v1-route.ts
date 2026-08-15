@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server';
 
 import type { ApiKeyScope } from './types';
 import { ApiRateLimitError } from './errors';
+import { assertUsdcRampEnabled } from '@/lib/admin-test-settings/assert-enabled';
+import { RampDisabledError } from '@/lib/admin-test-settings/ramp-disabled';
 import { findIdempotentResponse, readIdempotencyKey, saveIdempotentResponse } from './idempotency';
 import { assertApiKeyRateLimit } from './rate-limit';
 import { logApiKeyRequest } from './request-log';
@@ -64,6 +66,44 @@ export async function executeV1Route(options: ExecuteV1RouteOptions): Promise<Ne
     }
 
     await assertApiKeyRateLimit(ctx.apiKeyId);
+
+    const usdcScope =
+      options.requiredScope === 'onramp' ||
+      options.requiredScope === 'offramp' ||
+      options.requiredScope === 'orders:read';
+    if (usdcScope) {
+      try {
+        await assertUsdcRampEnabled();
+      } catch (error) {
+        if (error instanceof RampDisabledError) {
+          const response = jsonError(error.message, error.status, { code: error.code });
+          await logApiKeyRequest({
+            apiKeyId: ctx.apiKeyId,
+            keyPrefix: ctx.keyPrefix,
+            clientId: ctx.clientId,
+            method,
+            route: options.route,
+            statusCode: response.status,
+            durationMs: Date.now() - startedAt,
+            idempotencyKey,
+          });
+          return response;
+        }
+        const message = error instanceof Error ? error.message : 'Settings unavailable';
+        const response = jsonError(message, 503);
+        await logApiKeyRequest({
+          apiKeyId: ctx.apiKeyId,
+          keyPrefix: ctx.keyPrefix,
+          clientId: ctx.clientId,
+          method,
+          route: options.route,
+          statusCode: response.status,
+          durationMs: Date.now() - startedAt,
+          idempotencyKey,
+        });
+        return response;
+      }
+    }
 
     if (idempotencyKey) {
       const cached = await findIdempotentResponse({

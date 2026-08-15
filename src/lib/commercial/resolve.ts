@@ -8,6 +8,8 @@ export function resolveCommercialTerms(params: {
   clientProfile?: CommercialProfileSource | null;
   /** Operator sub-limit (max BRL only); spread is ignored. */
   operatorProfile?: OperatorCommercialProfile | null;
+  /** Platform-wide USDC ceiling from admin settings. */
+  platformMaxAmountBrl?: string | null;
   /** @deprecated Legacy per-key overrides; client profile takes precedence. */
   legacyApiKeySpreadBpsOverride?: number | null;
   /** @deprecated Legacy per-key limits; client/operator profile takes precedence. */
@@ -16,6 +18,7 @@ export function resolveCommercialTerms(params: {
   const clientSpread = params.clientProfile?.spreadBpsOverride;
   const clientMax = params.clientProfile?.maxAmountBrl?.trim() || null;
   const operatorMax = params.operatorProfile?.maxAmountBrl?.trim() || null;
+  const platformMax = params.platformMaxAmountBrl?.trim() || null;
 
   const spreadBps =
     clientSpread != null
@@ -24,9 +27,9 @@ export function resolveCommercialTerms(params: {
         ? params.legacyApiKeySpreadBpsOverride
         : params.envSpreadBps;
 
-  const maxAmountBrl =
+  const tenantMax =
     tightenMaxAmountBrl(clientMax, operatorMax) ??
     (params.legacyApiKeyMaxAmountBrl?.trim() || null);
 
-  return { spreadBps, maxAmountBrl };
+  return { spreadBps, maxAmountBrl: tightenMaxAmountBrl(platformMax, tenantMax) };
 }

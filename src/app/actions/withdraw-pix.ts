@@ -2,6 +2,8 @@
 
 import { randomUUID } from 'node:crypto';
 
+import { assertBrhRampEnabled } from '@/lib/admin-test-settings/assert-enabled';
+import { RampDisabledError } from '@/lib/admin-test-settings/ramp-disabled';
 import {
   isWithdrawAboveMax,
   loadMaxWithdrawBrl,
@@ -47,6 +49,7 @@ export type SubmitWithdrawPixResult =
         | 'EXCEEDS_MAX_WITHDRAW'
         | 'INSUFFICIENT_BRH'
         | 'SETTINGS_UNAVAILABLE'
+        | 'RAMP_DISABLED'
         | 'UPSTREAM';
       maxWithdrawBrl?: string;
       message?: string;
@@ -96,6 +99,21 @@ export async function submitWithdrawPixAction(input: {
   let idempotencyKeyForLog: string | null = null;
 
   try {
+    try {
+      await assertBrhRampEnabled();
+    } catch (error) {
+      if (error instanceof RampDisabledError) {
+        result = { ok: false, code: 'RAMP_DISABLED', message: error.message };
+        return result;
+      }
+      result = {
+        ok: false,
+        code: 'SETTINGS_UNAVAILABLE',
+        message: error instanceof Error ? error.message : String(error),
+      };
+      return result;
+    }
+
     const emv = input.paymentQrCode.trim();
     if (!emv) {
       result = { ok: false, code: 'QR_REQUIRED' };

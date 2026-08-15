@@ -2,10 +2,12 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { submitWithdrawPixAction, type SubmitWithdrawPixResult } from '@/app/actions/withdraw-pix';
 import { useAuth } from '@/hooks/useAuth';
 import { useBrhBalance } from '@/hooks/useBrhBalance';
+import { useBrhRampAccess } from '@/hooks/useRampAvailability';
 import { formatBrhAmount, formatBrlApprox } from '@/lib/format/brh-display';
 import { parsePixEmv } from '@/lib/pix/emv-parser';
 import { CameraIcon } from '../components/Icons';
@@ -15,7 +17,9 @@ import { useI18n } from '@/lib/i18n';
 
 export function WithdrawPage() {
   const { t, locale } = useI18n();
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, isLoading: authLoading, isAuthorized } = useAuth();
+  const { canAccess } = useBrhRampAccess();
   const localeCode = locale === 'pt' ? 'pt-BR' : 'en-US';
   const { balanceNumber, isLoading: isBrhBalanceLoading, refetch } = useBrhBalance();
   const [paymentQrCode, setPaymentQrCode] = useState('');
@@ -82,6 +86,8 @@ export function WithdrawPage() {
       }
       case 'INSUFFICIENT_BRH':
         return detail || t('pages.withdraw.errors.insufficientBrh');
+      case 'RAMP_DISABLED':
+        return t('pages.settings.rampDisabled');
       default:
         return detail || t('pages.withdraw.errors.fallback');
     }
@@ -135,6 +141,23 @@ export function WithdrawPage() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  useEffect(() => {
+    if (authLoading || !isAuthorized) return;
+    if (!canAccess) {
+      router.replace('/app/dashboard');
+    }
+  }, [authLoading, canAccess, isAuthorized, router]);
+
+  if (authLoading || !canAccess) {
+    return (
+      <section className="dashboard-layout">
+        <article className="surface">
+          <p className="surface__lead">{t('pages.settings.loading')}</p>
+        </article>
+      </section>
+    );
   }
 
   return (

@@ -25,6 +25,6 @@ export function assertAmountBrlWithinLimit(
 
   const amount = brlStringToJsonNumber(amountBrl);
   if (isDepositAboveMax(amount, max)) {
-    throwFlowValidationError(flow, `amountBrl exceeds the client limit of ${limit}.`);
+    throwFlowValidationError(flow, `amountBrl exceeds the limit of ${limit}.`);
   }
 }

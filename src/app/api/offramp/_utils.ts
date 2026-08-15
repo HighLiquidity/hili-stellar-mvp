@@ -2,6 +2,8 @@ import '@/lib/server/only';
 
 import { NextResponse } from 'next/server';
 
+import { assertUsdcRampEnabled } from '@/lib/admin-test-settings/assert-enabled';
+import { RampDisabledError } from '@/lib/admin-test-settings/ramp-disabled';
 import {
   OfframpConfigError,
   OfframpOperationError,
@@ -40,6 +42,18 @@ export async function requireOfframpRouteOperator(request: Request): Promise<Rou
 
   try {
     const ctx = await requireOperatorOrAdminFromAccessToken(accessToken);
+    try {
+      await assertUsdcRampEnabled();
+    } catch (error) {
+      if (error instanceof RampDisabledError) {
+        return {
+          ok: false,
+          response: jsonError(error.message, error.status, { code: error.code }),
+        };
+      }
+      const message = error instanceof Error ? error.message : 'Settings unavailable';
+      return { ok: false, response: jsonError(message, 503) };
+    }
     return { ok: true, ctx };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unauthorized';
@@ -62,6 +76,10 @@ export function badRequest(message: string) {
 }
 
 export function handleOfframpRouteError(error: unknown) {
+  if (error instanceof RampDisabledError) {
+    return jsonError(error.message, error.status, { code: error.code });
+  }
+
   if (error instanceof OfframpValidationError) {
     return jsonError(error.message, 400);
   }

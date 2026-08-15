@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { useI18n } from '@/lib/i18n';
-import { isOperatorOrAdminRole, canApproveWhitelist, canManageApiKeys, canManagePanelUsers } from '@/lib/users/panel-access';
+import { isOperatorOrAdminRole, isPlatformAdmin, canApproveWhitelist, canManageApiKeys, canManagePanelUsers } from '@/lib/users/panel-access';
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -40,6 +40,7 @@ interface NavGroup {
   id: string;
   label: string;
   items: NavItem[];
+  disabled?: boolean;
 }
 
 function getInitials(name: string, fallbackEmail?: string | null) {
@@ -70,7 +71,7 @@ function groupContainsPath(group: NavGroup, pathname: string) {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout, profile, user } = useAuth();
+  const { logout, profile, user, rampFlags } = useAuth();
   const { t } = useI18n();
   const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -130,11 +131,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navGroups = useMemo<NavGroup[]>(() => {
     const role = profile?.role;
     const groups: NavGroup[] = [];
+    const platformAdmin = isPlatformAdmin(role);
 
-    if (isOperatorOrAdminRole(role)) {
+    if (isOperatorOrAdminRole(role) && (rampFlags.usdcRampEnabled || platformAdmin)) {
       groups.push({
         id: 'usdc-ramp',
         label: t('nav.groups.usdcRamp'),
+        disabled: !rampFlags.usdcRampEnabled,
         items: [
           {
             to: '/app/onramp',
@@ -155,27 +158,30 @@ export function AppShell({ children }: { children: ReactNode }) {
       });
     }
 
-    groups.push({
-      id: 'brh-ramp',
-      label: t('nav.groups.brhRamp'),
-      items: [
-        {
-          to: '/app/deposit',
-          label: t('nav.deposit'),
-          icon: <DepositIcon width={16} height={16} />,
-        },
-        {
-          to: '/app/withdraw',
-          label: t('nav.withdraw'),
-          icon: <WithdrawIcon width={16} height={16} />,
-        },
-        {
-          to: '/app/statement',
-          label: t('nav.statement'),
-          icon: <StatementIcon width={16} height={16} />,
-        },
-      ],
-    });
+    if (rampFlags.brhRampEnabled || platformAdmin) {
+      groups.push({
+        id: 'brh-ramp',
+        label: t('nav.groups.brhRamp'),
+        disabled: !rampFlags.brhRampEnabled,
+        items: [
+          {
+            to: '/app/deposit',
+            label: t('nav.deposit'),
+            icon: <DepositIcon width={16} height={16} />,
+          },
+          {
+            to: '/app/withdraw',
+            label: t('nav.withdraw'),
+            icon: <WithdrawIcon width={16} height={16} />,
+          },
+          {
+            to: '/app/statement',
+            label: t('nav.statement'),
+            icon: <StatementIcon width={16} height={16} />,
+          },
+        ],
+      });
+    }
 
     const customerItems: NavItem[] = [];
     if (role === 'admin') {
@@ -266,7 +272,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
 
     return groups;
-  }, [profile?.role, t]);
+  }, [profile?.role, rampFlags.brhRampEnabled, rampFlags.usdcRampEnabled, t]);
 
   const allNavItems = useMemo(
     () => [...primaryNavItems, ...navGroups.flatMap((group) => group.items)],
@@ -357,13 +363,19 @@ export function AppShell({ children }: { children: ReactNode }) {
       ? t('shell.closeSidebar')
       : t('shell.openSidebar');
 
-  const renderNavLink = (item: NavItem) => (
+  const renderNavLink = (item: NavItem, disabled = false) => (
     <Link
       key={item.to}
       href={item.to}
       onClick={handleNavigation}
-      className={`nav-link${navLinkIsActive(pathname, item.to) ? ' is-active' : ''}`}
-      title={isSidebarCollapsed ? item.label : undefined}
+      className={`nav-link${navLinkIsActive(pathname, item.to) ? ' is-active' : ''}${disabled ? ' is-disabled' : ''}`}
+      title={
+        disabled
+          ? `${item.label} ${t('nav.groups.disabled')}`
+          : isSidebarCollapsed
+            ? item.label
+            : undefined
+      }
     >
       <span className="nav-link__icon">{item.icon}</span>
       <span className="nav-link__label">{item.label}</span>
@@ -423,8 +435,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
               if (isSidebarCollapsed) {
                 return (
-                  <div key={group.id} className="nav-section nav-section--collapsed">
-                    {group.items.map(renderNavLink)}
+                  <div
+                    key={group.id}
+                    className={`nav-section nav-section--collapsed${group.disabled ? ' is-disabled' : ''}`}
+                  >
+                    {group.items.map((item) => renderNavLink(item, Boolean(group.disabled)))}
                   </div>
                 );
               }
@@ -432,7 +447,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               return (
                 <div
                   key={group.id}
-                  className={`nav-group${isExpanded ? ' is-expanded' : ''}${hasActive ? ' has-active' : ''}`}
+                  className={`nav-group${isExpanded ? ' is-expanded' : ''}${hasActive ? ' has-active' : ''}${
+                    group.disabled ? ' is-disabled' : ''
+                  }`}
                 >
                   <button
                     type="button"
@@ -440,7 +457,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                     aria-expanded={isExpanded}
                     onClick={() => handleToggleGroup(group.id)}
                   >
-                    <span className="nav-group__label">{group.label}</span>
+                    <span className="nav-group__label">
+                      <span className="nav-group__label-text">{group.label}</span>
+                      {group.disabled ? (
+                        <span className="nav-group__disabled-tag">{t('nav.groups.disabled')}</span>
+                      ) : null}
+                    </span>
                     <ChevronDownIcon
                       className="nav-group__chevron"
                       width={14}
@@ -450,7 +472,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </button>
 
                   {isExpanded ? (
-                    <div className="nav-group__items">{group.items.map(renderNavLink)}</div>
+                    <div className="nav-group__items">
+                      {group.items.map((item) => renderNavLink(item, Boolean(group.disabled)))}
+                    </div>
                   ) : null}
                 </div>
               );

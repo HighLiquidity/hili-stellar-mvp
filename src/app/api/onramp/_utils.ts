@@ -7,6 +7,8 @@ import {
   BinanceRequestError,
   BinanceValidationError,
 } from '@/lib/server/binance';
+import { assertUsdcRampEnabled } from '@/lib/admin-test-settings/assert-enabled';
+import { RampDisabledError } from '@/lib/admin-test-settings/ramp-disabled';
 import {
   OnrampConfigError,
   OnrampOperationError,
@@ -45,6 +47,18 @@ export async function requireOnrampRouteOperator(request: Request): Promise<Rout
 
   try {
     const ctx = await requireOperatorOrAdminFromAccessToken(accessToken);
+    try {
+      await assertUsdcRampEnabled();
+    } catch (error) {
+      if (error instanceof RampDisabledError) {
+        return {
+          ok: false,
+          response: jsonError(error.message, error.status, { code: error.code }),
+        };
+      }
+      const message = error instanceof Error ? error.message : 'Settings unavailable';
+      return { ok: false, response: jsonError(message, 503) };
+    }
     return { ok: true, ctx };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unauthorized';
@@ -67,6 +81,10 @@ export function badRequest(message: string) {
 }
 
 export function handleOnrampRouteError(error: unknown) {
+  if (error instanceof RampDisabledError) {
+    return jsonError(error.message, error.status, { code: error.code });
+  }
+
   if (error instanceof OnrampValidationError || error instanceof BinanceValidationError) {
     return jsonError(error.message, 400);
   }

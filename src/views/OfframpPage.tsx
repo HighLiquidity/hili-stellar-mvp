@@ -16,8 +16,8 @@ import { RampCollapsiblePanel } from '@/components/RampCollapsiblePanel';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { useAuth } from '@/hooks/useAuth';
+import { useUsdcRampAccess } from '@/hooks/useRampAvailability';
 import { useI18n } from '@/lib/i18n';
-import { isOperatorOrAdminRole } from '@/lib/users/panel-access';
 import { isOfframpQuotePlaceholderPixKey } from '@/lib/ramp/quote-placeholders';
 import type {
   OfframpLockResponse,
@@ -281,10 +281,10 @@ type OfframpPageProps = {
 export function OfframpPage({ initialOrderId }: OfframpPageProps = {}) {
   const router = useRouter();
   const { t, locale } = useI18n();
-  const { session, profile, isLoading: authLoading, isAuthorized } = useAuth();
+  const { session, isLoading: authLoading, isAuthorized } = useAuth();
+  const { canAccess: canAccessRamp } = useUsdcRampAccess();
   const localeCode = locale === 'pt' ? 'pt-BR' : 'en-US';
   const accessToken = session?.access_token ?? null;
-  const canAccessRamp = isOperatorOrAdminRole(profile?.role);
   const openedFromOrderLink = Boolean(initialOrderId?.trim());
 
   const [amountUsdc, setAmountUsdc] = useState('');

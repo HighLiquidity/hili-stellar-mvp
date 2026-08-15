@@ -25,6 +25,23 @@ describe('resolveCommercialTerms', () => {
     expect(terms).toEqual({ spreadBps: 10, maxAmountBrl: '1000.00' });
   });
 
+  it('tightens tenant max with the platform ceiling', () => {
+    expect(
+      resolveCommercialTerms({
+        envSpreadBps: 10,
+        clientProfile: { spreadBpsOverride: null, maxAmountBrl: '3000.00' },
+        platformMaxAmountBrl: '1500.00',
+      }).maxAmountBrl,
+    ).toBe('1500.00');
+
+    expect(
+      resolveCommercialTerms({
+        envSpreadBps: 10,
+        platformMaxAmountBrl: '5000.00',
+      }).maxAmountBrl,
+    ).toBe('5000.00');
+  });
+
   it('falls back to legacy api key then env spread', () => {
     expect(
       resolveCommercialTerms({

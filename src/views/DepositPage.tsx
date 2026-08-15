@@ -2,10 +2,12 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { generateDepositPixAction, type GenerateDepositPixResult } from '@/app/actions/deposit-pix';
 import { useAuth } from '@/hooks/useAuth';
 import { useBrhBalance } from '@/hooks/useBrhBalance';
+import { useBrhRampAccess } from '@/hooks/useRampAvailability';
 import { formatBrhAmount, formatBrlApprox } from '@/lib/format/brh-display';
 import { Button } from '../components/ui/Button';
 import { InputField } from '../components/ui/InputField';
@@ -13,7 +15,9 @@ import { useI18n } from '@/lib/i18n';
 
 export function DepositPage() {
   const { t, locale } = useI18n();
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, isLoading: authLoading, isAuthorized } = useAuth();
+  const { canAccess } = useBrhRampAccess();
   const localeCode = locale === 'pt' ? 'pt-BR' : 'en-US';
   const { balanceNumber, isLoading: isBrhBalanceLoading, refetch: refetchBrhBalance } = useBrhBalance();
   const [taxId, setTaxId] = useState('');
@@ -83,6 +87,8 @@ export function DepositPage() {
           : (result.maxDepositBrl ?? '');
         return t('pages.deposit.errors.exceedsMaxDeposit').replace('{{limit}}', limitLabel);
       }
+      case 'RAMP_DISABLED':
+        return t('pages.settings.rampDisabled');
       default:
         return detail || t('pages.deposit.errors.fallback');
     }
@@ -132,6 +138,23 @@ export function DepositPage() {
   }
 
   const hasPayload = Boolean(qrDataUrl && pixCopyPaste);
+
+  useEffect(() => {
+    if (authLoading || !isAuthorized) return;
+    if (!canAccess) {
+      router.replace('/app/dashboard');
+    }
+  }, [authLoading, canAccess, isAuthorized, router]);
+
+  if (authLoading || !canAccess) {
+    return (
+      <section className="dashboard-layout">
+        <article className="surface">
+          <p className="surface__lead">{t('pages.settings.loading')}</p>
+        </article>
+      </section>
+    );
+  }
 
   return (
     <section className="deposit-layout">
