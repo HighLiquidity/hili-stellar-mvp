@@ -13,6 +13,7 @@ import {
   submitWithdrawWhitelistRequestAction,
   upsertWithdrawWhitelistAction,
 } from '@/app/actions/withdraw-whitelist';
+import { KeyPlusIcon, PencilIcon, TrashIcon, WalletPlusIcon } from '@/components/Icons';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { useAuth } from '@/hooks/useAuth';
@@ -350,17 +351,19 @@ export function UserWithdrawWhitelistPage() {
               ))}
             </div>
             {activeTab === 'wallets' ? (
-              <Button type="button" variant="secondary" onClick={openCreate} disabled={isSaving}>
+              <Button type="button" className="user-management-add" onClick={openCreate} disabled={isSaving}>
+                <WalletPlusIcon width={16} height={16} />
                 {isPlatformAdmin ? t('pages.withdrawWhitelist.addWallet') : t('pages.whitelistApproval.requestWallet')}
               </Button>
             ) : null}
             {activeTab === 'pix' ? (
               <Button
                 type="button"
-                variant="secondary"
+                className="user-management-add"
                 onClick={() => setPixCreateRequested((count) => count + 1)}
                 disabled={pixIsSaving}
               >
+                <KeyPlusIcon width={16} height={16} />
                 {isPlatformAdmin ? t('pages.pixWhitelist.addKey') : t('pages.whitelistApproval.requestPixKey')}
               </Button>
             ) : null}
@@ -441,29 +444,41 @@ export function UserWithdrawWhitelistPage() {
                             ) : null}
                           </td>
                         ) : null}
-                        <td>
-                          <div className="user-management-actions">
-                            {isPlatformAdmin ? (
-                              <>
-                                <Button type="button" variant="ghost" onClick={() => openEdit(row)}>
-                                  {t('pages.userManagement.edit')}
-                                </Button>
-                                <Button type="button" variant="ghost" onClick={() => void handleDelete(row)} disabled={isSaving}>
-                                  {t('pages.userManagement.delete')}
-                                </Button>
-                              </>
-                            ) : row.approval_status === 'pending' ? (
-                              <Button type="button" variant="ghost" onClick={() => void handleCancelRequest(row)} disabled={isSaving}>
-                                {t('pages.whitelistApproval.cancelRequest')}
-                              </Button>
-                            ) : row.approval_status === 'rejected' ? (
-                              <Button type="button" variant="ghost" onClick={openCreate} disabled={isSaving}>
-                                {t('pages.whitelistApproval.requestAgain')}
-                              </Button>
-                            ) : (
-                              <span>—</span>
-                            )}
-                          </div>
+                        <td className="user-management-table__actions">
+                          {isPlatformAdmin ? (
+                            <>
+                              <button
+                                type="button"
+                                className="icon-button"
+                                disabled={isSaving}
+                                onClick={() => openEdit(row)}
+                                aria-label={t('pages.userManagement.edit')}
+                                title={t('pages.userManagement.edit')}
+                              >
+                                <PencilIcon width={16} height={16} />
+                              </button>
+                              <button
+                                type="button"
+                                className="icon-button icon-button--danger"
+                                disabled={isSaving}
+                                onClick={() => void handleDelete(row)}
+                                aria-label={t('pages.userManagement.delete')}
+                                title={t('pages.userManagement.delete')}
+                              >
+                                <TrashIcon width={16} height={16} />
+                              </button>
+                            </>
+                          ) : row.approval_status === 'pending' ? (
+                            <Button type="button" variant="ghost" onClick={() => void handleCancelRequest(row)} disabled={isSaving}>
+                              {t('pages.whitelistApproval.cancelRequest')}
+                            </Button>
+                          ) : row.approval_status === 'rejected' ? (
+                            <Button type="button" variant="ghost" onClick={openCreate} disabled={isSaving}>
+                              {t('pages.whitelistApproval.requestAgain')}
+                            </Button>
+                          ) : (
+                            <span>—</span>
+                          )}
                         </td>
                       </tr>
                     ))}

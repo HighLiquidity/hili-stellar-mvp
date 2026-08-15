@@ -362,3 +362,27 @@ export function ClientPlusIcon(props: SVGProps<SVGSVGElement>) {
     </IconBase>
   );
 }
+
+export function WalletPlusIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <rect x="2" y="6" width="14" height="13" rx="2" />
+      <path d="M2 10h14" />
+      <path d="M12.5 14.5h1.5" />
+      <path d="M19 8v6" />
+      <path d="M16 11h6" />
+    </IconBase>
+  );
+}
+
+export function KeyPlusIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <circle cx="7" cy="15.5" r="3" />
+      <path d="M10 15.5h5" />
+      <path d="M13 15.5V17.5" />
+      <path d="M19 8v6" />
+      <path d="M16 11h6" />
+    </IconBase>
+  );
+}
