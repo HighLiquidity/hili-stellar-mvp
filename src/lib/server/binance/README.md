@@ -43,6 +43,9 @@ Server-only integration layer for Binance spot REST endpoints used by the MVP.
   - `getCoinConfig(...)`
   - `getCoinNetworkConfig(...)`
   - `getWithdrawEnabledCoinNetworks(...)`
+- Signed capital deposit address via:
+  - `getDepositAddress({ coin, network })` → `GET /sapi/v1/capital/deposit/address`
+  - Crypto cannot be deposited by a push API; send on-chain to the returned `address` + `tag`
 - Signed fiat (BRL / PIX) support via:
   - `createFiatDeposit({ amount, currency?, apiPaymentMethod? })` → `POST /sapi/v1/fiat/deposit`
   - `createFiatWithdraw({ amount, accountInfo, currency?, apiPaymentMethod? })` → `POST /sapi/v2/fiat/withdraw`

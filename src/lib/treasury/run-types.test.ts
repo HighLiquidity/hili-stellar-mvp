@@ -11,5 +11,6 @@ describe('treasuryAssetFromKind', () => {
   it('maps crypto refill kinds', () => {
     expect(treasuryAssetFromKind('binance_usdc_refill')).toBe('USDC');
     expect(treasuryAssetFromKind('binance_xlm_refill')).toBe('XLM');
+    expect(treasuryAssetFromKind('distributor_usdc_to_binance')).toBe('USDC');
   });
 });

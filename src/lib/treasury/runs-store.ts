@@ -150,6 +150,24 @@ export async function updateTreasuryRun(
   return mapRow(data as Record<string, unknown>);
 }
 
+export async function findTreasuryRunById(runId: string): Promise<TreasuryRunRow | null> {
+  const admin = createSupabaseAdmin();
+  if (!admin) return null;
+
+  const { data, error } = await admin
+    .from(TREASURY_RUNS_TABLE)
+    .select(RUN_SELECT)
+    .eq('id', runId.trim())
+    .maybeSingle();
+
+  if (error) {
+    console.error('[treasury/runs] find by id failed', error.message);
+    return null;
+  }
+
+  return data ? mapRow(data as Record<string, unknown>) : null;
+}
+
 export async function listTreasuryRuns(limit = 20): Promise<TreasuryRunRow[]> {
   const admin = createSupabaseAdmin();
   if (!admin) {

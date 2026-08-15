@@ -827,8 +827,15 @@ const dictionaries: Record<Locale, TranslationTree> = {
         pendingCount: 'ordens',
         pendingEmpty: 'Nenhum refill pendente.',
         runsTitle: 'Execuções recentes',
-        runsHint: 'Dry-runs e refills manuais registrados em tesouraria.',
+        runsHint: 'Dry-runs e movimentos manuais registrados em tesouraria.',
         runsEmpty: 'Nenhuma execução registrada ainda.',
+        kinds: {
+          binance_usdc_refill: 'USDC refill',
+          binance_xlm_refill: 'XLM refill',
+          corpx_brl_to_binance: 'BRL → Binance',
+          binance_brl_to_corpx: 'BRL ← Binance',
+          distributor_usdc_to_binance: 'USDC → Binance',
+        },
         refill: {
           open: 'Refill',
           close: 'Fechar',
@@ -858,6 +865,38 @@ const dictionaries: Record<Locale, TranslationTree> = {
           trigger: 'Gatilho',
           errors: {
             failed: 'Não foi possível processar o refill de tesouraria.',
+          },
+        },
+        usdcDrain: {
+          open: 'Enviar USDC → Binance',
+          close: 'Fechar',
+          title: 'Enviar USDC → Binance',
+          description:
+            'Paga USDC da carteira usdc-distributor para o endereço de depósito Binance (Ramp, category=treasury). Sempre simule antes de executar.',
+          amountLabel: 'Valor',
+          amountPlaceholder: 'Ex.: 100 ou deixe vazio no dry-run para usar o saldo do distributor',
+          dryRun: 'Simular (dry-run)',
+          dryRunning: 'Simulando…',
+          execute: 'Executar envio',
+          executing: 'Executando…',
+          dryRunSuccess: 'Simulação concluída. Confira destino, memo e saldos esperados antes de executar.',
+          executeSuccess: 'Pagamento confirmado na Ramp. Confira o crédito USDC na Binance.',
+          executeSuccessPending:
+            'Pagamento enviado à Ramp. A execução fica em running até a confirmação on-chain.',
+          planTitle: 'Plano',
+          planAmount: 'Valor',
+          planMin: 'Mínimo',
+          planDestination: 'Destino Binance',
+          planPayment: 'Pagamento',
+          planPaymentValue: 'Ramp onramp USDC (category=treasury)',
+          planAfterTitle: 'Saldos após o envio',
+          planAfterDistributor: 'Distributor',
+          planAfterBinance: 'Binance',
+          planAfterUnavailable: 'saldo atual indisponível',
+          planAfterNote:
+            'O crédito na Binance pode levar alguns minutos após a confirmação on-chain. O memo precisa ser MEMO_TEXT.',
+          errors: {
+            failed: 'Não foi possível processar o envio USDC para a Binance.',
           },
         },
         brlTransfer: {
@@ -941,6 +980,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
           amountUsdc: 'USDC',
           amount: 'Valor',
           asset: 'Ativo',
+          kind: 'Tipo',
           updatedAt: 'Atualizado',
         },
         errors: {
@@ -2184,8 +2224,15 @@ const dictionaries: Record<Locale, TranslationTree> = {
         pendingCount: 'orders',
         pendingEmpty: 'No pending refills.',
         runsTitle: 'Recent runs',
-        runsHint: 'Dry-runs and manual refills recorded by treasury.',
+        runsHint: 'Dry-runs and manual treasury movements.',
         runsEmpty: 'No runs recorded yet.',
+        kinds: {
+          binance_usdc_refill: 'USDC refill',
+          binance_xlm_refill: 'XLM refill',
+          corpx_brl_to_binance: 'BRL → Binance',
+          binance_brl_to_corpx: 'BRL ← Binance',
+          distributor_usdc_to_binance: 'USDC → Binance',
+        },
         refill: {
           open: 'Refill',
           close: 'Close',
@@ -2215,6 +2262,38 @@ const dictionaries: Record<Locale, TranslationTree> = {
           trigger: 'Trigger',
           errors: {
             failed: 'Could not process the treasury refill.',
+          },
+        },
+        usdcDrain: {
+          open: 'Send USDC → Binance',
+          close: 'Close',
+          title: 'Send USDC → Binance',
+          description:
+            'Pays USDC from the usdc-distributor wallet to the Binance deposit address (Ramp, category=treasury). Always dry-run before executing.',
+          amountLabel: 'Amount',
+          amountPlaceholder: 'e.g. 100, or leave empty on dry-run to use the distributor balance',
+          dryRun: 'Simulate (dry-run)',
+          dryRunning: 'Simulating…',
+          execute: 'Execute transfer',
+          executing: 'Executing…',
+          dryRunSuccess: 'Simulation complete. Review destination, memo, and expected balances before executing.',
+          executeSuccess: 'Ramp payout confirmed. Check USDC credit on Binance.',
+          executeSuccessPending:
+            'Payout submitted to Ramp. The run stays running until on-chain confirmation.',
+          planTitle: 'Plan',
+          planAmount: 'Amount',
+          planMin: 'Minimum',
+          planDestination: 'Binance destination',
+          planPayment: 'Payment',
+          planPaymentValue: 'Ramp USDC onramp (category=treasury)',
+          planAfterTitle: 'Balances after transfer',
+          planAfterDistributor: 'Distributor',
+          planAfterBinance: 'Binance',
+          planAfterUnavailable: 'current balance unavailable',
+          planAfterNote:
+            'Binance credit may take a few minutes after on-chain confirmation. The memo is MEMO_TEXT.',
+          errors: {
+            failed: 'Could not process the USDC transfer to Binance.',
           },
         },
         brlTransfer: {
@@ -2298,6 +2377,7 @@ const dictionaries: Record<Locale, TranslationTree> = {
           amountUsdc: 'USDC',
           amount: 'Amount',
           asset: 'Asset',
+          kind: 'Kind',
           updatedAt: 'Updated',
         },
         errors: {

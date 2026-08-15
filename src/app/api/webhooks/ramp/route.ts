@@ -11,6 +11,7 @@ import { isOfframpUsdcDepositExternalId } from '@/lib/offramp/references';
 import { applyRampCallbackUpdate, findRampOperationByRampOperationId } from '@/lib/ramp/operation-store';
 import type { RampCallbackPayload } from '@/lib/ramp/types';
 import { verifyRampCallbackSignature } from '@/lib/ramp/webhook-verify';
+import { applyTreasuryUsdcDrainRampCallback } from '@/lib/treasury/usdc-drain';
 
 const TERMINAL_OFFRAMP_CALLBACK_STATUSES = new Set([
   'confirmed',
@@ -108,6 +109,13 @@ export async function POST(request: Request) {
         failureReason,
       });
       await applyUsdcDeliveryRampCallback({
+        externalId,
+        rampOperationId: operationId,
+        status,
+        txHash,
+        failureReason,
+      });
+      await applyTreasuryUsdcDrainRampCallback({
         externalId,
         rampOperationId: operationId,
         status,

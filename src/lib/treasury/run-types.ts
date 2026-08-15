@@ -5,7 +5,8 @@ export type TreasuryRunKind =
   | 'binance_usdc_refill'
   | 'binance_xlm_refill'
   | 'corpx_brl_to_binance'
-  | 'binance_brl_to_corpx';
+  | 'binance_brl_to_corpx'
+  | 'distributor_usdc_to_binance';
 export type TreasuryRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'dry_run';
 
 export type TreasuryRunStep = {
@@ -104,6 +105,34 @@ export type TreasuryBrlTransferRequest = {
   };
 };
 
+export type TreasuryUsdcDrainPlan = {
+  kind: 'distributor_usdc_to_binance';
+  amount: string;
+  distributorUsdc: string;
+  distributorUsdcAfter: string;
+  binanceUsdcFree: string;
+  binanceUsdcAfter: string;
+  minDeposit: string;
+  destination: {
+    address: string;
+    tag: string | null;
+    network: string;
+    source: 'api' | 'env';
+  };
+  paymentHint: 'ramp_usdc_onramp_category_treasury';
+  steps: TreasuryRunStep[];
+};
+
+export type TreasuryUsdcDrainRequest = {
+  dryRun: boolean;
+  amount?: string | null;
+  trigger?: TreasuryRunTrigger;
+  actor?: {
+    userId?: string | null;
+    email?: string | null;
+  };
+};
+
 export type TreasuryBrlReceiveRequest = {
   dryRun: boolean;
   amountBrl?: string | null;
@@ -116,7 +145,7 @@ export type TreasuryBrlReceiveRequest = {
 
 export function treasuryKindForAsset(asset: TreasuryRefillAsset): Exclude<
   TreasuryRunKind,
-  'corpx_brl_to_binance' | 'binance_brl_to_corpx'
+  'corpx_brl_to_binance' | 'binance_brl_to_corpx' | 'distributor_usdc_to_binance'
 > {
   return asset === 'XLM' ? 'binance_xlm_refill' : 'binance_usdc_refill';
 }

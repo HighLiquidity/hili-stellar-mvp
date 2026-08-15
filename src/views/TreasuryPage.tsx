@@ -15,6 +15,7 @@ import type {
   TreasuryBrlTransferPlan,
   TreasuryRefillAsset,
   TreasuryRefillPlan,
+  TreasuryUsdcDrainPlan,
 } from '@/lib/treasury/run-types';
 import { treasuryAssetFromKind } from '@/lib/treasury/run-types';
 import type {
@@ -420,6 +421,271 @@ function RefillModal({ open, onClose, suggestedFree, onExecuted, busy }: RefillM
                       refillPlan.distributorBalance === 'unavailable' ||
                       refillPlan.distributorAfter === 'unavailable'
                         ? `${t('pages.treasury.refill.planAfterUnavailable')} (+${formatAmount(refillPlan.amount, 4)} ${refillPlan.asset})`
+                        : undefined,
+                  },
+                ]}
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function maskStellarAddress(address: string): string {
+  const trimmed = address.trim();
+  if (trimmed.length <= 12) return trimmed;
+  return `${trimmed.slice(0, 6)}…${trimmed.slice(-4)}`;
+}
+
+type DrainModalProps = {
+  open: boolean;
+  onClose: () => void;
+  suggestedUsdc: string | null;
+  onExecuted: () => Promise<void>;
+  busy: boolean;
+};
+
+function DrainModal({ open, onClose, suggestedUsdc, onExecuted, busy }: DrainModalProps) {
+  const { t } = useI18n();
+  const titleId = useId();
+  const [amount, setAmount] = useState('');
+  const [plan, setPlan] = useState<TreasuryUsdcDrainPlan | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [isDryRunning, setIsDryRunning] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
+
+  const resetState = useCallback(() => {
+    setAmount('');
+    setPlan(null);
+    setError(null);
+    setMessage(null);
+    setIsDryRunning(false);
+    setIsExecuting(false);
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      resetState();
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isDryRunning && !isExecuting) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose, resetState, isDryRunning, isExecuting]);
+
+  const postDrain = useCallback(
+    async (dryRun: boolean) => {
+      setError(null);
+      setMessage(null);
+      if (dryRun) {
+        setIsDryRunning(true);
+      } else {
+        setIsExecuting(true);
+      }
+
+      try {
+        const token = await getAccessToken();
+        if (!token) {
+          setError(t('pages.treasury.errors.session'));
+          return;
+        }
+
+        const trimmed = amount.trim();
+        const response = await fetch('/api/treasury/runs', {
+          method: 'POST',
+          cache: 'no-store',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            dryRun,
+            kind: 'distributor_usdc_to_binance',
+            ...(trimmed ? { amount: trimmed } : dryRun ? {} : { amount: plan?.amount }),
+          }),
+        });
+
+        const body = (await response.json().catch(() => null)) as
+          | {
+              error?: string;
+              plan?: TreasuryUsdcDrainPlan;
+              run?: { id: string; status: string };
+            }
+          | null;
+
+        if (!response.ok) {
+          setError(body?.error?.trim() || t('pages.treasury.usdcDrain.errors.failed'));
+          return;
+        }
+
+        if (body?.plan) {
+          setPlan(body.plan);
+          if (!trimmed) {
+            setAmount(body.plan.amount);
+          }
+        }
+
+        if (dryRun) {
+          setMessage(t('pages.treasury.usdcDrain.dryRunSuccess'));
+        } else {
+          setMessage(
+            body?.run?.status === 'completed'
+              ? t('pages.treasury.usdcDrain.executeSuccess')
+              : t('pages.treasury.usdcDrain.executeSuccessPending'),
+          );
+          setPlan(null);
+          await onExecuted();
+        }
+      } catch {
+        setError(t('pages.treasury.usdcDrain.errors.failed'));
+      } finally {
+        setIsDryRunning(false);
+        setIsExecuting(false);
+      }
+    },
+    [amount, onExecuted, plan?.amount, t],
+  );
+
+  if (!open) return null;
+
+  const actionsDisabled = isDryRunning || isExecuting || busy;
+
+  return (
+    <div
+      className="treasury-modal-overlay"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !actionsDisabled) onClose();
+      }}
+    >
+      <div
+        className="treasury-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
+        <header className="treasury-modal__header">
+          <div className="treasury-modal__heading">
+            <h2 id={titleId} className="treasury-modal__title">
+              {t('pages.treasury.usdcDrain.title')}
+            </h2>
+            <p className="surface__lead treasury-modal__lead">
+              {t('pages.treasury.usdcDrain.description')}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="treasury-modal__close"
+            onClick={onClose}
+            disabled={actionsDisabled}
+            aria-label={t('pages.treasury.usdcDrain.close')}
+            title={t('pages.treasury.usdcDrain.close')}
+          >
+            <CloseIcon width={16} height={16} aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className="treasury-modal__body">
+          <InputField
+            id="treasury-usdc-drain-amount"
+            label={`${t('pages.treasury.usdcDrain.amountLabel')} (USDC)`}
+            value={amount}
+            onChange={(event) => {
+              setAmount(event.target.value);
+              setPlan(null);
+              setMessage(null);
+            }}
+            placeholder={
+              suggestedUsdc
+                ? `${t('pages.treasury.usdcDrain.amountPlaceholder')} (${suggestedUsdc})`
+                : t('pages.treasury.usdcDrain.amountPlaceholder')
+            }
+            inputMode="decimal"
+          />
+
+          <div className="treasury-modal__actions">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={actionsDisabled}
+              onClick={() => void postDrain(true)}
+            >
+              {isDryRunning
+                ? t('pages.treasury.usdcDrain.dryRunning')
+                : t('pages.treasury.usdcDrain.dryRun')}
+            </Button>
+            <Button
+              type="button"
+              disabled={actionsDisabled || !plan || !amount.trim()}
+              onClick={() => void postDrain(false)}
+            >
+              {isExecuting
+                ? t('pages.treasury.usdcDrain.executing')
+                : t('pages.treasury.usdcDrain.execute')}
+            </Button>
+          </div>
+
+          {error ? (
+            <p className="auth-inline-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {message ? (
+            <p className="form-success-message" role="status">
+              {message}
+            </p>
+          ) : null}
+
+          {plan ? (
+            <div className="treasury-refill-plan">
+              <p className="treasury-refill-plan__title">{t('pages.treasury.usdcDrain.planTitle')}</p>
+              <ul className="treasury-refill-plan__list">
+                <li>
+                  {t('pages.treasury.usdcDrain.planAmount')}:{' '}
+                  <strong>{formatAmount(plan.amount, 4)} USDC</strong>
+                </li>
+                <li>
+                  {t('pages.treasury.usdcDrain.planMin')}: {formatAmount(plan.minDeposit, 4)} USDC
+                </li>
+                <li>
+                  {t('pages.treasury.usdcDrain.planDestination')}:{' '}
+                  {maskStellarAddress(plan.destination.address)} ({plan.destination.network}
+                  {plan.destination.tag ? ` · memo ${plan.destination.tag}` : ''})
+                </li>
+                <li>
+                  {t('pages.treasury.usdcDrain.planPayment')}:{' '}
+                  {t('pages.treasury.usdcDrain.planPaymentValue')}
+                </li>
+              </ul>
+              <p className="treasury-refill-plan__note">
+                {t('pages.treasury.usdcDrain.planAfterNote')}
+              </p>
+              <PlanAfterBalances
+                title={t('pages.treasury.usdcDrain.planAfterTitle')}
+                unavailableLabel={t('pages.treasury.usdcDrain.planAfterUnavailable')}
+                rows={[
+                  {
+                    label: t('pages.treasury.usdcDrain.planAfterDistributor'),
+                    current: plan.distributorUsdc,
+                    after: plan.distributorUsdcAfter,
+                    unit: 'USDC',
+                  },
+                  {
+                    label: t('pages.treasury.usdcDrain.planAfterBinance'),
+                    current: plan.binanceUsdcFree,
+                    after: plan.binanceUsdcAfter,
+                    unit: 'USDC',
+                    hint:
+                      plan.binanceUsdcFree === 'unavailable' || plan.binanceUsdcAfter === 'unavailable'
+                        ? `${t('pages.treasury.usdcDrain.planAfterUnavailable')} (+${formatAmount(plan.amount, 4)} USDC)`
                         : undefined,
                   },
                 ]}
@@ -971,6 +1237,7 @@ export function TreasuryPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshingPocket, setRefreshingPocket] = useState<TreasuryPocketId | null>(null);
   const [refillOpen, setRefillOpen] = useState(false);
+  const [drainOpen, setDrainOpen] = useState(false);
   const [brlTransferOpen, setBrlTransferOpen] = useState(false);
   const [brlReceiveOpen, setBrlReceiveOpen] = useState(false);
 
@@ -1265,6 +1532,13 @@ export function TreasuryPage() {
                 >
                   {t('pages.treasury.refill.open')}
                 </button>
+                <button
+                  type="button"
+                  className="treasury-pocket__refill-link"
+                  onClick={() => setDrainOpen(true)}
+                >
+                  {t('pages.treasury.usdcDrain.open')}
+                </button>
               </footer>
             </article>
 
@@ -1348,6 +1622,7 @@ export function TreasuryPage() {
                   <thead>
                     <tr>
                       <th>{t('pages.treasury.columns.status')}</th>
+                      <th>{t('pages.treasury.columns.kind')}</th>
                       <th>{t('pages.treasury.columns.asset')}</th>
                       <th>{t('pages.treasury.columns.amount')}</th>
                       <th>{t('pages.treasury.refill.trigger')}</th>
@@ -1363,6 +1638,7 @@ export function TreasuryPage() {
                             {run.status}
                             {run.dry_run ? ' (dry-run)' : ''}
                           </td>
+                          <td>{t(`pages.treasury.kinds.${run.kind}`)}</td>
                           <td>{asset}</td>
                           <td>
                             {formatAmount(
@@ -1388,6 +1664,16 @@ export function TreasuryPage() {
         open={refillOpen}
         onClose={() => setRefillOpen(false)}
         suggestedFree={suggestedFree}
+        busy={isLoading || isRefreshing}
+        onExecuted={async () => {
+          await loadOverview({ silent: true });
+        }}
+      />
+
+      <DrainModal
+        open={drainOpen}
+        onClose={() => setDrainOpen(false)}
+        suggestedUsdc={pockets?.distributor.ok ? pockets.distributor.usdc : null}
         busy={isLoading || isRefreshing}
         onExecuted={async () => {
           await loadOverview({ silent: true });

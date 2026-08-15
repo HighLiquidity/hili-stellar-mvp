@@ -5,6 +5,7 @@ import { runTreasuryCorpxBrlToBinance } from '@/lib/treasury/brl-transfer';
 import { runTreasuryBinanceRefill } from '@/lib/treasury/refill';
 import { listTreasuryRuns } from '@/lib/treasury/runs-store';
 import type { TreasuryRefillAsset, TreasuryRunKind } from '@/lib/treasury/run-types';
+import { runTreasuryDistributorUsdcToBinance } from '@/lib/treasury/usdc-drain';
 
 import {
   handleTreasuryRouteError,
@@ -51,7 +52,8 @@ function parseKind(raw: unknown): TreasuryRunKind | null {
     raw === 'binance_usdc_refill' ||
     raw === 'binance_xlm_refill' ||
     raw === 'corpx_brl_to_binance' ||
-    raw === 'binance_brl_to_corpx'
+    raw === 'binance_brl_to_corpx' ||
+    raw === 'distributor_usdc_to_binance'
   ) {
     return raw;
   }
@@ -96,7 +98,7 @@ export async function POST(request: Request) {
 
     if (!kind) {
       return jsonError(
-        'kind must be binance_usdc_refill, binance_xlm_refill, corpx_brl_to_binance, or binance_brl_to_corpx',
+        'kind must be binance_usdc_refill, binance_xlm_refill, corpx_brl_to_binance, binance_brl_to_corpx, or distributor_usdc_to_binance',
         400,
       );
     }
@@ -107,6 +109,32 @@ export async function POST(request: Request) {
     };
 
     try {
+      if (kind === 'distributor_usdc_to_binance') {
+        const amount = readAmountString(body.amount, body.amountUsdc);
+        if (!body.dryRun && !amount) {
+          return jsonError(
+            'amount is required when dryRun is false (use dry-run preview amount).',
+            400,
+          );
+        }
+
+        const result = await runTreasuryDistributorUsdcToBinance({
+          dryRun: body.dryRun,
+          amount,
+          trigger: 'manual',
+          actor,
+        });
+
+        return NextResponse.json(
+          {
+            dryRun: result.dryRun,
+            plan: result.plan,
+            run: result.run,
+          },
+          { status: body.dryRun ? 200 : 201 },
+        );
+      }
+
       if (kind === 'corpx_brl_to_binance' || kind === 'binance_brl_to_corpx') {
         const amountBrl = readAmountString(body.amountBrl, body.amount);
         if (!body.dryRun && !amountBrl) {
@@ -183,7 +211,7 @@ export async function POST(request: Request) {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const isValidation =
-        /must be at least|exceeds (Binance|CorpX)|must be a positive|required for treasury|BINANCE_BRL_WITHDRAW|Invalid (USDC|XLM|BRL)|2 decimals/i.test(
+        /must be at least|exceeds (Binance|CorpX|distributor)|must be a positive|required for treasury|BINANCE_BRL_WITHDRAW|BINANCE_USDC_DEPOSIT|Invalid (USDC|XLM|BRL)|2 decimals|Ramp API is not configured/i.test(
           message,
         );
       return jsonError(message, isValidation ? 400 : 502);

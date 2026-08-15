@@ -56,6 +56,7 @@ flowchart LR
   BinUSDC -->|withdraw em lote 4.2+| Dist[Distributor USDC]
   Dist -->|entrega| Client[Cliente]
   Client -->|off-ramp| Dist
+  Dist -->|drain manual| BinUSDC
   Dist -.->|precisa XLM| XLM[Distributor XLM]
 ```
 
@@ -151,9 +152,13 @@ Revisar taxa de 1 USDC na quote; `clientOrderId`; retries; alertas externos.
 5. Taxa na quote: manter 1 USDC até haver dados de lote (modelo C).
 6. **Fiat Binance BRL/PIX:** adapter + rotas admin de smoke prontos
    (`binance.fiat`, `/api/binance/fiat/*`). UI de envio CorpX→Binance no card
-   CorpX (`kind: corpx_brl_to_binance`). Pendente validar em prod se
-   `get-order-detail` devolve EMV/chave PIX; sem EMV, configure
-   `BINANCE_BRL_DEPOSIT_PIX_KEY` como fallback ou pague o pedido manualmente.
+   CorpX (`kind: corpx_brl_to_binance`) — **standby** (ainda não funcional em
+   prod). Binance→CorpX (`binance_brl_to_corpx`) está operacional.
+7. **USDC distributor → Binance:** kind `distributor_usdc_to_binance`. Destino
+   via `GET /sapi/v1/capital/deposit/address` (fallback
+   `BINANCE_USDC_DEPOSIT_ADDRESS` + `TAG`). Pagamento: Ramp
+   `POST /onramp` USDC `category=treasury`, memo = tag Binance (MEMO_TEXT).
+   Smoke de 1 USDC deve confirmar que a Binance credita MEMO_TEXT.
 
 ## Riscos
 
@@ -163,12 +168,13 @@ Revisar taxa de 1 USDC na quote; `clientOrderId`; retries; alertas externos.
 | Issuer USDC errado | `STELLAR_USDC_ISSUER` + defaults por rede |
 | Mudança 4.2 em produção | Feature flag + dry-run + validação manual 4.1 |
 | XLM zerado | Alerta na overview; top-up manual |
+| Memo Binance ≠ MEMO_TEXT | Smoke 1 USDC; se não creditar, avaliar MEMO_ID na Ramp API |
 
 ## Relação com roadmap
 
 - Sucede o recorte Binance MVP (`BINANCE_MVP_PLAN.md` — tesouraria pós-MVP).
 - Paralelo a Clients 3.x; não bloqueia KYB/KYC.
-- Reusa `RAMP_CATEGORY_TREASURY` nas fases de movimento (hoje definido, pouco usado).
+- Reusa `RAMP_CATEGORY_TREASURY` no drain USDC (`distributor_usdc_to_binance`).
 
 ## Referências
 
@@ -193,3 +199,4 @@ Revisar taxa de 1 USDC na quote; `clientOrderId`; retries; alertas externos.
 - [x] `POST/GET /api/treasury/runs`
 - [x] UI refill + histórico na tesouraria
 - [x] Testes de resolução de valor
+- [x] Kind `distributor_usdc_to_binance` (Ramp USDC category=treasury)

@@ -52,6 +52,7 @@ import {
   selectCoinConfig,
   selectCoinNetworkConfig,
 } from './withdraw';
+import { buildDepositAddressQuery, getDepositAddress, parseBinanceDepositAddressResponse } from './deposit';
 import {
   buildFiatDepositBody,
   buildFiatWithdrawBody,
@@ -74,6 +75,7 @@ import {
  * - signed account reads
  * - signed spot market order execution by quantity or quote notional
  * - signed capital withdraw request/history/config reads
+ * - signed capital deposit address (crypto in is on-chain to that address + tag)
  * - signed fiat BRL/PIX deposit + BRL bank_transfer withdraw + order detail/history
  *
  * Current limitations:
@@ -135,6 +137,7 @@ export {
   filterWithdrawEnabledNetworks,
   buildCryptoWithdrawPayload,
 };
+export { getDepositAddress, parseBinanceDepositAddressResponse, buildDepositAddressQuery };
 export {
   createFiatDeposit,
   createFiatWithdraw,
@@ -204,6 +207,11 @@ export const binance = {
     filterWithdrawEnabledNetworks,
     buildPayload: buildCryptoWithdrawPayload,
   },
+  deposit: {
+    getAddress: getDepositAddress,
+    parseAddress: parseBinanceDepositAddressResponse,
+    buildQuery: buildDepositAddressQuery,
+  },
   fiat: {
     createDeposit: createFiatDeposit,
     createWithdraw: createFiatWithdraw,
@@ -238,6 +246,8 @@ export type {
   BinanceAccountInfo,
   BinanceCoinConfig,
   BinanceCoinNetworkConfig,
+  BinanceCryptoDepositAddress,
+  BinanceCryptoDepositAddressRequest,
   BinanceCryptoWithdrawRequest,
   BinanceCryptoWithdrawResponse,
   BinanceFiatApiResponse,

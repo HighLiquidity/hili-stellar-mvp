@@ -157,6 +157,20 @@ export type BinanceCryptoWithdrawResponse = {
   id: string;
 };
 
+/** GET /sapi/v1/capital/deposit/address — Binance does not push crypto; this is the on-chain destination. */
+export type BinanceCryptoDepositAddress = {
+  address: string;
+  tag: string | null;
+  coin: string;
+  network: string | null;
+  url: string | null;
+};
+
+export type BinanceCryptoDepositAddressRequest = {
+  coin: string;
+  network: string;
+};
+
 export type BinanceWithdrawStatusCode = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export type BinanceWithdrawHistoryQuery = {
