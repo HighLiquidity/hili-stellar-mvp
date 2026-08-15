@@ -1808,10 +1808,16 @@ a.user-menu__item {
 }
 
 .user-management-table__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.user-management-table__actions > * {
+  vertical-align: middle;
+}
+
+.user-management-table__actions > * + * {
+  margin-left: 6px;
 }
 
 .user-management-status {
