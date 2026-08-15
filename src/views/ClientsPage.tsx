@@ -14,6 +14,7 @@ import {
 } from '@/app/actions/client-compliance';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
+import { ClientPlusIcon, PencilIcon } from '@/components/Icons';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { formatClientTaxId } from '@/lib/clients/format';
@@ -229,7 +230,8 @@ export function ClientsPage() {
             <p className="eyebrow">{t('pages.clients.eyebrow')}</p>
             <h2 className="user-management-card__title">{t('pages.clients.title')}</h2>
           </div>
-          <Button type="button" variant="secondary" onClick={openCreate} disabled={isSaving}>
+          <Button type="button" className="user-management-add" onClick={openCreate} disabled={isSaving}>
+            <ClientPlusIcon width={16} height={16} />
             {t('pages.clients.addClient')}
           </Button>
         </div>
@@ -492,9 +494,16 @@ export function ClientsPage() {
                     </td>
                     <td>{row.contact_email ?? '—'}</td>
                     <td className="user-management-table__actions">
-                      <Button type="button" variant="ghost" disabled={isSaving} onClick={() => void openEdit(row)}>
-                        {t('pages.clients.edit')}
-                      </Button>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        disabled={isSaving}
+                        onClick={() => void openEdit(row)}
+                        aria-label={t('pages.clients.edit')}
+                        title={t('pages.clients.edit')}
+                      >
+                        <PencilIcon width={16} height={16} />
+                      </button>
                     </td>
                   </tr>
                 ))

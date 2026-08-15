@@ -350,3 +350,15 @@ export function UserPlusIcon(props: SVGProps<SVGSVGElement>) {
     </IconBase>
   );
 }
+
+export function ClientPlusIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <rect x="3" y="4" width="12" height="16" rx="2" />
+      <path d="M7 20V10h4v10" />
+      <path d="M3 9h12" />
+      <path d="M19 8v6" />
+      <path d="M16 11h6" />
+    </IconBase>
+  );
+}
