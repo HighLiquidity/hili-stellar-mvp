@@ -15,6 +15,7 @@ import {
 import { listClientsAction } from '@/app/actions/clients';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
+import { PencilIcon, TrashIcon, UserPlusIcon } from '@/components/Icons';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import type { ClientRow } from '@/lib/clients/types';
@@ -288,8 +289,10 @@ export function UserManagementPage() {
         <div className="user-management-card__header">
           <div>
             <p className="eyebrow">{t('pages.userManagement.eyebrow')}</p>
+            <h2 className="user-management-card__title">{t('pages.userManagement.title')}</h2>
           </div>
-          <Button type="button" variant="secondary" onClick={openCreate} disabled={isSaving}>
+          <Button type="button" className="user-management-add" onClick={openCreate} disabled={isSaving}>
+            <UserPlusIcon width={16} height={16} />
             {t('pages.userManagement.addUser')}
           </Button>
         </div>
@@ -512,14 +515,16 @@ export function UserManagementPage() {
                       </span>
                     </td>
                     <td className="user-management-table__actions">
-                      <Button
+                      <button
                         type="button"
-                        variant="ghost"
+                        className="icon-button"
                         disabled={isSaving}
                         onClick={() => openEdit(row)}
+                        aria-label={t('pages.userManagement.edit')}
+                        title={t('pages.userManagement.edit')}
                       >
-                        {t('pages.userManagement.edit')}
-                      </Button>
+                        <PencilIcon width={16} height={16} />
+                      </button>
                       {row.totp_enabled ? (
                         <Button
                           type="button"
@@ -530,14 +535,16 @@ export function UserManagementPage() {
                           {t('pages.userManagement.disableTotp')}
                         </Button>
                       ) : null}
-                      <Button
+                      <button
                         type="button"
-                        variant="ghost"
+                        className="icon-button icon-button--danger"
                         disabled={isSaving || row.email === user?.email?.toLowerCase()}
                         onClick={() => void handleDelete(row)}
+                        aria-label={t('pages.userManagement.delete')}
+                        title={t('pages.userManagement.delete')}
                       >
-                        {t('pages.userManagement.delete')}
-                      </Button>
+                        <TrashIcon width={16} height={16} />
+                      </button>
                     </td>
                   </tr>
                 ))

@@ -1158,6 +1158,17 @@ button.auth-text-link {
   color: var(--accent-strong);
 }
 
+.icon-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.icon-button--danger:hover:not(:disabled) {
+  border-color: var(--danger, #dc2626);
+  color: var(--danger, #dc2626);
+  background: color-mix(in srgb, var(--danger, #dc2626) 12%, transparent);
+}
+
 .language-toggle {
   height: 36px;
   display: inline-flex;
@@ -1683,8 +1694,20 @@ a.user-menu__item {
 
 .user-management-card__header {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
+}
+
+.user-management-add {
+  flex: 0 0 auto;
+  width: auto;
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .user-management-card__toolbar {
@@ -3585,7 +3608,7 @@ a.user-menu__item {
 }
 
 .user-management-card__title {
-  margin: 4px 0 12px;
+  margin: 4px 0 0;
   font-size: 1.35rem;
 }
 
