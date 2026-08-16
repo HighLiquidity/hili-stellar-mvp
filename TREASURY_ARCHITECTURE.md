@@ -84,7 +84,7 @@ Fase 4.0 **não** cria tabelas — só agrega leituras existentes.
 
 | Rota | Papel | Conteúdo |
 |------|--------|----------|
-| `/app/treasury` | admin | Overview de bolsos + fila de refills pendentes |
+| `/app/treasury` | admin | Aba **Bolsos**: overview + runs manuais. Aba **Configurações**: placeholder das políticas automáticas (ainda não persiste nem dispara). |
 
 Nav: `managementNavItems` em `AppShell` (bloco admin).
 
@@ -138,6 +138,10 @@ USDC+XLM, BRH) e a fila de refills; zero movimento de capital.
 ### Fase 4.3 — Políticas + automação
 
 CRUD de políticas; cron; alertas (CorpX baixo, float USDC, XLM baixo, lote falhou).
+
+A aba **Configurações** em `/app/treasury` já esboça o formulário (trilhos,
+bandas, lote vs per-ordem, shadow mode). Ainda é placeholder: não persiste e
+não dispara runs.
 
 ### Fase 4.4 — Precificação + hardening
 

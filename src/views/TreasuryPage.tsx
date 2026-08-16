@@ -23,6 +23,9 @@ import type {
   TreasuryPocketId,
   TreasuryPocketRefreshResponse,
 } from '@/lib/treasury/types';
+import { TreasurySettingsTab } from './TreasurySettingsTab';
+
+type TreasuryTab = 'pockets' | 'settings';
 
 async function getAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
@@ -1240,6 +1243,7 @@ export function TreasuryPage() {
   const [drainOpen, setDrainOpen] = useState(false);
   const [brlTransferOpen, setBrlTransferOpen] = useState(false);
   const [brlReceiveOpen, setBrlReceiveOpen] = useState(false);
+  const [tab, setTab] = useState<TreasuryTab>('pockets');
 
   useEffect(() => {
     if (authLoading || !isAuthorized) return;
@@ -1378,33 +1382,60 @@ export function TreasuryPage() {
           <div className="treasury-page__intro-copy">
             <p className="eyebrow">{t('pages.treasury.eyebrow')}</p>
             <h2 className="user-management-card__title">{t('pages.treasury.title')}</h2>
-            <p className="surface__lead">{t('pages.treasury.description')}</p>
-            {overview?.generatedAt ? (
+            <p className="surface__lead">
+              {tab === 'settings' ? t('pages.treasury.settings.description') : t('pages.treasury.description')}
+            </p>
+            {tab === 'pockets' && overview?.generatedAt ? (
               <p className="surface__lead treasury-page__synced">
                 {t('pages.treasury.lastSync')}: {new Date(overview.generatedAt).toLocaleString()}
               </p>
             ) : null}
           </div>
+          {tab === 'pockets' ? (
+            <button
+              type="button"
+              className={`treasury-refresh${isRefreshing ? ' is-busy' : ''}`}
+              disabled={globalBusy}
+              onClick={() => void loadOverview({ silent: true })}
+              aria-label={t('pages.treasury.refresh')}
+              title={t('pages.treasury.refresh')}
+            >
+              <RefreshIcon width={16} height={16} aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
+
+        <div className="treasury-tabs" role="tablist" aria-label={t('pages.treasury.tabsLabel')}>
           <button
             type="button"
-            className={`treasury-refresh${isRefreshing ? ' is-busy' : ''}`}
-            disabled={globalBusy}
-            onClick={() => void loadOverview({ silent: true })}
-            aria-label={t('pages.treasury.refresh')}
-            title={t('pages.treasury.refresh')}
+            role="tab"
+            aria-selected={tab === 'pockets'}
+            className={`treasury-tabs__tab${tab === 'pockets' ? ' is-active' : ''}`}
+            onClick={() => setTab('pockets')}
           >
-            <RefreshIcon width={16} height={16} aria-hidden="true" />
+            {t('pages.treasury.tabs.pockets')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'settings'}
+            className={`treasury-tabs__tab${tab === 'settings' ? ' is-active' : ''}`}
+            onClick={() => setTab('settings')}
+          >
+            {t('pages.treasury.tabs.settings')}
           </button>
         </div>
 
-        {loadError ? (
+        {tab === 'pockets' && loadError ? (
           <p className="auth-inline-error" role="alert">
             {loadError}
           </p>
         ) : null}
       </article>
 
-      {isLoading && !overview ? (
+      {tab === 'settings' ? (
+        <TreasurySettingsTab />
+      ) : isLoading && !overview ? (
         <article className="surface">
           <p className="surface__lead">{t('pages.treasury.loading')}</p>
         </article>
