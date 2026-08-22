@@ -8,6 +8,7 @@ export {
   throwPIXCashOutError,
 } from './adapter';
 export { brlStringToJsonNumber } from './brl';
+export { optionalPixApiField, sanitizePixUserMessage } from './user-message';
 export type {
   CashOutTransactionStatus,
   CorpXPIXKeyType,

@@ -38,6 +38,11 @@ import type {
 
 export { summarizeFiatOrderDetail } from './pix-emv-extract';
 
+/** PIX campo livre. ASCII hyphen — BACEN rejects the unicode arrow `→`. */
+export function treasuryCorpxToBinancePixDescription(runId: string): string {
+  return `Treasury BRL-Binance ${runId}`;
+}
+
 export {
   assertCorpXPixOutAccepted,
   resolvePixPaymentFromOrderDetail,
@@ -392,7 +397,7 @@ export async function runTreasuryCorpxBrlToBinance(
             amount: decoded.amountBrl?.trim() || amountBrl,
             pixKey: decoded.pixKey.trim(),
             pixKeyType: inferPixKeyType(decoded.pixKey),
-            description: `Treasury BRL→Binance ${run.id}`,
+            description: treasuryCorpxToBinancePixDescription(run.id),
             idempotencyKey,
             correlationId: run.id,
           });
@@ -410,7 +415,7 @@ export async function runTreasuryCorpxBrlToBinance(
           emv: payment.emv,
           amount: amountBrl,
           amountHint: plan.amountBrl,
-          description: `Treasury BRL→Binance ${run.id}`,
+          description: treasuryCorpxToBinancePixDescription(run.id),
           idempotencyKey,
           correlationId: run.id,
         });
@@ -445,7 +450,7 @@ export async function runTreasuryCorpxBrlToBinance(
         amount: plan.amountBrl,
         pixKey: payment.key,
         pixKeyType: payment.keyType,
-        description: `Treasury BRL→Binance ${run.id}`,
+        description: treasuryCorpxToBinancePixDescription(run.id),
         idempotencyKey,
         correlationId: run.id,
       });

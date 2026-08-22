@@ -1,7 +1,9 @@
 import { getSharedAuthManager } from '../auth/auth-manager';
 import { CorpXHttpClient } from '../client/http-client';
+import { brlStringToJsonNumber } from './brl';
 import { clampCorpXPixExpirationDate } from './expiration';
 import { normalizeCorpXPixIdentifier } from './identifier';
+import { optionalPixApiField } from './user-message';
 import {
   CorpXError,
   CorpXIdempotencyConflictError,
@@ -13,7 +15,6 @@ import {
   throwStatusError,
 } from '../errors';
 import { parsePixEmv } from '@/lib/pix/emv-parser';
-import { brlStringToJsonNumber } from './brl';
 import type {
   CashOutTransactionStatus,
   DecodedPaymentQr,
@@ -114,7 +115,7 @@ export class CorpXPixAdapter {
       value: brlStringToJsonNumber(req.amount),
       expirationDate: toRfc3339Utc(clampCorpXPixExpirationDate(req.expiresAt)),
       identifier: normalizeCorpXPixIdentifier(req.correlationId),
-      ...(req.description ? { message: req.description } : {}),
+      ...optionalPixApiField('message', req.description),
     };
 
     let response: Response;
@@ -160,7 +161,7 @@ export class CorpXPixAdapter {
     const body = {
       pixKey: this.pixKey,
       identifier: normalizeCorpXPixIdentifier(req.idempotencyKey),
-      ...(req.description ? { message: req.description } : {}),
+      ...optionalPixApiField('message', req.description),
     };
 
     let response: Response;
@@ -213,7 +214,7 @@ export class CorpXPixAdapter {
       currency: 'BRL',
       keyType: req.pixKeyType,
       key: req.pixKey,
-      ...(req.description ? { description: req.description } : {}),
+      ...optionalPixApiField('description', req.description),
       ...(req.correlationId ? { identifier: normalizeCorpXPixIdentifier(req.correlationId) } : {}),
     };
 
@@ -258,7 +259,7 @@ export class CorpXPixAdapter {
       key: req.pixKey,
       keyType: req.pixKeyType,
       amount: brlStringToJsonNumber(req.amount),
-      ...(req.description ? { description: req.description } : {}),
+      ...optionalPixApiField('description', req.description),
       ...(req.correlationId ? { identifier: normalizeCorpXPixIdentifier(req.correlationId) } : {}),
     };
 
@@ -535,7 +536,7 @@ export class CorpXPixAdapter {
     const body: Record<string, unknown> = {
       accountId: this.accountId,
       emv: req.emv.trim(),
-      ...(req.description ? { description: req.description } : {}),
+      ...optionalPixApiField('description', req.description),
       ...(req.correlationId ? { identifier: normalizeCorpXPixIdentifier(req.correlationId) } : {}),
     };
 

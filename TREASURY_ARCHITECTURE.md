@@ -156,8 +156,11 @@ Revisar taxa de 1 USDC na quote; `clientOrderId`; retries; alertas externos.
 5. Taxa na quote: manter 1 USDC até haver dados de lote (modelo C).
 6. **Fiat Binance BRL/PIX:** adapter + rotas admin de smoke prontos
    (`binance.fiat`, `/api/binance/fiat/*`). UI de envio CorpX→Binance no card
-   CorpX (`kind: corpx_brl_to_binance`) — **standby** (ainda não funcional em
-   prod). Binance→CorpX (`binance_brl_to_corpx`) está operacional.
+   CorpX (`kind: corpx_brl_to_binance`). Recusas do BACEN (30/07–21/08)
+   foram o `→` no campo livre do PIX (`Treasury BRL→Binance …`); a mensagem
+   agora é ASCII (`Treasury BRL-Binance …`) e o adapter sanitiza qualquer
+   `description`/`message` PIX. Binance→CorpX (`binance_brl_to_corpx`) está
+   operacional.
 7. **USDC distributor → Binance:** kind `distributor_usdc_to_binance`. Destino
    via `GET /sapi/v1/capital/deposit/address` (fallback
    `BINANCE_USDC_DEPOSIT_ADDRESS` + `TAG`). Pagamento: Ramp
