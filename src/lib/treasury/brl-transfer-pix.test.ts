@@ -5,6 +5,7 @@ import {
   assertCorpXPixOutAccepted,
   assertCorpXPixOutSettled,
   classifyTreasuryPixOutOutcome,
+  formatMissingPixError,
   inferPixKeyType,
   isBacenPixEndToEndId,
   isBinanceFiatOrderFailed,
@@ -37,6 +38,28 @@ describe('binance fiat order status helpers', () => {
     };
     expect(isBinanceFiatOrderInitializing(detail)).toBe(false);
     expect(resolvePixPaymentFromOrderDetail(detail)).toEqual({ mode: 'emv', emv: BINANCE_EMV });
+  });
+
+  it('prefers the QR/copia-e-cola over a decoded PIX key', () => {
+    const detail = {
+      orderId: '1',
+      orderStatus: 'ORDER_NEED_ADDITIONAL_ACTION',
+      ext: { qrCode: BINANCE_EMV, pixKey: '656079c8-0d7d-46cf-9c2f-b8c68d70b475' },
+    };
+    expect(resolvePixPaymentFromOrderDetail(detail)).toEqual({ mode: 'emv', emv: BINANCE_EMV });
+  });
+
+  it('does not treat a PIX key alone as the Binance cobranca identifier', () => {
+    const detail = {
+      orderId: '1',
+      orderStatus: 'ORDER_NEED_ADDITIONAL_ACTION',
+      ext: { pixKey: '656079c8-0d7d-46cf-9c2f-b8c68d70b475' },
+    };
+    expect(resolvePixPaymentFromOrderDetail(detail)).toEqual({
+      mode: 'key',
+      key: '656079c8-0d7d-46cf-9c2f-b8c68d70b475',
+      keyType: 'EVP',
+    });
   });
 
   it('detects paid and failed statuses', () => {
@@ -182,5 +205,14 @@ describe('classifyTreasuryPixOutOutcome', () => {
 describe('inferPixKeyType', () => {
   it('classifies a UUID as EVP', () => {
     expect(inferPixKeyType('656079c8-0d7d-46cf-9c2f-b8c68d70b475')).toBe('EVP');
+  });
+});
+
+describe('formatMissingPixError', () => {
+  it('asks for the Binance QR, not a static PIX key fallback', () => {
+    const message = formatMissingPixError('order-1', { orderStatus: 'ORDER_INITIAL', ext: {} });
+    expect(message).toMatch(/QR\/copia-e-cola \(EMV\)/);
+    expect(message).toMatch(/ext\.qrCode/);
+    expect(message).not.toMatch(/BINANCE_BRL_DEPOSIT_PIX_KEY/);
   });
 });

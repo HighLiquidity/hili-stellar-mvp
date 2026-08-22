@@ -84,9 +84,9 @@ Admin routes (Bearer admin token), preferably from the production IP allowlist:
 **Known prod finding (2026-07-29):** `get-order-detail` may first return
 `ORDER_INITIAL` with empty `ext`, then `ORDER_NEED_ADDITIONAL_ACTION` with
 `ext.qrCode` (uppercase `BR.GOV.BCB.PIX`). Treasury transfer polls up to ~60s for
-EMV/key, omits CorpX `amount` when the EMV already has tag 54, requires CorpX
-`transactionId`/`endToEndId` before marking success, then probes Binance settlement.
-If EMV never appears, set `BINANCE_BRL_DEPOSIT_PIX_KEY` or pay the order manually.
+that EMV (QR/copia-e-cola) and pays it via CorpX `/pix/out/qr-code/async`. A
+decoded PIX key is not used — Binance matches the cobranca to that QR. If EMV
+never appears, fail the run and pay the order manually.
 
 ### Withdraw (Binance → CorpX funding)
 
@@ -97,7 +97,7 @@ If EMV never appears, set `BINANCE_BRL_DEPOSIT_PIX_KEY` or pay the order manuall
 4. `GET /api/binance/fiat/order?orderNo=<id>` — poll until success/failure
 5. Confirm BRL credited on CorpX; treasury UI uses kind `binance_brl_to_corpx`
 
-Do **not** automate payment from CorpX until deposit step 3 documents a usable PIX payload (or a static PIX key fallback is chosen).
+Do **not** pay a decoded/static PIX key for Binance fiat deposits — only the order QR/EMV identifies the cobranca.
 Do **not** automate Binance→CorpX withdraw until withdraw smoke above succeeds with the bound account.
 
 ## Security notes

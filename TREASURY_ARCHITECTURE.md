@@ -159,8 +159,11 @@ Revisar taxa de 1 USDC na quote; `clientOrderId`; retries; alertas externos.
    CorpX (`kind: corpx_brl_to_binance`). Recusas do BACEN (30/07–21/08)
    foram o `→` no campo livre do PIX (`Treasury BRL→Binance …`); a mensagem
    agora é ASCII (`Treasury BRL-Binance …`) e o adapter sanitiza qualquer
-   `description`/`message` PIX. Binance→CorpX (`binance_brl_to_corpx`) está
-   operacional.
+   `description`/`message` PIX. O pagamento CorpX usa o QR/copia-e-cola
+   (`ext.qrCode` EMV) via `/pix/out/qr-code/async` — não a chave PIX
+   decodificada, que não identifica a cobrança Binance. Sem EMV após o poll,
+   a run falha (sem fallback de chave estática). Binance→CorpX
+   (`binance_brl_to_corpx`) está operacional.
 7. **USDC distributor → Binance:** kind `distributor_usdc_to_binance`. Destino
    via `GET /sapi/v1/capital/deposit/address` (fallback
    `BINANCE_USDC_DEPOSIT_ADDRESS` + `TAG`). Pagamento: Ramp

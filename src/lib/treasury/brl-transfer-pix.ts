@@ -197,9 +197,9 @@ export function throwIfTreasuryPixOutUnresolved(
 
 export function formatMissingPixError(orderId: string, detail: unknown): string {
   return (
-    `Binance fiat deposit created (orderId=${orderId}) but no PIX EMV/key was found after polling. ` +
+    `Binance fiat deposit created (orderId=${orderId}) but no PIX QR/copia-e-cola (EMV) was found after polling. ` +
     `${summarizeFiatOrderDetail(detail)}. ` +
-    `Inspect GET /api/binance/fiat/order?orderNo=${orderId}, set BINANCE_BRL_DEPOSIT_PIX_KEY, or pay the order manually in Binance.`
+    `Inspect GET /api/binance/fiat/order?orderNo=${orderId} for ext.qrCode, or pay the order manually in Binance.`
   );
 }
 

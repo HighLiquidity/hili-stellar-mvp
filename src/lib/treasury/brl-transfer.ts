@@ -3,7 +3,7 @@ import '@/lib/server/only';
 import { createCorpXAdapterFromEnv } from '@/lib/corpx/adapter';
 import { CorpXTransactionNotFoundError } from '@/lib/corpx/errors';
 import { normalizeCorpXPixIdentifier } from '@/lib/corpx/pix/identifier';
-import type { CorpXPIXKeyType, PIXCashOutResponse, TransferStatus } from '@/lib/corpx/pix/types';
+import type { PIXCashOutResponse, TransferStatus } from '@/lib/corpx/pix/types';
 import { binance } from '@/lib/server/binance';
 
 import { projectCorpxBrlToBinanceBalances, resolveTreasuryBrlAmount } from './brl-amount';
@@ -16,7 +16,6 @@ import {
   classifyTreasuryPixOutOutcome,
   describeSettlementProbe,
   formatMissingPixError,
-  inferPixKeyType,
   isBinanceFiatOrderFailed,
   isBinanceFiatOrderPaid,
   readFiatOrderStatus,
@@ -225,6 +224,7 @@ function throwIfBinanceOrderFailed(orderId: string, detail: unknown): void {
   );
 }
 
+/** Wait for the Binance order QR/copia-e-cola (EMV). A decoded PIX key does not identify the cobranca. */
 async function waitForBinanceFiatPixPayment(
   orderId: string,
 ): Promise<{ detail: unknown; payment: ResolvedPixPayment | null }> {
@@ -236,7 +236,7 @@ async function waitForBinanceFiatPixPayment(
     throwIfBinanceOrderFailed(orderId, detail);
 
     const payment = resolvePixPaymentFromOrderDetail(detail);
-    if (payment) {
+    if (payment?.mode === 'emv') {
       return { detail, payment };
     }
 
@@ -247,16 +247,6 @@ async function waitForBinanceFiatPixPayment(
   }
 
   return { detail, payment: null };
-}
-
-function readFallbackPixKey(): { key: string; keyType: CorpXPIXKeyType } | null {
-  const key = process.env.BINANCE_BRL_DEPOSIT_PIX_KEY?.trim();
-  if (!key) return null;
-  const rawType = (process.env.BINANCE_BRL_DEPOSIT_PIX_KEY_TYPE?.trim().toUpperCase() ||
-    'EVP') as CorpXPIXKeyType;
-  const allowed: CorpXPIXKeyType[] = ['CPF', 'CNPJ', 'EMAIL', 'PHONE', 'EVP'];
-  const keyType = allowed.includes(rawType) ? rawType : 'EVP';
-  return { key, keyType };
 }
 
 export async function buildTreasuryBrlTransferPlan(
@@ -373,54 +363,23 @@ export async function runTreasuryCorpxBrlToBinance(
       ],
     });
 
-    const { detail, payment: polledPayment } = await waitForBinanceFiatPixPayment(deposit.orderId);
+    const { detail, payment } = await waitForBinanceFiatPixPayment(deposit.orderId);
     const adapter = await createCorpXAdapterFromEnv();
     const idempotencyKey = `treasury-brl-${run.id}`;
-
-    const payment: ResolvedPixPayment | null =
-      polledPayment ??
-      (() => {
-        const fallback = readFallbackPixKey();
-        return fallback ? { mode: 'key' as const, key: fallback.key, keyType: fallback.keyType } : null;
-      })();
 
     if (payment?.mode === 'emv') {
       const identifier = normalizeCorpXPixIdentifier(run.id);
       const amountBrl = amountForEmvPayout(payment.emv, plan.amountBrl);
-      let payout: PIXCashOutResponse | null = null;
-      let detailStep = `emv_found status=${readFiatOrderStatus(detail) || 'unknown'}`;
+      const detailStep = `emv_found status=${readFiatOrderStatus(detail) || 'unknown'} paid_via=qr_async`;
 
-      try {
-        const decoded = await adapter.pix.decodePaymentQrEmv(payment.emv);
-        if (decoded.pixKey?.trim()) {
-          payout = await adapter.pix.initiatePIXCashOut({
-            amount: decoded.amountBrl?.trim() || amountBrl,
-            pixKey: decoded.pixKey.trim(),
-            pixKeyType: inferPixKeyType(decoded.pixKey),
-            description: treasuryCorpxToBinancePixDescription(run.id),
-            idempotencyKey,
-            correlationId: run.id,
-          });
-          detailStep = `${detailStep} paid_via=pix_out_key keyType=${inferPixKeyType(decoded.pixKey)}`;
-        }
-      } catch (error) {
-        console.warn('[treasury/brl-transfer] QR decode or key payout failed, falling back to QR async', {
-          runId: run.id,
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
-
-      if (!payout) {
-        payout = await adapter.pix.payPaymentQrEmv({
-          emv: payment.emv,
-          amount: amountBrl,
-          amountHint: plan.amountBrl,
-          description: treasuryCorpxToBinancePixDescription(run.id),
-          idempotencyKey,
-          correlationId: run.id,
-        });
-        detailStep = `${detailStep} paid_via=qr_async`;
-      }
+      const payout = await adapter.pix.payPaymentQrEmv({
+        emv: payment.emv,
+        amount: amountBrl,
+        amountHint: plan.amountBrl,
+        description: treasuryCorpxToBinancePixDescription(run.id),
+        idempotencyKey,
+        correlationId: run.id,
+      });
 
       assertCorpXPixOutAccepted(payout);
 
@@ -434,38 +393,6 @@ export async function runTreasuryCorpxBrlToBinance(
         initialDetail: detail,
         emvFound: true,
         detailStep,
-      });
-
-      return {
-        dryRun: false,
-        plan,
-        run: finished.run,
-        binanceOrder: finished.binanceOrder,
-      };
-    }
-
-    if (payment?.mode === 'key') {
-      const identifier = normalizeCorpXPixIdentifier(run.id);
-      const payout = await adapter.pix.initiatePIXCashOut({
-        amount: plan.amountBrl,
-        pixKey: payment.key,
-        pixKeyType: payment.keyType,
-        description: treasuryCorpxToBinancePixDescription(run.id),
-        idempotencyKey,
-        correlationId: run.id,
-      });
-      assertCorpXPixOutAccepted(payout);
-
-      const finished = await completeTreasuryCorpxPixToBinance({
-        pix: adapter.pix,
-        run,
-        plan,
-        payout,
-        identifier,
-        depositOrderId: deposit.orderId,
-        initialDetail: detail,
-        emvFound: false,
-        detailStep: polledPayment ? 'pix_key_found' : 'emv_missing_used_fallback_key',
       });
 
       return {
