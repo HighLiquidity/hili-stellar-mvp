@@ -154,6 +154,7 @@ export async function runTreasuryBinanceBrlToCorpx(
       steps: plan.steps.map((entry) => ({ ...entry, status: 'ok' as const })),
       createdByUserId: input.actor?.userId,
       createdByEmail: input.actor?.email,
+      sourceOfframpOrderId: input.sourceOfframpOrderId ?? null,
     });
     return { dryRun: true, plan, run };
   }
@@ -168,6 +169,7 @@ export async function runTreasuryBinanceBrlToCorpx(
     steps: [step('create_run', 'ok')],
     createdByUserId: input.actor?.userId,
     createdByEmail: input.actor?.email,
+    sourceOfframpOrderId: input.sourceOfframpOrderId ?? null,
   });
 
   run = await updateTreasuryRun(run.id, {

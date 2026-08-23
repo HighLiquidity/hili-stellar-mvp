@@ -13,7 +13,7 @@ import type {
 export const TREASURY_RUNS_TABLE = 'treasury_runs';
 
 const RUN_SELECT =
-  'id, trigger, kind, status, dry_run, requested_amount_usdc, executed_amount_usdc, binance_usdc_free, binance_withdraw_order_id, binance_withdraw_id, binance_withdraw_network, distributor_address, distributor_address_tag, steps, error, created_by_user_id, created_by_email, created_at, updated_at, completed_at, source_onramp_order_id';
+  'id, trigger, kind, status, dry_run, requested_amount_usdc, executed_amount_usdc, binance_usdc_free, binance_withdraw_order_id, binance_withdraw_id, binance_withdraw_network, distributor_address, distributor_address_tag, steps, error, created_by_user_id, created_by_email, created_at, updated_at, completed_at, source_onramp_order_id, source_offramp_order_id';
 
 function mapSteps(raw: unknown): TreasuryRunStep[] {
   if (!Array.isArray(raw)) return [];
@@ -43,6 +43,7 @@ function mapRow(row: Record<string, unknown>): TreasuryRunRow {
     updated_at: String(row.updated_at),
     completed_at: (row.completed_at as string | null) ?? null,
     source_onramp_order_id: (row.source_onramp_order_id as string | null) ?? null,
+    source_offramp_order_id: (row.source_offramp_order_id as string | null) ?? null,
   };
 }
 
@@ -61,6 +62,7 @@ export async function insertTreasuryRun(input: {
   createdByUserId?: string | null;
   createdByEmail?: string | null;
   sourceOnrampOrderId?: string | null;
+  sourceOfframpOrderId?: string | null;
 }): Promise<TreasuryRunRow> {
   const admin = createSupabaseAdmin();
   if (!admin) {
@@ -85,6 +87,7 @@ export async function insertTreasuryRun(input: {
       created_by_user_id: input.createdByUserId ?? null,
       created_by_email: input.createdByEmail ?? null,
       source_onramp_order_id: input.sourceOnrampOrderId ?? null,
+      source_offramp_order_id: input.sourceOfframpOrderId ?? null,
       created_at: now,
       updated_at: now,
       completed_at: input.status === 'dry_run' || input.status === 'completed' ? now : null,
@@ -115,6 +118,7 @@ export async function updateTreasuryRun(
     error?: string | null;
     completedAt?: string | null;
     sourceOnrampOrderId?: string | null;
+    sourceOfframpOrderId?: string | null;
   },
 ): Promise<TreasuryRunRow> {
   const admin = createSupabaseAdmin();
@@ -140,6 +144,9 @@ export async function updateTreasuryRun(
   if (patch.error !== undefined) payload.error = patch.error;
   if (patch.sourceOnrampOrderId !== undefined) {
     payload.source_onramp_order_id = patch.sourceOnrampOrderId;
+  }
+  if (patch.sourceOfframpOrderId !== undefined) {
+    payload.source_offramp_order_id = patch.sourceOfframpOrderId;
   }
   if (patch.completedAt !== undefined) {
     payload.completed_at = patch.completedAt;
@@ -261,6 +268,29 @@ export async function findTreasuryRunBySourceOnrampOrderId(
 
   if (error) {
     console.error('[treasury/runs] find by source onramp order id failed', error.message);
+    return null;
+  }
+
+  return data ? mapRow(data as Record<string, unknown>) : null;
+}
+
+export async function findTreasuryRunBySourceOfframpOrderId(
+  offrampOrderId: string,
+  kind: Extract<TreasuryRunKind, 'distributor_usdc_to_binance' | 'binance_brl_to_corpx'>,
+): Promise<TreasuryRunRow | null> {
+  const admin = createSupabaseAdmin();
+  if (!admin) return null;
+
+  const { data, error } = await admin
+    .from(TREASURY_RUNS_TABLE)
+    .select(RUN_SELECT)
+    .eq('source_offramp_order_id', offrampOrderId.trim())
+    .eq('kind', kind)
+    .eq('dry_run', false)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[treasury/runs] find by source offramp order id failed', error.message);
     return null;
   }
 

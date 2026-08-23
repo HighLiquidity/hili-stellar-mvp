@@ -1,4 +1,4 @@
-export type TreasuryRunTrigger = 'manual' | 'scheduled' | 'threshold' | 'onramp';
+export type TreasuryRunTrigger = 'manual' | 'scheduled' | 'threshold' | 'onramp' | 'offramp';
 export type TreasuryRefillAsset = 'USDC' | 'XLM';
 export type TreasuryRunAsset = 'USDC' | 'XLM' | 'BRL';
 export type TreasuryRunKind =
@@ -40,6 +40,7 @@ export type TreasuryRunRow = {
   updated_at: string;
   completed_at: string | null;
   source_onramp_order_id: string | null;
+  source_offramp_order_id: string | null;
 };
 
 export type TreasuryRefillPlan = {
@@ -129,6 +130,7 @@ export type TreasuryUsdcDrainRequest = {
   dryRun: boolean;
   amount?: string | null;
   trigger?: TreasuryRunTrigger;
+  sourceOfframpOrderId?: string | null;
   actor?: {
     userId?: string | null;
     email?: string | null;
@@ -139,6 +141,7 @@ export type TreasuryBrlReceiveRequest = {
   dryRun: boolean;
   amountBrl?: string | null;
   trigger?: TreasuryRunTrigger;
+  sourceOfframpOrderId?: string | null;
   actor?: {
     userId?: string | null;
     email?: string | null;

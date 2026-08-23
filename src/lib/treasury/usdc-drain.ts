@@ -149,6 +149,7 @@ export async function runTreasuryDistributorUsdcToBinance(
       steps: plan.steps.map((entry) => ({ ...entry, status: 'ok' as const })),
       createdByUserId: input.actor?.userId,
       createdByEmail: input.actor?.email,
+      sourceOfframpOrderId: input.sourceOfframpOrderId ?? null,
     });
     return { dryRun: true, plan, run };
   }
@@ -171,6 +172,7 @@ export async function runTreasuryDistributorUsdcToBinance(
     steps: [step('create_run', 'ok')],
     createdByUserId: input.actor?.userId,
     createdByEmail: input.actor?.email,
+    sourceOfframpOrderId: input.sourceOfframpOrderId ?? null,
   });
 
   const externalId = buildTreasuryUsdcDrainExternalId(run.id);

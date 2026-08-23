@@ -8,7 +8,7 @@ gestão do capital próprio que sustenta on/off-ramp (CorpX, Binance, Stellar
 do caminho crítico do usuário.
 
 Este documento é o contrato de implementação. A execução segue as fases 4.0–4.6
-(4.5 está no código, flag off; 4.6 ainda só no plano).
+(4.5 e 4.6 estão no código, flags off).
 
 ## Contexto atual (baseline)
 
@@ -29,9 +29,13 @@ fill, um `treasury_run` `corpx_brl_to_binance` (`trigger=onramp`) paga o QR da
 ordem fiat. Sem a flag, CorpX acumula BRL e a Binance drena BRL a cada BUY.
 
 No **off-ramp** o espelho é invertido: o PIX ao usuário sai da **CorpX** na hora
-(`pix_sent`); o SELL na Binance vem **depois** e gera BRL na exchange. Sem
-Binance → CorpX por ordem, a CorpX drena BRL e a Binance acumula BRL. O USDC do
-usuário fica no distributor; o SELL consome **USDC já na Binance** (float).
+(`pix_sent`); o SELL na Binance vem **depois** e gera BRL na exchange. Com
+`TREASURY_OFFRAMP_BRL_CLOSE_ENABLED=true` (default off), após o SELL um
+`treasury_run` `binance_brl_to_corpx` (`trigger=offramp`) devolve o BRL do fill
+à CorpX. Com `TREASURY_OFFRAMP_USDC_CLOSE_ENABLED=true`, o USDC vendido
+(`executedQty`) sai do distributor para a Binance (`distributor_usdc_to_binance`).
+Sem as flags, a CorpX drena BRL, a Binance acumula BRL e o USDC do usuário
+fica no distributor enquanto o SELL consome **USDC já na Binance** (float).
 
 `BINANCE_MVP_PLAN.md` deixa bandas de float / loop de tesouraria fora do MVP.
 
@@ -170,14 +174,16 @@ não-dry por ordem (`source_onramp_order_id`). Não altera `complete` da ordem.
 
 Ver [Fechamento BRL por ordem](#fechamento-brl-por-ordem-on-ramp-planejado).
 
-### Fase 4.6 — Fechamento por ordem (off-ramp) — **planejado**
+### Fase 4.6 — Fechamento por ordem (off-ramp)
 
-Não implementar até o desenho abaixo estar acordado. Objetivo: cada off-ramp que
-já fez SELL recompõe os dois bolsos gastos no float: USDC distributor → Binance
-(`distributor_usdc_to_binance`) e BRL Binance → CorpX (`binance_brl_to_corpx`).
-Fora do caminho do usuário.
+Código em `src/lib/treasury/offramp-close.ts`, disparado em paralelo após o SELL
+em `retryOfframpReconciliation`. Flags independentes
+`TREASURY_OFFRAMP_USDC_CLOSE_ENABLED` e `TREASURY_OFFRAMP_BRL_CLOSE_ENABLED`
+(default off). USDC = `binance_executed_qty`; BRL = `binance_cummulative_quote_qty`.
+Idempotência: 1 run não-dry por kind por ordem (`source_offramp_order_id`).
+Não altera `complete` da ordem.
 
-Ver [Fechamento por ordem (off-ramp)](#fechamento-por-ordem-off-ramp-planejado).
+Ver [Fechamento por ordem (off-ramp)](#fechamento-por-ordem-off-ramp).
 
 ## Fechamento BRL por ordem (on-ramp) — planejado
 
@@ -256,7 +262,7 @@ PIX in (CorpX)
   → depósito fiat BRL + PIX EMV CorpX    [novo, após fill, paralelo]
 ```
 
-## Fechamento por ordem (off-ramp) — planejado
+## Fechamento por ordem (off-ramp)
 
 ### O que o usuário vê (coberto)
 
@@ -277,7 +283,8 @@ A ordem **não** é “SELL e depois PIX”. O PIX sai **antes** do trade, do fl
 3. `pix_sent` — CorpX `initiatePIXCashOut` de `amount_brl` para a chave do usuário.
 4. BRH issue + redemption até `brh_recorded` (trilho regulatório).
 5. SELL Binance com `quoteOrderQty = amount_brl` (`fx_settled`) — vende USDC **já na Binance** para obter ~esse BRL.
-6. `complete`. `retryOfframpReconciliation` encerra aqui; não há drain USDC nem fiat withdraw.
+6. `complete`. `retryOfframpReconciliation` encerra o caminho do cliente aqui;
+   o close de tesouraria (passos 7–8) corre em paralelo e não bloqueia `complete`.
 
 ### O buraco de caixa
 
@@ -311,6 +318,14 @@ Dois `treasury_run` independentes, 1 de cada kind por off-ramp. Falha de um não
 - Disparar **em paralelo após `fx_settled`**: `distributor_usdc_to_binance` + `binance_brl_to_corpx`, cada um com vínculo à ordem e idempotência 1 run por kind.
 - `complete` da ordem continua “PIX + BRH + SELL”. Falha de tesouraria não marca a ordem como `failed`.
 - Flags independentes (default off): `TREASURY_OFFRAMP_USDC_CLOSE_ENABLED` e `TREASURY_OFFRAMP_BRL_CLOSE_ENABLED`, para smoke de um trilho sem o outro.
+
+### Estado da implementação (4.6)
+
+Entregue no código; permanece desligado até ligar as flags em produção (podem
+ir uma de cada vez). Smoke USDC: off-ramp pequeno, `treasury_runs`
+`distributor_usdc_to_binance` `trigger=offramp`, crédito Binance com MEMO_TEXT.
+Smoke BRL: `binance_brl_to_corpx` `trigger=offramp`, saque `bank_transfer` na
+conta bound. Não retriar drain ou fiat in-flight.
 
 ### Cuidados obrigatórios
 
@@ -363,10 +378,9 @@ USDC in (distributor)
 8. **Fechamento BRL on-ramp (4.5):** valor = `cummulativeQuoteQty` vs `amount_brl`;
    piso do depósito fiat Binance (lote vs `needs_review`); `complete` da ordem
    espera BRL? (recomendado: não).
-9. **Fechamento off-ramp (4.6):** USDC drain = `executedQty` vs `usdc_received_amount`
-   (recomendado: fill); BRL = `cummulativeQuoteQty`; mínimos de rede/fiat;
-   `complete` espera tesouraria? (recomendado: não); flags USDC e BRL
-   independentes para smoke.
+9. **Fechamento off-ramp (4.6):** USDC = `executedQty` (não `usdc_received_amount`);
+   BRL = `cummulativeQuoteQty`; `complete` não espera tesouraria; flags USDC e
+   BRL independentes (default off) até smoke.
 
 ## Riscos
 
@@ -392,6 +406,8 @@ USDC in (distributor)
 - `BINANCE_MVP_PLAN.md`
 - `src/lib/onramp/reconciliation.ts`
 - `src/lib/treasury/onramp-brl-close.ts`
+- `src/lib/treasury/offramp-close.ts`
+- `src/lib/offramp/reconciliation.ts`
 - `src/lib/onramp/treasury-deposit.ts`
 - `src/lib/corpx/adapter/corp-x-adapter.ts`
 - `src/lib/server/binance/`
@@ -421,3 +437,12 @@ USDC in (distributor)
 - [x] Idempotência 1 run por on-ramp (`source_onramp_order_id`)
 - [x] Pagar EMV; não bloquear `complete` / withdraw USDC
 - [ ] Smoke produção com flag on
+
+## Checklist Fase 4.6
+
+- [x] Flags `TREASURY_OFFRAMP_USDC_CLOSE_ENABLED` e `TREASURY_OFFRAMP_BRL_CLOSE_ENABLED` (default off)
+- [x] USDC = `binance_executed_qty`; BRL = `binance_cummulative_quote_qty`
+- [x] `treasury_run` `distributor_usdc_to_binance` + `binance_brl_to_corpx` `trigger=offramp` após SELL
+- [x] Idempotência 1 run por kind por off-ramp (`source_offramp_order_id`)
+- [x] Não bloquear PIX ao usuário nem `complete`
+- [ ] Smoke produção (USDC e BRL, flags independentes)

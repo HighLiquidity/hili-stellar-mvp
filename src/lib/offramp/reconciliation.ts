@@ -27,6 +27,7 @@ import {
   buildOfframpPixPayoutIdempotencyKey,
   buildOfframpPixPayoutReference,
 } from './references';
+import { startOfframpTreasuryCloseForOrderId } from '@/lib/treasury/offramp-close';
 
 const RECONCILIATION_START_STATUSES = ['usdc_received', 'needs_review'] as const;
 const RECONCILIATION_ACTIVE_STATUSES = ['usdc_received', 'needs_review', 'pix_sent', 'brh_recorded', 'fx_settled'] as const;
@@ -459,6 +460,7 @@ export async function retryOfframpReconciliation(orderId: string): Promise<{ acc
   order = await syncOfframpPixPayoutFromCorpX(order);
 
   if ((RECONCILIATION_COMPLETED_STATUSES as readonly string[]).includes(order.status)) {
+    await startOfframpTreasuryCloseForOrderId(order.id);
     return { accepted: true, orderId: order.id };
   }
 
@@ -487,8 +489,13 @@ export async function retryOfframpReconciliation(orderId: string): Promise<{ acc
     current = await findOfframpOrderById(order.id);
   }
 
-  if (current && current.status === 'fx_settled') {
-    await markCompleteIfReady(current);
+  const close = startOfframpTreasuryCloseForOrderId(order.id);
+  try {
+    if (current && current.status === 'fx_settled') {
+      await markCompleteIfReady(current);
+    }
+  } finally {
+    await close;
   }
 
   return { accepted: true, orderId: order.id };

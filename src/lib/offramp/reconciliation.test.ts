@@ -16,6 +16,11 @@ vi.mock('./order-store', () => ({
   markOfframpOrderStatus: markOfframpOrderStatusMock,
 }));
 
+vi.mock('@/lib/treasury/offramp-close', () => ({
+  startOfframpTreasuryCloseForOrderId: vi.fn().mockResolvedValue({ skipped: 'flag_off' }),
+  startOfframpTreasuryClose: vi.fn().mockResolvedValue({ skipped: 'flag_off' }),
+}));
+
 vi.mock('@/lib/corpx/adapter', () => ({
   createCorpXAdapterFromEnv: createCorpXAdapterFromEnvMock,
 }));
@@ -91,6 +96,10 @@ function makeOrder(overrides: Partial<OfframpOrderRow> = {}): OfframpOrderRow {
     binance_executed_qty: null,
     binance_cummulative_quote_qty: null,
     binance_status: null,
+    treasury_usdc_close_run_id: null,
+    treasury_usdc_close_external_id: null,
+    treasury_brl_close_run_id: null,
+    treasury_brl_close_fiat_order_id: null,
     failure_code: null,
     failure_reason: null,
     needs_review_reason: null,
@@ -209,5 +218,18 @@ describe('offramp reconciliation orchestration', () => {
         status: 'complete',
       }),
     );
+
+    const { startOfframpTreasuryCloseForOrderId } = await import('@/lib/treasury/offramp-close');
+    expect(startOfframpTreasuryCloseForOrderId).toHaveBeenCalledWith('order-123');
+  });
+
+  it('still attempts treasury close when the order is already complete', async () => {
+    findOfframpOrderByIdMock.mockResolvedValueOnce(makeOrder({ status: 'complete' }));
+
+    await retryOfframpReconciliation('order-123');
+
+    const { startOfframpTreasuryCloseForOrderId } = await import('@/lib/treasury/offramp-close');
+    expect(startOfframpTreasuryCloseForOrderId).toHaveBeenCalledWith('order-123');
+    expect(placeMarketOrderByQuoteAmountMock).not.toHaveBeenCalled();
   });
 });

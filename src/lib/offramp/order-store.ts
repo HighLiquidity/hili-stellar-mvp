@@ -41,6 +41,10 @@ export type OfframpOrderRow = {
   binance_executed_qty: string | null;
   binance_cummulative_quote_qty: string | null;
   binance_status: string | null;
+  treasury_usdc_close_run_id: string | null;
+  treasury_usdc_close_external_id: string | null;
+  treasury_brl_close_run_id: string | null;
+  treasury_brl_close_fiat_order_id: string | null;
   failure_code: OfframpFailureCode | null;
   failure_reason: string | null;
   needs_review_reason: string | null;
@@ -126,6 +130,18 @@ function normalizeUpdatePatch(input: UpdateOfframpOrderPatch): Record<string, un
   if ('binance_executed_qty' in patch) patch.binance_executed_qty = normalizeOptionalString(input.binance_executed_qty);
   if ('binance_cummulative_quote_qty' in patch) patch.binance_cummulative_quote_qty = normalizeOptionalString(input.binance_cummulative_quote_qty);
   if ('binance_status' in patch) patch.binance_status = normalizeOptionalString(input.binance_status);
+  if ('treasury_usdc_close_run_id' in patch)
+    patch.treasury_usdc_close_run_id = normalizeOptionalString(input.treasury_usdc_close_run_id);
+  if ('treasury_usdc_close_external_id' in patch)
+    patch.treasury_usdc_close_external_id = normalizeOptionalString(
+      input.treasury_usdc_close_external_id,
+    );
+  if ('treasury_brl_close_run_id' in patch)
+    patch.treasury_brl_close_run_id = normalizeOptionalString(input.treasury_brl_close_run_id);
+  if ('treasury_brl_close_fiat_order_id' in patch)
+    patch.treasury_brl_close_fiat_order_id = normalizeOptionalString(
+      input.treasury_brl_close_fiat_order_id,
+    );
   if ('failure_code' in patch) patch.failure_code = normalizeOptionalString(input.failure_code);
   if ('failure_reason' in patch) patch.failure_reason = normalizeOptionalString(input.failure_reason);
   if ('needs_review_reason' in patch) patch.needs_review_reason = normalizeOptionalString(input.needs_review_reason);
