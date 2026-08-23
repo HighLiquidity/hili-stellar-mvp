@@ -28,6 +28,7 @@ import {
   buildOnrampBinanceWithdrawOrderId,
   buildOnrampBrhRedemptionExternalId,
 } from './references';
+import { normalizeBinanceUsdcAmount } from './binance-withdraw-min';
 import { startOnrampBrlCloseForOrderId } from '@/lib/treasury/onramp-brl-close';
 
 const RECONCILIATION_START_STATUSES = ['usdc_delivered', 'needs_review', 'fx_settled', 'brh_redeemed'] as const;

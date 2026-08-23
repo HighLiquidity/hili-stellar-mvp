@@ -2,7 +2,7 @@ import { floorBrlWalletAmount, normalizeBrlAmount } from './brl-amount';
 
 /** Off until smoke in production. True only for "1" / "true" (case-insensitive). */
 export function isTreasuryOnrampBrlCloseEnabled(
-  env: NodeJS.ProcessEnv = process.env,
+  env: Record<string, string | undefined> = process.env,
 ): boolean {
   const raw = env.TREASURY_ONRAMP_BRL_CLOSE_ENABLED?.trim().toLowerCase();
   return raw === '1' || raw === 'true';
