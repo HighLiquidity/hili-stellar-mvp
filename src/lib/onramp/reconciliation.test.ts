@@ -10,6 +10,11 @@ vi.mock('./order-store', () => ({
   updateOnrampOrder: updateOnrampOrderMock,
 }));
 
+vi.mock('@/lib/treasury/onramp-brl-close', () => ({
+  startOnrampBrlCloseForOrderId: vi.fn().mockResolvedValue({ skipped: 'flag_off' }),
+  startOnrampBrlClose: vi.fn().mockResolvedValue({ skipped: 'flag_off' }),
+}));
+
 vi.mock('@/lib/server/binance', () => ({
   binance: {
     market: {
@@ -63,6 +68,8 @@ function makeOrder(overrides: Partial<OnrampOrderRow> = {}): OnrampOrderRow {
     binance_withdraw_id: null,
     binance_withdraw_network: null,
     binance_withdraw_amount: null,
+    treasury_brl_close_run_id: null,
+    treasury_brl_close_fiat_order_id: null,
     failure_code: null,
     failure_reason: null,
     needs_review_reason: null,

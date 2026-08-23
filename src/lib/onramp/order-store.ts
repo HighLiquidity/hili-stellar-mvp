@@ -60,6 +60,8 @@ export type OnrampOrderRow = {
   binance_withdraw_id: string | null;
   binance_withdraw_network: string | null;
   binance_withdraw_amount: string | null;
+  treasury_brl_close_run_id: string | null;
+  treasury_brl_close_fiat_order_id: string | null;
   failure_code: OnrampFailureCode | null;
   failure_reason: string | null;
   needs_review_reason: string | null;
@@ -170,6 +172,12 @@ function normalizeUpdatePatch(input: UpdateOnrampOrderPatch): Record<string, unk
     patch.binance_withdraw_network = normalizeOptionalString(input.binance_withdraw_network);
   if ('binance_withdraw_amount' in patch)
     patch.binance_withdraw_amount = normalizeOptionalString(input.binance_withdraw_amount);
+  if ('treasury_brl_close_run_id' in patch)
+    patch.treasury_brl_close_run_id = normalizeOptionalString(input.treasury_brl_close_run_id);
+  if ('treasury_brl_close_fiat_order_id' in patch)
+    patch.treasury_brl_close_fiat_order_id = normalizeOptionalString(
+      input.treasury_brl_close_fiat_order_id,
+    );
   if ('failure_code' in patch) patch.failure_code = normalizeOptionalString(input.failure_code);
   if ('failure_reason' in patch) patch.failure_reason = normalizeOptionalString(input.failure_reason);
   if ('needs_review_reason' in patch)

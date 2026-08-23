@@ -28,7 +28,7 @@ import {
   buildOnrampBinanceWithdrawOrderId,
   buildOnrampBrhRedemptionExternalId,
 } from './references';
-import { normalizeBinanceUsdcAmount } from './binance-withdraw-min';
+import { startOnrampBrlCloseForOrderId } from '@/lib/treasury/onramp-brl-close';
 
 const RECONCILIATION_START_STATUSES = ['usdc_delivered', 'needs_review', 'fx_settled', 'brh_redeemed'] as const;
 
@@ -607,6 +607,7 @@ export async function startOnrampReconciliation(
   }
 
   if (activeOrder.status === 'complete') {
+    await startOnrampBrlCloseForOrderId(activeOrder.id);
     return;
   }
 
@@ -637,8 +638,13 @@ export async function startOnrampReconciliation(
   const afterTrade = await executeBinanceTrade(prepared);
   if (!afterTrade) return;
 
-  const afterRedemption = await registerBrhRedemption(afterTrade);
-  if (!afterRedemption) return;
+  const brlClose = startOnrampBrlCloseForOrderId(afterTrade.id);
+  try {
+    const afterRedemption = await registerBrhRedemption(afterTrade);
+    if (!afterRedemption) return;
 
-  await requestBinanceWithdraw(afterRedemption, context);
+    await requestBinanceWithdraw(afterRedemption, context);
+  } finally {
+    await brlClose;
+  }
 }

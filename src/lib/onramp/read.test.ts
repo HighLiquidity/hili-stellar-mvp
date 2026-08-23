@@ -45,6 +45,8 @@ const baseRow: OnrampOrderRow = {
   binance_withdraw_id: null,
   binance_withdraw_network: null,
   binance_withdraw_amount: null,
+  treasury_brl_close_run_id: null,
+  treasury_brl_close_fiat_order_id: null,
   failure_code: null,
   failure_reason: null,
   needs_review_reason: null,
